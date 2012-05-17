@@ -1,0 +1,8 @@
+*.d
+*.o
+*.so
+.*.swp
+*.lex.hh
+*.lex.cc
+*.tab.cc
+*.tab.hh
