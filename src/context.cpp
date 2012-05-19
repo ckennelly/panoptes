@@ -604,8 +604,18 @@ void cuda_context::cudaRegisterVar(void **fatCubinHandle,char *hostVar,
 
     CUresult ret = cuModuleGetGlobal(&dptr, &bytes, it->second->module,
         deviceName);
-    if (ret != CUDA_SUCCESS) {
+    if (ret == CUDA_ERROR_NOT_FOUND) {
+        char msg[256];
+        int sret = snprintf(msg, sizeof(msg), "Attempting to register "
+            "nonexistent symbol '%s' associated with fatbin handle %p "
+            "with cudaRegisterVar.", deviceName, fatCubinHandle);
+        assert(sret < (int) sizeof(msg));
+        logger::instance().print(msg);
+
+        return;
+    } else if (ret != CUDA_SUCCESS) {
         /* Ignore the error. */
+        return;
     }
 
     internal::module_t::variable_t reg;

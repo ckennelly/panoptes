@@ -7313,7 +7313,8 @@ void cuda_context_memcheck::cudaRegisterVar(void **fatCubinHandle,char *hostVar,
         variable_definitions_.find(h);
     if (it == variable_definitions_.end()) {
         /* Attempting to register a variable that does not exist.
-         * TODO:  Log this. */
+         * This should have been caught at the cuda_context level, so return
+         * quietly. */
         return;
     }
 

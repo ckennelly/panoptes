@@ -161,6 +161,15 @@ TEST(RegisterVar, Reregister) {
         (char*)"c", "c", 0, 4, 1, 0);
 }
 
+TEST(RegisterVar, NonexistentSymbol) {
+    /**
+     * The supposed symbol "d" does not exist.
+     */
+    int d;
+    __cudaRegisterVar(__cudaFatCubinHandle, (char*)&d,
+        (char*)"d", "d", 0, 4, 1, 0);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
 
