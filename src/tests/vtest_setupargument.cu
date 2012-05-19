@@ -47,6 +47,192 @@ TEST(ConfigureCall, OrphanedConfigureCall) {
     EXPECT_EQ(cudaSuccess, ret);
 }
 
+TEST(ConfigureCall, ExcessiveBlockSize) {
+    /**
+     * Get the device information, trying various block sizes at the limits and
+     * beyond those specified in cudaDeviceProp.
+     */
+    cudaError_t ret;
+    int device;
+    ret = cudaGetDevice(&device);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaDeviceProp prop;
+    ret = cudaGetDeviceProperties(&prop, device);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t cs;
+    ret = cudaStreamCreate(&cs);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    dim3 grid, block;
+    grid.x = grid.y = grid.z = 1;
+
+    { // Max X
+        block.x = prop.maxThreadsDim[0];
+        block.y = 1;
+        block.z = 1;
+
+        const int threads = block.x * block.y * block.z;
+        const cudaError_t exp = threads <= prop.maxThreadsPerBlock ?
+            cudaSuccess : cudaErrorInvalidConfiguration;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(exp, ret);
+        cudaGetLastError();
+    }
+
+    { // Max Y
+        block.x = 1;
+        block.y = prop.maxThreadsDim[1];
+        block.z = 1;
+
+        const int threads = block.x * block.y * block.z;
+        const cudaError_t exp = threads <= prop.maxThreadsPerBlock ?
+            cudaSuccess : cudaErrorInvalidConfiguration;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(exp, ret);
+        cudaGetLastError();
+    }
+
+    { // Max X, Y
+        block.x = prop.maxThreadsDim[0];
+        block.y = prop.maxThreadsDim[1];
+        block.z = 1;
+
+        const int threads = block.x * block.y * block.z;
+        const cudaError_t exp = threads <= prop.maxThreadsPerBlock ?
+            cudaSuccess : cudaErrorInvalidConfiguration;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(exp, ret);
+        cudaGetLastError();
+    }
+
+    { // Max Z
+        block.x = 1;
+        block.y = 1;
+        block.z = prop.maxThreadsDim[2];
+
+        const int threads = block.x * block.y * block.z;
+        const cudaError_t exp = threads <= prop.maxThreadsPerBlock ?
+            cudaSuccess : cudaErrorInvalidConfiguration;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(exp, ret);
+        cudaGetLastError();
+    }
+
+    { // Max X, Z
+        block.x = prop.maxThreadsDim[0];
+        block.y = 1;
+        block.z = prop.maxThreadsDim[2];
+
+        const int threads = block.x * block.y * block.z;
+        const cudaError_t exp = threads <= prop.maxThreadsPerBlock ?
+            cudaSuccess : cudaErrorInvalidConfiguration;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(exp, ret);
+        cudaGetLastError();
+    }
+
+    { // Max Y, Z
+        block.x = 1;
+        block.y = prop.maxThreadsDim[1];
+        block.z = prop.maxThreadsDim[2];
+
+        const int threads = block.x * block.y * block.z;
+        const cudaError_t exp = threads <= prop.maxThreadsPerBlock ?
+            cudaSuccess : cudaErrorInvalidConfiguration;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(exp, ret);
+        cudaGetLastError();
+    }
+
+    { // Max X, Y, Z
+        block.x = prop.maxThreadsDim[0];
+        block.y = prop.maxThreadsDim[1];
+        block.z = prop.maxThreadsDim[2];
+
+        const int threads = block.x * block.y * block.z;
+        const cudaError_t exp = threads <= prop.maxThreadsPerBlock ?
+            cudaSuccess : cudaErrorInvalidConfiguration;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(exp, ret);
+        cudaGetLastError();
+    }
+
+    { // Max X + 1
+        block.x = prop.maxThreadsDim[0] + 1;
+        block.y = 1;
+        block.z = 1;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(cudaErrorInvalidConfiguration, ret);
+        cudaGetLastError();
+    }
+
+    { // Max Y + 1
+        block.x = 1;
+        block.y = prop.maxThreadsDim[1] + 1;
+        block.z = 1;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(cudaErrorInvalidConfiguration, ret);
+        cudaGetLastError();
+    }
+
+    { // Max Z + 1
+        block.x = 1;
+        block.y = 1;
+        block.z = prop.maxThreadsDim[2] + 1;
+
+        ret = cudaConfigureCall(grid, block, 0, cs);
+        EXPECT_EQ(cudaSuccess, ret);
+
+        ret = cudaLaunch(k_noop);
+        EXPECT_EQ(cudaErrorInvalidConfiguration, ret);
+        cudaGetLastError();
+    }
+
+    ret = cudaStreamSynchronize(cs);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(cs);
+    EXPECT_EQ(cudaSuccess, ret);
+}
+
 TEST(ConfigureCall, ExcessiveSharedMemory) {
     dim3 grid, block;
     grid.x  = grid.y  = grid.z  = 1;
