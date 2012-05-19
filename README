@@ -34,7 +34,7 @@ To run a CUDA program under Panoptes (for demonstration purposes, named
 
 == Limitations ==
 
-Panpotes is a research code base that has not achieved a complete
+Panoptes is a research code base that has not achieved a complete
 implementation of CUDA.  Notable limitatations (and the rationale for them)
 currently include:
 
