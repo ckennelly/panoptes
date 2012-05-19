@@ -496,6 +496,10 @@ ostream & operator<<(ostream & o, const statement_t & s) {
             o << s.type << " " << s.operands[0] << ", " << s.operands[1] <<
                 ", " << s.operands[2] << ", " << s.operands[3];
             break;
+        case op_isspacep:
+            assert(s.operands.size() == 2u);
+            o << s.space << " " << s.operands[0] << ", " << s.operands[1];
+            break;
         case op_ld:
             assert(s.operands.size() == 2u);
             if (s.is_volatile) {

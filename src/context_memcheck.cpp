@@ -3169,6 +3169,41 @@ void cuda_context_memcheck::instrument_block(block_t * block,
 
                 break; }
             case op_invalid: /* No-op */ break;
+            case op_isspacep: {
+                assert(statement.operands.size() == 2u);
+
+                /* Narrow a pointer type to a b16. */
+                const operand_t & p = statement.operands[0];
+                const operand_t & a = statement.operands[1];
+
+                const operand_t vp = make_validity_operand(p);
+                assert(!(vp.is_constant()));
+                const operand_t va = make_validity_operand(a);
+
+                if (va.is_constant()) {
+                    aux.push_back(make_mov(b16_type, vp,
+                        operand_t::make_iconstant(0)));
+                } else {
+                    const operand_t tmpptr = operand_t::make_identifier(
+                        "__panoptes_ptr0");
+                    const operand_t tmp = make_temp_operand(b16_type, 0);
+
+                    tmpb[1u] = std::max(tmpb[1u], 1);
+                    tmp_ptr = std::max(tmp_ptr, 1);
+
+                    /* Map 0 -> 1, (everything) -> 0 */
+                    aux.push_back(make_cnot(pointer_type(), tmpptr, va));
+
+                    /* Narrow to b16 */
+                    aux.push_back(make_cvt(u16_type, upointer_type(), tmp,
+                        tmpptr, false));
+
+                    /* Map 0 -> 0, (everything) -> 0xFFFF */
+                    aux.push_back(make_sub(s16_type, vp, tmp,
+                        operand_t::make_iconstant(1)));
+                }
+
+                break; }
             case op_ld:
             case op_ldu: {
                 assert(statement.operands.size() == 2u);

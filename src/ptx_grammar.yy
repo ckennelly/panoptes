@@ -808,7 +808,15 @@ fma : OPCODE_FMA fRounding TOKEN_F64 identifierOperand TOKEN_COMMA
     parser->operands.clear();
 };
 
-isspacep : ;
+isspacep : OPCODE_ISSPACEP stateSpace identifierOperand TOKEN_COMMA
+        immedOrVarOperand {
+    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_token($<vsigned>2);
+
+    parser->function->top->instruction.type = parser->get_type();
+    parser->function->top->instruction.set_operands(parser->operands);
+    parser->operands.clear();
+};
 
 immediateDecimal: TOKEN_CONSTANT_DECIMAL {
     parser->operand.op_type = operand_constant;

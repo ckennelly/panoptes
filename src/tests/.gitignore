@@ -58,6 +58,7 @@ vtest_k_divmod
 vtest_k_explog
 vtest_k_funcgetattributes
 vtest_k_global_reductions
+vtest_k_isspacep
 vtest_k_mad24
 vtest_k_memcpy
 vtest_k_minmax
