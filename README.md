@@ -1,7 +1,8 @@
 Panoptes - A Binary Translation Framework for CUDA
 (c) 2012 - Chris Kennelly (chris@ckennelly.com)
 
-== Overview ==
+Overview
+========
 
 Panoptes intercepts library calls to the GPU in order to maintain bookkeeping
 information about the state of the GPU, including device code.  This permits
@@ -15,7 +16,8 @@ parallelism that may have necessitated the use of GPUs in the first place.
 Panoptes is open source software, licensed under the GPLv3.  For more
 information see COPYING.
 
-== Building ==
+Building
+========
 
 The Panoptes interposer depends on Boost, CUDA, Make, and Valgrind (for its
 hooks).  The testsuite shares the same dependencies as well as Google's
@@ -25,14 +27,16 @@ Once the appropriate include paths are specified in the Makefile, run 'make'
 from the source directory to build the interposer and run the test suite.  (A
 working CUDA-compatible GPU is required for the tests to work.)
 
-== Using Panoptes ==
+Using Panoptes
+==============
 
 To run a CUDA program under Panoptes (for demonstration purposes, named
-"my_cuda_program"):
+"`my_cuda_program`"):
 
-  LD_PRELOAD="$(PATH_TO_PANOPTES)/libpanoptes.so" ./my_cuda_program
+    LD_PRELOAD="$(PATH_TO_PANOPTES)/libpanoptes.so" ./my_cuda_program
 
-== Limitations ==
+Limitations
+===========
 
 Panoptes is a research code base that has not achieved a complete
 implementation of CUDA.  Notable limitatations (and the rationale for them)
