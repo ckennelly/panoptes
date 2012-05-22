@@ -7877,15 +7877,30 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
 }
 
 cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
+    /**
+     * If the entry name is invalid, fail.
+     */
+    if (entry == NULL) {
+        return cudaErrorUnknown;
+    }
+
     internal::check_t * checker = new internal::check_t(this,
         get_entry_name(entry));
     /**
      * Go over call stack, pass in validity information and other auxillary information.
      */
     const char * entry_name = get_entry_name(entry);
-    entry_info_map_t::const_iterator it = entry_info_.find(entry_name);
+    entry_info_map_t::const_iterator it;
+
+    if (entry_name == NULL) {
+        /* Try the now depreciated interpretation of entry as the entry name
+         * itself. */
+        it = entry_info_.find(entry);
+    } else {
+        it = entry_info_.find(entry_name);
+    }
+
     if (it == entry_info_.end()) {
-        assert(0 && "Unknown entry.");
         delete checker;
         return thread_context::instance().setLastError(
             cudaErrorInvalidDeviceFunction);
@@ -7893,12 +7908,11 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
 
     if (call_stack_.size() == 0) {
         /**
-         * This isn't a specified return value in the CUDA 4.0 documentation
-         * for cudaLaunch, but it appears to be a valid, sensible return value
-         * according to the documentation sections on cudaError.
+         * This isn't a specified return value in the CUDA 4.x documentation
+         * for cudaLaunch, but this has been experimentally validated.
          */
-        return thread_context::instance().setLastError(
-            cudaErrorMissingConfiguration);
+        delete checker;
+        return cudaErrorInvalidConfiguration;
     }
 
     /* TODO:  We should hold a lock. */

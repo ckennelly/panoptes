@@ -105,12 +105,10 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
 
     if (call_stack_.size() == 0) {
         /**
-         * This isn't a specified return value in the CUDA 4.0 documentation
-         * for cudaLaunch, but it appears to be a valid, sensible return value
-         * according to the documentation sections on cudaError.
+         * This isn't a specified return value in the CUDA 4.x documentation
+         * for cudaLaunch, but this has been experimentally validated.
          */
-        return thread_context::instance().setLastError(
-            cudaErrorMissingConfiguration);
+        return cudaErrorInvalidConfiguration;
     }
 
     /**
@@ -118,11 +116,32 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
      */
     function_map_t::const_iterator fit = functions_.find(entry);
     if (fit == functions_.end()) {
-        return thread_context::instance().setLastError(
-            cudaErrorInvalidDeviceFunction);
+        if (!(entry)) {
+            /* Fail fast. */
+            return thread_context::instance().setLastError(
+                cudaErrorInvalidDeviceFunction);
+        }
+
+        /**
+         * Try to interpret the entry as an entry name.
+         */
+        function_name_map_t::const_iterator nit = function_names_.find(entry);
+        if (nit == function_names_.end()) {
+            return thread_context::instance().setLastError(
+                cudaErrorInvalidDeviceFunction);
+        }
+
+        entry = nit->second;
+
+        /* Retry. */
+        fit = functions_.find(entry);
+        if (fit == functions_.end()) {
+            return thread_context::instance().setLastError(
+                cudaErrorInvalidDeviceFunction);
+        }
     }
 
-    /**
+    /*
      * This double lookup is bit awkward, but it's either this or we maintain a
      * pointer into the containing module from every function *and* have this
      * list for cleanup purposes.
@@ -478,6 +497,8 @@ void cuda_context::cudaRegisterFunction(void **fatCubinHandle,
     it->second->functions.insert(
         internal::module_t::function_map_t::value_type(hostFun, reg));
     functions_.insert(function_map_t::value_type(hostFun, it->second));
+    function_names_.insert(
+        function_name_map_t::value_type(deviceName, hostFun));
 }
 
 void cuda_context::cudaRegisterTexture(void **fatCubinHandle,

@@ -89,6 +89,7 @@ vtest_k_threadfence
 vtest_k_trap
 vtest_k_uniform
 vtest_k_validity
+vtest_launch
 vtest_malloc
 vtest_malloc3d
 vtest_malloc3darray
