@@ -100,9 +100,8 @@ public:
     virtual cudaError_t cudaMallocArray(struct cudaArray **array, const struct
             cudaChannelFormatDesc *desc, size_t width, size_t height, unsigned int
             flags);
-    virtual cudaError_t cudaMallocHost(void **ptr, size_t size); /*
+    virtual cudaError_t cudaMallocHost(void **ptr, size_t size);
     virtual cudaError_t cudaMallocPitch(void **devPtr, size_t *pitch, size_t width, size_t height);
-    */
     virtual cudaError_t cudaMemcpy(void *dst, const void *src, size_t size, enum cudaMemcpyKind kind);
     /*
     virtual cudaError_t cudaMemcpy2D(void *dst, size_t dpitch, const void *src, size_t

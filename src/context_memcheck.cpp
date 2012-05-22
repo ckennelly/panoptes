@@ -6988,6 +6988,26 @@ cudaError_t cuda_context_memcheck::cudaMallocHost(void **ptr, size_t size) {
     return cudaSuccess;
 }
 
+cudaError_t cuda_context_memcheck::cudaMallocPitch(void **devPtr,
+        size_t *pitch, size_t width, size_t height) {
+    if (!(devPtr)) {
+        return cudaErrorInvalidValue;
+    }
+
+    if (!(pitch)) {
+        return cudaErrorInvalidValue;
+    }
+
+    cudaError_t ret = cuda_context::cudaMallocPitch(devPtr, pitch, width, height);
+    if (ret == cudaSuccess) {
+        scoped_lock lock(mx_);
+        const size_t size = *pitch * height;
+        add_device_allocation(*devPtr, size, true);
+    }
+
+    return thread_context::instance().setLastError(ret);
+}
+
 bool cuda_context_memcheck::check_host_pinned(const void * ptr, size_t len,
         size_t * offset) const {
     size_t checked;

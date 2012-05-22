@@ -72,6 +72,7 @@ typedef cudaError_t (*cudaMalloc3DArray_t)(struct cudaArray**, const struct
 typedef cudaError_t (*cudaMallocArray_t)(struct cudaArray**, const struct
     cudaChannelFormatDesc*, size_t, size_t, unsigned int);
 typedef cudaError_t (*cudaMallocHost_t)(void **, size_t);
+typedef cudaError_t (*cudaMallocPitch_t)(void **, size_t *, size_t, size_t);
 typedef cudaError_t (*cudaMemcpy_t)(void *, const void *, size_t, cudaMemcpyKind);
 typedef cudaError_t (*cudaMemcpyAsync_t)(void *, const void *, size_t,
     cudaMemcpyKind,cudaStream_t);
@@ -301,6 +302,13 @@ cudaError_t callout::cudaMallocHost(void **ptr, size_t size) {
     cudaMallocHost_t method = (cudaMallocHost_t) dlsym(callout::instance().libcudart,
         "cudaMallocHost");
     return method(ptr, size);
+}
+
+cudaError_t callout::cudaMallocPitch(void **devPtr, size_t *pitch,
+        size_t width, size_t height) {
+    cudaMallocPitch_t method = (cudaMallocPitch_t)
+        dlsym(callout::instance().libcudart, "cudaMallocPitch");
+    return method(devPtr, pitch, width, height);
 }
 
 cudaError_t callout::cudaMemcpy(void *dst, const void *src, size_t count,

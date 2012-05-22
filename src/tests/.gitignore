@@ -95,6 +95,7 @@ vtest_malloc3d
 vtest_malloc3darray
 vtest_mallocarray
 vtest_mallochost
+vtest_mallocpitch
 vtest_memcpy
 vtest_memcpyasync
 vtest_memcpyfromsymbol
