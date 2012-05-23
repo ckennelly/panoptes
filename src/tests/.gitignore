@@ -1,4 +1,5 @@
 .*.*_passed
+.*.apassed
 test_bindtexture
 test_bindtexturetoarray
 test_eventdestroy

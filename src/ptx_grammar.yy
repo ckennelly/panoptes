@@ -158,7 +158,10 @@ paramAlignment : TOKEN_ALIGN TOKEN_CONSTANT_DECIMAL {
 optionalParamAlignment : /* */ | paramAlignment ;
 
 /**
- * TODO: Investigate whether parameters can be multidimensional.
+ * Parameters cannot be passed as multidimensional arrays.  The PTX ISA 3.0
+ * document does not discuss their existence.  Attempting to compile a
+ * visually valid multidimensional array as a kernel parameter causes ptxas
+ * version 4.1 to emit an error.
  */
 paramArrayDimension : TOKEN_LBRACKET TOKEN_CONSTANT_DECIMAL TOKEN_RBRACKET {
     assert(parser->function->param.array_dimensions < 3u);

@@ -1,0 +1,36 @@
+#!/bin/bash
+TMPFILE=`tempfile`
+BINFILE=`tempfile`
+
+# Control, single dimensional array parameters.
+cat > "${TMPFILE}" <<INPUT
+.version 1.4
+.target sm_10, map_f64_to_f32
+
+.entry foo (.param .align 8 .b8 bar[3]) {
+    exit;
+}
+INPUT
+
+RET=2
+ptxas -o "${BINFILE}" "${TMPFILE}" && RET=0
+
+if [ "${RET}" -ne 0 ]; then
+    exit "${RET}"
+fi
+
+# Actual test
+cat > "${TMPFILE}" <<INPUT
+.version 1.4
+.target sm_10, map_f64_to_f32
+
+.entry foo (.param .align 8 .b8 bar[3][3]) {
+    exit;
+}
+INPUT
+
+RET=0
+ptxas -o "${BINFILE}" "${TMPFILE}" 2>/dev/null && RET=1
+
+rm -f "${BINFILE}" "${TMPFILE}"
+exit "${RET}"

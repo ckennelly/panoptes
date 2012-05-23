@@ -33,11 +33,16 @@ run_%: %
 vrun_%: % run_%
 	(test .$<.valg_passed -nt $< && test .$<.valg_passed -nt ../libpanoptes.so) || (LD_PRELOAD="../libpanoptes.so" valgrind $(VALGRINDFLAGS) ./$< && touch .$<.valg_passed)
 
+arun_%: %
+	(test .$<.apassed -nt $<) || (./$< && touch .$<.apassed)
+
 # Anything prefixed with test_ gets tested.  Anything prefixed with vtest_ is
 # tested and run under Valgrind.  Tests which deliberately cause memory
 # errors should not be run under Valgrind.
+#
+# atest: "Additional" standalone tests.
 RUNNERS := $(patsubst %.cu,%,$(wildcard *test_*.cu)) $(patsubst %.cpp,%,$(wildcard *test_*.cpp))
-test: $(patsubst %.cu,run_%,$(wildcard test_*.cu)) $(patsubst %.cu,vrun_%,$(wildcard vtest_*.cu)) $(patsubst %.cpp,run_%,$(wildcard test_*.cpp)) $(patsubst %.cpp,vrun_%,$(wildcard vtest_*.cpp))
+test: $(patsubst %.cu,run_%,$(wildcard test_*.cu)) $(patsubst %.cu,vrun_%,$(wildcard vtest_*.cu)) $(patsubst %.cpp,run_%,$(wildcard test_*.cpp)) $(patsubst %.cpp,vrun_%,$(wildcard vtest_*.cpp)) $(patsubst %,arun_%,$(wildcard atest_*))
 
 %.o: %.c Makefile
 	$(CC) $(CFLAGS) -fPIC -MMD -MP -c $< -o $@
@@ -112,6 +117,6 @@ vtest_k_uniform.o: vtest_k_uniform.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
 clean:
-	-$(RM) -f *.d *.o .*.*_passed $(RUNNERS)
+	-$(RM) -f *.d *.o .*.*_passed $(RUNNERS) .*.apassed
 
 .PHONY: all clean
