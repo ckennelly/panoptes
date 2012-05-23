@@ -170,7 +170,7 @@ cudaError_t thread_context::cudaSetDevice(int device) {
 cudaError_t thread_context::cudaSetDeviceFlags(unsigned int flags) {
     cudaError_t ret = callout::cudaSetDeviceFlags(flags);
     init_runtime();
-    return ret;
+    return setLastError(ret);
 }
 
 cuda_context * thread_context::context() {
