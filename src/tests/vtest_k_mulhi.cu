@@ -94,7 +94,7 @@ public:
         assert(cudaSuccess == ret);
     }
 
-    static const int32_t n = 1 << 24;
+    static const int32_t n = 1 << 23;
     T * x;
     T * y;
     T * out;
