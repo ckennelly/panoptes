@@ -16,6 +16,7 @@ test_memcpy
 test_memcpyfromsymbol
 test_memcpytosymbol
 test_registervar
+test_setupargument
 test_streamdestroy
 test_streamquery
 test_streamsynchronize

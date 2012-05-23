@@ -37,7 +37,7 @@ vrun_%: % run_%
 # tested and run under Valgrind.  Tests which deliberately cause memory
 # errors should not be run under Valgrind.
 RUNNERS := $(patsubst %.cu,%,$(wildcard *test_*.cu)) $(patsubst %.cpp,%,$(wildcard *test_*.cpp))
-test: $(patsubst %.cu,run_%,$(wildcard test_*.cu)) $(patsubst %.cu,vrun_%,$(wildcard vtest_*.cu))
+test: $(patsubst %.cu,run_%,$(wildcard test_*.cu)) $(patsubst %.cu,vrun_%,$(wildcard vtest_*.cu)) $(patsubst %.cpp,run_%,$(wildcard test_*.cpp)) $(patsubst %.cpp,vrun_%,$(wildcard vtest_*.cpp))
 
 %.o: %.c Makefile
 	$(CC) $(CFLAGS) -fPIC -MMD -MP -c $< -o $@
