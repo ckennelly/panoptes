@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>

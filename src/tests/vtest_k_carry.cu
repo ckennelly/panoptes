@@ -19,9 +19,7 @@
 #include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
-#include <stdint.h>
 #include <valgrind/memcheck.h>
-#include <cstdio>
 
 template<typename T>
 static __device__ __inline__ T wide_add(const T & a, const T & b) {

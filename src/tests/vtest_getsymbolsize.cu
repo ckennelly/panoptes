@@ -16,13 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/scoped_array.hpp>
-#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
-#include <stdint.h>
-#include <valgrind/memcheck.h>
-#include <cstdio>
 
 typedef int symbol_t;
 __constant__ symbol_t const_symbol;

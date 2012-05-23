@@ -17,12 +17,10 @@
  */
 
 #include <boost/scoped_array.hpp>
-#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
 #include <valgrind/memcheck.h>
-#include <cstdio>
 
 //   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 

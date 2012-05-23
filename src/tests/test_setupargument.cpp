@@ -16,14 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/scoped_array.hpp>
-#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <gtest/gtest.h>
-#include <stdint.h>
-#include <valgrind/memcheck.h>
-#include <cstdio>
 
 TEST(SetupArgument, WithoutConfigureCall) {
     ::testing::FLAGS_gtest_death_test_style = "threadsafe";

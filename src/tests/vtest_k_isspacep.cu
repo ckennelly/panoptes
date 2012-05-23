@@ -18,7 +18,6 @@
 
 #include <cuda.h>
 #include <gtest/gtest.h>
-#include <stdint.h>
 
 __global__ void k_is_global(bool * out, const void * ptr) {
     int ret;

@@ -20,8 +20,6 @@
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
-#include <valgrind/memcheck.h>
-#include <cstdio>
 
 template<typename T>
 class BitfieldTestFixture : public ::testing::Test {

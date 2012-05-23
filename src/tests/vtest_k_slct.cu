@@ -20,8 +20,6 @@
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
-#include <valgrind/memcheck.h>
-#include <cstdio>
 
 template<typename S, typename T>
 static __device__ __inline__ T slct(const T & a, const T & b, const S & c) {

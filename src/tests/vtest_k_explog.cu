@@ -16,12 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
-#include <valgrind/memcheck.h>
-#include <cstdio>
 
 extern "C" __global__ void k_exp(const float * in, float * out, int32_t n) {
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x;

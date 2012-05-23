@@ -16,13 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/scoped_array.hpp>
-#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
-#include <valgrind/memcheck.h>
-#include <cstdio>
 
 __global__ void k_mul24(const int32_t * x, const int32_t * y,
         int32_t * out, int32_t n) {

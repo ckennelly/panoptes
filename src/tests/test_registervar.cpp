@@ -16,14 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/scoped_array.hpp>
-#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <gtest/gtest.h>
-#include <stdint.h>
-#include <valgrind/memcheck.h>
-#include <cstdio>
 
 /* Generated from: "__device__ int a, b, c;" */
 static const unsigned long long fatbinData[] = {

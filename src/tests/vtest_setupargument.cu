@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/scoped_array.hpp>
 #include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
@@ -24,7 +23,6 @@
 #include <stdint.h>
 #include <sys/mman.h>
 #include <valgrind/memcheck.h>
-#include <cstdio>
 
 static void __global__ k_set(uintptr_t * p, uintptr_t a) {
     *p = a;
