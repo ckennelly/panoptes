@@ -98,6 +98,9 @@ vtest_k_pmevent.o: vtest_k_pmevent.cu Makefile
 vtest_k_printf.o: vtest_k_printf.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
+vtest_k_prmt.o: vtest_k_prmt.cu Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
+
 vtest_k_popc.o: vtest_k_popc.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 

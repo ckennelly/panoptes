@@ -71,6 +71,7 @@ vtest_k_noop
 vtest_k_pmevent
 vtest_k_popc
 vtest_k_printf
+vtest_k_prmt
 vtest_k_prng
 vtest_k_rcp
 vtest_k_rsqrt

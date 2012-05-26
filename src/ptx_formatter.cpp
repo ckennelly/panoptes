@@ -699,6 +699,12 @@ ostream & operator<<(ostream & o, const statement_t & s) {
             }
             o << " " << s.operands[0];
             break;
+        case op_prmt:
+            assert(s.operands.size() == 4u);
+            o << s.type << s.prmt_mode << " " << s.operands[0] << ", " <<
+                s.operands[1] << ", " << s.operands[2] << ", " <<
+                s.operands[3];
+            break;
         case op_popc:
             assert(s.operands.size() == 2u);
             o << s.type << " " << s.operands[0] << ", " << s.operands[1];
@@ -1411,6 +1417,23 @@ ostream & operator<<(ostream & o, const panoptes::testp_op_t & t) {
         case testp_nan:       return o << ".notanumber";
         case testp_normal:    return o << ".normal";
         case testp_subnormal: return o << ".subnormal";
+    }
+
+    return o;
+}
+
+ostream & operator<<(ostream & o, const panoptes::prmt_mode_t & m) {
+    switch (m) {
+        case invalid_prmt_mode:
+            assert(0 && "Invalid permute mode.");
+            return o;
+        case prmt_default:  return o;
+        case prmt_f4e:      return o << ".f4e";
+        case prmt_b4e:      return o << ".b4e";
+        case prmt_rc8:      return o << ".rc8";
+        case prmt_ecl:      return o << ".ecl";
+        case prmt_ecr:      return o << ".ecr";
+        case prmt_rc16:     return o << ".rc16";
     }
 
     return o;

@@ -79,6 +79,7 @@ void statement_t::reset() {
     mask            = false;
     shiftamt        = false;
     testp_op        = invalid_testp_op;
+    prmt_mode       = invalid_prmt_mode;
     vector          = v1;
     operands.clear();
 }
@@ -408,6 +409,12 @@ void statement_t::set_token(int token) {
         case TOKEN_NOTANUMBER:  testp_op = testp_nan;           return;
         case TOKEN_NORMAL:      testp_op = testp_normal;        return;
         case TOKEN_SUBNORMAL:   testp_op = testp_subnormal;     return;
+        case TOKEN_F4E:         prmt_mode = prmt_f4e;           return;
+        case TOKEN_B4E:         prmt_mode = prmt_b4e;           return;
+        case TOKEN_RC8:         prmt_mode = prmt_rc8;           return;
+        case TOKEN_ECL:         prmt_mode = prmt_ecl;           return;
+        case TOKEN_ECR:         prmt_mode = prmt_ecr;           return;
+        case TOKEN_RC16:        prmt_mode = prmt_rc16;          return;
         default:
             assert(0 && "Unknown token.");
             return;

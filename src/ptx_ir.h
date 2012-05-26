@@ -214,6 +214,11 @@ enum testp_op_t {
     testp_nan, testp_normal, testp_subnormal
 };
 
+enum prmt_mode_t {
+    invalid_prmt_mode, prmt_default, prmt_f4e, prmt_b4e, prmt_rc8, prmt_ecl,
+    prmt_ecr, prmt_rc16
+};
+
 struct statement_t {
     statement_t();
     void reset();
@@ -255,6 +260,7 @@ struct statement_t {
     bool            mask;
     bool            shiftamt;
     testp_op_t      testp_op;
+    prmt_mode_t     prmt_mode;
 
     vector_t        vector;
 

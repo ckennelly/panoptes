@@ -81,6 +81,7 @@ void yyerror(YYLTYPE * location, panoptes::ptx_lexer * lexer, panoptes::ptx_pars
 %token<vsigned> TOKEN_A1D TOKEN_A2D TOKEN_CUBE TOKEN_ACUBE TOKEN_TEXREF
 %token<vsigned> TOKEN_CARRY TOKEN_SHIFTAMT TOKEN_FINITE TOKEN_INFINITE
 %token<vsigned> TOKEN_NUMBER TOKEN_NOTANUMBER TOKEN_NORMAL TOKEN_SUBNORMAL
+%token<vsigned> TOKEN_F4E TOKEN_B4E TOKEN_RC8 TOKEN_ECL TOKEN_ECR TOKEN_RC16
 
 /* Important pairings. */
 %token<vsigned> TOKEN_CONSTANT_DECIMAL
@@ -1132,7 +1133,24 @@ popc : OPCODE_POPC dataType identifierOperand TOKEN_COMMA identifierOperand {
 
 prefetch : ;
 prefetchu : ;
-prmt : ;
+
+prmtModeToken: TOKEN_F4E | TOKEN_B4E | TOKEN_RC8 | TOKEN_ECL | TOKEN_ECR |
+    TOKEN_RC16 ;
+prmtMode : prmtModeToken {
+    parser->function->top->instruction.set_token($<vsigned>1);
+};
+prmtMode : /* */ {
+    parser->function->top->instruction.prmt_mode = prmt_default;
+};
+
+prmt : OPCODE_PRMT dataType prmtMode identifierOperand TOKEN_COMMA
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
+        immedOrVarOperand {
+    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.type = parser->get_type();
+    parser->function->top->instruction.set_operands(parser->operands);
+    parser->operands.clear();
+};
 
 rcp : OPCODE_RCP TOKEN_APPROX optionalFTZ floatingDataType identifierOperand
         TOKEN_COMMA identifierOperand {

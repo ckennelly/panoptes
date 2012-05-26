@@ -293,6 +293,13 @@ COMMENT ("/*"([^*]|"*"[^/])*"*/")|("/"(\\\n)*"/"[^\n]*)
 ".normal"           { yylval->vsigned = TOKEN_NORMAL;   return TOKEN_NORMAL;    }
 ".subnormal"        { yylval->vsigned = TOKEN_SUBNORMAL;return TOKEN_SUBNORMAL; }
 
+".f4e"              { yylval->vsigned = TOKEN_F4E;      return TOKEN_F4E;    }
+".b4e"              { yylval->vsigned = TOKEN_B4E;      return TOKEN_B4E;    }
+".rc8"              { yylval->vsigned = TOKEN_RC8;      return TOKEN_RC8;    }
+".ecl"              { yylval->vsigned = TOKEN_ECL;      return TOKEN_ECL;    }
+".ecr"              { yylval->vsigned = TOKEN_ECR;      return TOKEN_ECR;    }
+".rc16"             { yylval->vsigned = TOKEN_RC16;     return TOKEN_RC16;   }
+
 {CONSTANT_DECIMAL}   { yylval->vsigned = boost::lexical_cast<int64_t>(yytext); \
                         return TOKEN_CONSTANT_DECIMAL; }
 {CONSTANT_HEX}       { yylval->vsigned = boost::lexical_cast<int64_t>(yytext); \

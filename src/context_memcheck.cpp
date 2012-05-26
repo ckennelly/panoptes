@@ -4202,6 +4202,114 @@ void cuda_context_memcheck::instrument_block(block_t * block,
 
                 break; }
             case op_pmevent: /* No-op */ break;
+            case op_prmt: {
+                assert(statement.operands.size() == 4u);
+                assert(statement.type == b32_type);
+
+                const operand_t & a = statement.operands[1];
+                const operand_t & b = statement.operands[2];
+                const operand_t & c = statement.operands[3];
+                const operand_t & d = statement.operands[0];
+
+                const operand_t va = make_validity_operand(a);
+                const operand_t vb = make_validity_operand(b);
+                const operand_t vc = make_validity_operand(c);
+                const operand_t vd = make_validity_operand(d);
+
+                assert(!(vd.is_constant()));
+
+                /**
+                 * If c is constant, then we can just select the validity
+                 * with c from va and vb.
+                 */
+                if (vc.is_constant()) {
+                    if (va.is_constant() && vb.is_constant()) {
+                        aux.push_back(make_mov(b32_type, vd, va));
+                    } else {
+                        statement_t vprmt = statement;
+                        vprmt.operands[0] = vd;
+                        vprmt.operands[1] = va;
+                        vprmt.operands[2] = vb;
+                        aux.push_back(vprmt);
+                    }
+
+                    break;
+                }
+
+                /**
+                 * We always need a temporary 32-bit value.
+                 */
+                const operand_t tmp = make_temp_operand(b32_type, 0);
+                int prmt_tmpb[4] = {0, 0, 1, 0};
+                operand_t immed;
+                bool direct;
+
+                if (va.is_constant() && vb.is_constant()) {
+                    /* We can move the results directly into vd */
+                    immed = vd;
+                    direct = true;
+                } else {
+                    immed = tmp;
+                    direct = false;
+                }
+
+                /* An invalid bit anywhere corrupts the output. */
+                int64_t mask;
+                if (statement.prmt_mode == prmt_default) {
+                    mask = 0x0000FFFF;
+                } else {
+                    mask = 0x00000003;
+                }
+                aux.push_back(make_and(b32_type, tmp, vc,
+                    operand_t::make_iconstant(mask)));
+                aux.push_back(make_cnot(b32_type, tmp, tmp));
+                aux.push_back(make_sub(s32_type, immed, tmp,
+                    operand_t::make_iconstant(1)));
+
+                if (direct) {
+                    /* We're done. */
+                    for (unsigned i = 0; i < 4; i++) {
+                        tmpb[i] = std::max(tmpb[i], prmt_tmpb[i]);
+                    }
+                    break;
+                }
+
+                bool just_convert;
+                operand_t immed2;
+                operand_t immed3;
+                if (va.is_constant() & vb.is_constant()) {
+                    /* We're done after we convert. */
+                    immed2 = vd;
+                    just_convert = true;
+                } else {
+                    /* We need two more intermediate values, one to hold the
+                     * result of selecting and one to hold the converted
+                     * contents of immed. */
+                    prmt_tmpb[2u] = 2;
+                    just_convert = false;
+
+                    immed2 = make_temp_operand(b32_type, 1);
+                    immed3 = make_temp_operand(b32_type, 0);
+                }
+
+                assert(immed3 == immed);
+                std::swap(immed2, immed3);
+
+                if (!(just_convert)) {
+                    /* Mix in validity of va and vb via selection. */
+                    statement_t vprmt = statement;
+                    vprmt.operands[0] = immed3;
+                    vprmt.operands[1] = va;
+                    vprmt.operands[2] = vb;
+                    aux.push_back(vprmt);
+                    aux.push_back(make_or(b32_type, vd, immed2, immed3));
+                }
+
+                /* We're done. */
+                for (unsigned i = 0; i < 4; i++) {
+                    tmpb[i] = std::max(tmpb[i], prmt_tmpb[i]);
+                }
+                break; }
             case op_sad: {
                 assert(statement.operands.size() == 4u);
 
