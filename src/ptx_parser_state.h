@@ -102,7 +102,7 @@ public:
     ptx_parser_block * top;
     std::stack<ptx_parser_block *> block_stack;
 
-    virtual void to_ir(function_t * entry) const;
+    void to_ir(function_t * entry) const;
 };
 
 class ptx_parser_state : boost::noncopyable {
