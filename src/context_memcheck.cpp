@@ -4197,7 +4197,7 @@ void cuda_context_memcheck::instrument_block(block_t * block,
                      * result will be zero.
                      */
                     aux.push_back(make_and(b32_type, vd, ntmp,
-                        operand_t::make_iconstant(mret)));
+                        operand_t::make_iconstant(mask)));
                 }
 
                 break; }

@@ -16,8 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
+#include <limits>
+#include <stdint.h>
+#include <valgrind/memcheck.h>
 
 extern "C" __global__ void k_popc(const unsigned * data, const int N,
         int * popc_values) {
@@ -101,6 +105,80 @@ TEST(kPOPC, POPCLL) {
 
     ret = cudaFree(popc_values);
     ASSERT_EQ(cudaSuccess, ret);
+}
+
+template<typename T>
+static __device__ int popc(const T & t) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+    return 0;
+}
+
+template<>
+static __device__ int popc<uint32_t>(const uint32_t & t) {
+    return __popc(t);
+}
+
+template<>
+static __device__ int popc<uint64_t>(const uint64_t & t) {
+    return __popcll(t);
+}
+
+template<typename T>
+static __global__ void k_popc_single(const T t, int * out) {
+    *out = popc(t);
+}
+
+TEST(kPOPC, Validity) {
+    if (!(RUNNING_ON_VALGRIND)) {
+        /* Skip the test without Valgrind. */
+        return;
+    }
+
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    uint32_t u32 = std::numeric_limits<uint32_t>::max();
+    uint64_t u64 = std::numeric_limits<uint64_t>::max();
+    /* Clear validity */
+    VALGRIND_MAKE_MEM_UNDEFINED(&u32, sizeof(u32));
+    VALGRIND_MAKE_MEM_UNDEFINED(&u64, sizeof(u64));
+
+    int * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out) * 2);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_popc_single<<<1, 1, 0, stream>>>(u32, out + 0);
+    k_popc_single<<<1, 1, 0, stream>>>(u64, out + 1);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    int hout[2];
+    ret = cudaMemcpy(hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint32_t vout[2];
+    VALGRIND_GET_VBITS(&hout[0], &vout[0], sizeof(hout[0]));
+    VALGRIND_GET_VBITS(&hout[1], &vout[1], sizeof(hout[1]));
+    /* The largest value of popc/popcll is 32 and 64 respectively.  All
+     * higher bits should be known to be 0. */
+    EXPECT_EQ(0x0000003F, vout[0]);
+    EXPECT_EQ(0x0000007F, vout[1]);
+
+    VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(hout, sizeof(hout));
+
+    /* Mask off lower bits. */
+    EXPECT_EQ(0, hout[0] & 0xFFFFFFC0);
+    EXPECT_EQ(0, hout[1] & 0xFFFFFF80);
 }
 
 int main(int argc, char **argv) {
