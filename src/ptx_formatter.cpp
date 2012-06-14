@@ -61,6 +61,8 @@ ostream & operator<<(ostream & o, const barrier_op_t & t) {
             assert(0 && "Unknown barrier type.");
             return o;
     }
+
+    __builtin_unreachable();
 }
 
 ostream & operator<<(ostream & o, const barrier_scope_t & t) {
@@ -72,6 +74,8 @@ ostream & operator<<(ostream & o, const barrier_scope_t & t) {
             assert(0 && "Unknown barrier type.");
             return o;
     }
+
+    __builtin_unreachable();
 }
 
 ostream & operator<<(ostream & o, const geom_t & g) {
@@ -87,6 +91,8 @@ ostream & operator<<(ostream & o, const geom_t & g) {
             assert(0 && "Unknown geometry type.");
             return o;
     }
+
+    __builtin_unreachable();
 }
 
 ostream & operator<<(ostream & o, const type_t & t) {
@@ -166,6 +172,8 @@ ostream & operator<<(ostream & o, const space_t & s) {
             assert(0 && "Invalid space.");
             return o;
     }
+
+    __builtin_unreachable();
 }
 
 ostream & operator<<(ostream & o, const cache_t & c) {
@@ -1374,6 +1382,8 @@ ostream & operator<<(ostream & o, const panoptes::op_mul_width_t & w) {
         case width_lo:      return o << ".lo";
         case width_wide:    return o << ".wide";
     }
+
+    __builtin_unreachable();
 }
 
 ostream & operator<<(ostream & o, const panoptes::variant_t & v) {
