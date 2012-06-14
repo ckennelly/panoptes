@@ -72,6 +72,7 @@ namespace {
     static const char * __texture_prefix  = "__panoptes_t";
     static const char * __errors_register = "__panoptes_lerrors";
     static const char * __has_errors      = "__panoptes_haserrors";
+    static const char * __vcarry          = "__panoptes_carry";
     static const char * __reg_global_errors  = "__panoptes_gerrors";
     static const char * __reg_global_errorsw = "__panoptes_gerrorsw";
     static const char * __errors_address  = "__panoptes_eaddr";
@@ -1413,6 +1414,28 @@ void cuda_context_memcheck::instrument_entry(function_t * entry) {
                     (int) it->second.local_memory)));
             scope.blocks.push_front(b);
         }
+
+        /* Initialize carry flag. */
+        {
+            scope_t & scope = *entry->scope.scope;
+
+            variable_t vc;
+            vc.space = reg_space;
+            vc.type  = u32_type;
+            vc.name  = __vcarry;
+
+            scope.variables.push_back(vc);
+
+            const operand_t vc_reg =
+                operand_t::make_identifier(__vcarry);
+
+            block_t * b = new block_t();
+            b->block_type   = block_statement;
+            b->parent       = &entry->scope;
+            b->statement    = new statement_t(
+                make_mov(u32_type, vc_reg, operand_t::make_iconstant(0)));
+            scope.blocks.push_front(b);
+        }
     }
 
     /* Copy instrumented function. */
@@ -1943,9 +1966,11 @@ void cuda_context_memcheck::instrument_block(block_t * block,
 
                 break; }
             case op_add:
+            case op_addc:
             case op_mul:
             case op_mul24:
-            case op_sub: {
+            case op_sub:
+            case op_subc: {
                 assert(statement.operands.size() == 3u);
                 const operand_t & a = statement.operands[1];
                 const operand_t & b = statement.operands[2];
@@ -1969,9 +1994,14 @@ void cuda_context_memcheck::instrument_block(block_t * block,
                 const operand_t va = make_validity_operand(a);
                 const operand_t vb = make_validity_operand(b);
 
+                const bool carry_in = (statement.op == op_addc) ||
+                    (statement.op == op_subc);
+
                 switch (statement.type) {
                     case f32_type:
                     case f64_type: {
+                        assert(!(carry_in));
+
                         /**
                          * If any bits are invalid, assume all are invalid.
                          */
@@ -2034,75 +2064,97 @@ void cuda_context_memcheck::instrument_block(block_t * block,
                         const type_t stype  = signed_of(width);
                         const type_t btype  = bitwise_of(width);
 
-                               if (va.is_constant() && vb.is_constant()) {
-                            aux.push_back(make_mov(
-                                bitwise_type(statement.type),
-                                make_validity_operand(d),
+                        assert(!(carry_in) || width == 4u);
+                        const operand_t vc =
+                            operand_t::make_identifier(__vcarry);
+
+                        std::vector<operand_t> vin;
+                        if (carry_in) {
+                            vin.push_back(vc);
+                        }
+
+                        if (!(va.is_constant())) {
+                            vin.push_back(va);
+                        }
+
+                        if (!(vb.is_constant())) {
+                            vin.push_back(vb);
+                        }
+
+                        bool constant = false;
+
+                        const operand_t tmp =
+                            make_temp_operand(stype, 0);
+                        const operand_t u =
+                            make_temp_operand(stype, 1);
+
+                        const size_t vsize = vin.size();
+                        if (vsize == 0) {
+                            aux.push_back(make_mov(btype, vd,
                                 operand_t::make_iconstant(0)));
-                        } else if (va.is_constant() && !(vb.is_constant())) {
-                            add_tmps[lwidth - 1u] = 1;
-
-                            const operand_t tmp =
-                                make_temp_operand(stype, 0);
-                            aux.push_back(make_neg(stype, tmp, vb));
-
-                            if (statement.op == op_mul &&
-                                    statement.width == width_wide) {
-                                /**
-                                 * Sign extend result.
-                                 */
-                                const type_t swtype  = signed_of(width * 2u);
-
-                                aux.push_back(make_or(btype, tmp, tmp, vb));
-                                aux.push_back(make_cvt(swtype, stype, vd, tmp,
-                                    false));
-                            } else {
-                                aux.push_back(make_or(btype, vd, tmp, vb));
-                            }
-                        } else if (!(va.is_constant()) && vb.is_constant()) {
-                            add_tmps[lwidth - 1u] = 1;
-
-                            const operand_t tmp =
-                                make_temp_operand(stype, 0);
-                            aux.push_back(make_neg(stype, tmp, va));
-
-                            if (statement.op == op_mul &&
-                                    statement.width == width_wide) {
-                                /**
-                                 * Sign extend result.
-                                 */
-                                const type_t swtype  = signed_of(width * 2u);
-
-                                aux.push_back(make_or(btype, tmp, tmp, va));
-                                aux.push_back(make_cvt(swtype, stype, vd, tmp,
-                                    false));
-                            } else {
-                                aux.push_back(make_or(btype, vd, tmp, va));
-                            }
+                            constant = true;
+                        } else if (vsize == 1 && carry_in) {
+                            /* Copy validity bits of carry flag. */
+                            aux.push_back(make_mov(btype, vd, vc));
+                            break;
                         } else {
                             assert(lwidth >= 1u);
                             assert(lwidth <= 4u);
-                            add_tmps[lwidth - 1u] = 2;
 
-                            const operand_t tmp =
-                                make_temp_operand(stype, 0);
-                            const operand_t u =
-                                make_temp_operand(stype, 1);
+                            operand_t blended;
 
-                            aux.push_back(make_or(btype, u, va, vb));
-                            aux.push_back(make_neg(stype, tmp, u));
+                            if (vsize == 1u) {
+                                add_tmps[lwidth - 1u] = 1;
+                                blended = vin[0];
+                            } else {
+                                assert(vsize >= 2u);
+                                add_tmps[lwidth - 1u] = 2;
+
+                                /* Blend inputs together. */
+                                blended = u;
+                                aux.push_back(
+                                    make_or(btype, u, vin[0], vin[1]));
+                                for (size_t i = 2; i < vsize; i++) {
+                                    aux.push_back(
+                                        make_or(btype, u, u, vin[i]));
+                                }
+                            }
+
+                            aux.push_back(make_neg(stype, tmp, blended));
+
                             if (statement.op == op_mul &&
                                     statement.width == width_wide) {
                                 /**
                                  * Sign extend result.
                                  */
                                 const type_t swtype  = signed_of(width * 2u);
+                                add_tmps[lwidth] = 1;
 
-                                aux.push_back(make_or(btype, tmp, tmp, u));
+                                aux.push_back(make_or(btype, tmp, tmp, blended));
                                 aux.push_back(make_cvt(swtype, stype, vd, tmp,
                                     false));
                             } else {
-                                aux.push_back(make_or(btype, vd, tmp, u));
+                                aux.push_back(make_or(btype, vd, tmp, blended));
+                            }
+                        }
+
+                        /* If instructed to carry-out, store the validity bits
+                         * of the carry flag by propagating the high bit. */
+                        if (statement.carry_out) {
+                            assert(statement.type == u32_type ||
+                                   statement.type == s32_type);
+                            assert(statement.op   == op_add  ||
+                                   statement.op   == op_addc ||
+                                   statement.op   == op_sub  ||
+                                   statement.op   == op_subc);
+
+                            if (constant) {
+                                /* Carry-out is wholly valid. */
+                                aux.push_back(make_mov(btype, vc,
+                                    operand_t::make_iconstant(0)));
+                            } else {
+                                aux.push_back(make_shr(stype, vc, vd,
+                                    operand_t::make_iconstant(31)));
                             }
                         }
 
@@ -3831,7 +3883,8 @@ void cuda_context_memcheck::instrument_block(block_t * block,
 
                 break; }
             case op_mad:
-            case op_mad24: {
+            case op_mad24:
+            case op_madc: {
                 assert(statement.operands.size() == 4u);
 
                 std::vector<operand_t> source_validity;
@@ -3866,11 +3919,29 @@ void cuda_context_memcheck::instrument_block(block_t * block,
                 const operand_t tmp = make_temp_operand(btype, 0);
                 const operand_t tmp1 = make_temp_operand(btype, 1);
 
+                const operand_t vc = operand_t::make_identifier(__vcarry);
+
                 const size_t vargs = source_validity.size();
+                const bool carry_in = (statement.op == op_madc);
                 if (vargs == 0) {
-                    /* No nonconstant arguments, so result is valid. */
-                    aux.push_back(make_mov(btype, vd,
-                        operand_t::make_iconstant(0)));
+                    if (carry_in) {
+                        /* Copy carry flag validity bits. */
+                        aux.push_back(make_mov(btype, vd, vc));
+
+                        /* Validity of carry-out is validity carry-in, so do
+                         * nothing. */
+                    } else {
+                        /* No nonconstant arguments, so result is valid. */
+                        aux.push_back(make_mov(btype, vd,
+                            operand_t::make_iconstant(0)));
+
+                        /* Clear carry out. */
+                        if (statement.carry_out) {
+                            aux.push_back(make_mov(btype, vc,
+                                operand_t::make_iconstant(0)));
+                        }
+                    }
+
                     break;
                 } else {
                     /* One or more nonconstant arguments, fold into a
@@ -3892,6 +3963,10 @@ void cuda_context_memcheck::instrument_block(block_t * block,
                         }
                     }
 
+                    /* Fold-in the carry bits. */
+                    if (carry_in) {
+                        aux.push_back(make_or(btype, tmp, tmp, vc));
+                    }
                 }
 
                 switch (statement.type) {
@@ -3913,9 +3988,22 @@ void cuda_context_memcheck::instrument_block(block_t * block,
                          */
                         aux.push_back(make_neg(stype, tmp1, tmp));
                         aux.push_back(make_or(btype, vd, tmp, tmp1));
+
+                        /**
+                         * Carry out.
+                         */
+                        if (statement.carry_out) {
+                            assert(statement.type == u32_type ||
+                                   statement.type == s32_type);
+                            aux.push_back(make_shr(stype, vc, vd,
+                                operand_t::make_iconstant(31)));
+                        }
+
                         break;
                     case f32_type:
                     case f64_type:
+                        assert(!(statement.carry_out));
+
                         /* Spread invalid bits across type. */
                         aux.push_back(make_cnot(btype, tmp, tmp));
                         aux.push_back(make_sub(stype, vd, tmp,

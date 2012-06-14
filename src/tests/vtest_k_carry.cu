@@ -70,10 +70,6 @@ TEST(CarryTest, AddSingle) {
     ret = cudaMemcpy(&hd, d, sizeof(*d), cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
-    /**
-     * TODO:  Do not suppress validity bits.
-     */
-    (void) VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(&hd, sizeof(hd));
     EXPECT_EQ(exp.x, hd.x);
     EXPECT_EQ(exp.y, hd.y);
 
@@ -81,10 +77,54 @@ TEST(CarryTest, AddSingle) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
-/**
- * TODO:  Add a validity check to see that we propagate invalid bits
- * during a carry operation.
- */
+TEST(CarryTest, AddInvalidityPropagation) {
+    if (!(RUNNING_ON_VALGRIND)) {
+        /* Skip test. */
+        return;
+    }
+
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    uint2 * d;
+    ret = cudaMalloc((void **) &d, sizeof(*d));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /* Mark the value is invalid to see it propagate. */
+    uint tmp = 0x00000002;
+    VALGRIND_MAKE_MEM_UNDEFINED(&tmp, sizeof(tmp));
+
+    const uint2 a   = make_uint2(0xFFFFFFFF, 0x0);
+    const uint2 b   = make_uint2(tmp,        0x0);
+    const uint2 exp = make_uint2(0x00000001, 0x1);
+
+    k_wide_add<<<1, 1, 0, stream>>>(d, a, b);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint2 hd;
+    BOOST_STATIC_ASSERT(sizeof(hd) == sizeof(*d));
+
+    ret = cudaMemcpy(&hd, d, sizeof(*d), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint2 vd;
+    BOOST_STATIC_ASSERT(sizeof(hd) == sizeof(vd));
+    VALGRIND_GET_VBITS(&hd, &vd, sizeof(vd));
+
+    EXPECT_EQ(0xFFFFFFFF, vd.x);
+    EXPECT_EQ(0xFFFFFFFF, vd.y);
+
+    ret = cudaFree(d);
+    ASSERT_EQ(cudaSuccess, ret);
+}
 
 template<typename T>
 static __device__ __inline__ T wide_sub(const T & a, const T & b) {
@@ -135,12 +175,57 @@ TEST(CarryTest, SubSingle) {
     ret = cudaMemcpy(&hd, d, sizeof(*d), cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
-    /**
-     * TODO:  Do not suppress validity bits.
-     */
-    (void) VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(&hd, sizeof(hd));
     EXPECT_EQ(exp.x, hd.x);
     EXPECT_EQ(exp.y, hd.y);
+
+    ret = cudaFree(d);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
+TEST(CarryTest, SubInvalidityPropagation) {
+    if (!(RUNNING_ON_VALGRIND)) {
+        /* Skip test. */
+        return;
+    }
+
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    uint2 * d;
+    ret = cudaMalloc((void **) &d, sizeof(*d));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /* Mark the value is invalid to see it propagate. */
+    uint tmp = 0x00000010;
+    VALGRIND_MAKE_MEM_UNDEFINED(&tmp, sizeof(tmp));
+
+    const uint2 a   = make_uint2(0x0000000F, 0x1);
+    const uint2 b   = make_uint2(tmp,        0x0);
+    const uint2 exp = make_uint2(0xFFFFFFFF, 0x0);
+
+    k_wide_sub<<<1, 1, 0, stream>>>(d, a, b);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint2 hd;
+    BOOST_STATIC_ASSERT(sizeof(hd) == sizeof(*d));
+
+    ret = cudaMemcpy(&hd, d, sizeof(*d), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint2 vd;
+    BOOST_STATIC_ASSERT(sizeof(hd) == sizeof(vd));
+    VALGRIND_GET_VBITS(&hd, &vd, sizeof(vd));
+
+    EXPECT_EQ(0xFFFFFFFF, vd.x);
+    EXPECT_EQ(0xFFFFFFFF, vd.y);
 
     ret = cudaFree(d);
     ASSERT_EQ(cudaSuccess, ret);
@@ -209,10 +294,6 @@ TEST(CarryTest, MulSingle) {
     ret = cudaMemcpy(&hd, d, sizeof(*d), cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
-    /**
-     * TODO:  Do not suppress validity bits.
-     */
-    (void) VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(&hd, sizeof(hd));
     EXPECT_EQ(exp.x, hd.x);
     EXPECT_EQ(exp.y, hd.y);
     EXPECT_EQ(exp.z, hd.z);
@@ -222,7 +303,55 @@ TEST(CarryTest, MulSingle) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+TEST(CarryTest, MulInvalidityPropagation) {
+    if (!(RUNNING_ON_VALGRIND)) {
+        /* Skip test. */
+        return;
+    }
 
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    uint4 * d;
+    ret = cudaMalloc((void **) &d, sizeof(*d));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /* Mark the value is invalid to see it propagate. */
+    uint tmp = 0x00000001;
+    VALGRIND_MAKE_MEM_UNDEFINED(&tmp, sizeof(tmp));
+
+    const uint2 a   = make_uint2(0x00000002, tmp);
+    const uint2 b   = make_uint2(0xFFFFFFFF, 0x00000000);
+    const uint4 exp = make_uint4(0xFFFFFFFE, 0x00000000, 0x1, 0x0);
+
+    k_wide_mul<<<1, 1, 0, stream>>>(d, a, b);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint4 hd;
+    BOOST_STATIC_ASSERT(sizeof(hd) == sizeof(*d));
+
+    ret = cudaMemcpy(&hd, d, sizeof(*d), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(d);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint4 vd;
+    VALGRIND_GET_VBITS(&hd, &vd, sizeof(hd));
+
+    EXPECT_EQ(0x00000000, vd.x);
+    EXPECT_EQ(0xFFFFFFFF, vd.y);
+    EXPECT_EQ(0xFFFFFFFF, vd.z);
+    EXPECT_EQ(0xFFFFFFFF, vd.w);
+}
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);

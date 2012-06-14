@@ -84,9 +84,6 @@ currently include:
   * Textures/Surfaces:  Texture/surface support is currently being tested, but
                         is not released.
 
-  * Extended Precision: Extended precision operations (addc, subc, madc) are
-                        not instrumented.
-
   * Video instructions: The video instructions (vadd, vsub, vabsdiff, vmin,
                         vmax, vshl, vshr, vmad, vset) are currently not
                         instrumented.
