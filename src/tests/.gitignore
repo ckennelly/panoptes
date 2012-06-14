@@ -45,6 +45,7 @@ vtest_hostgetflags
 vtest_hostregister
 vtest_hostunregister
 vtest_k_abs
+vtest_k_array
 vtest_k_ballot
 vtest_k_bitfield
 vtest_k_blas

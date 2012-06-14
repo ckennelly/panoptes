@@ -3314,6 +3314,11 @@ void cuda_context_memcheck::instrument_block(block_t * block,
                             new_src  = src;
                             new_vsrc = operand_t::make_identifier(
                                 make_validity_symbol(src.identifier[0]));
+                            if (src.op_type == operand_addressable) {
+                                new_vsrc.op_type = operand_addressable;
+                                new_vsrc.offset  = src.offset;
+                            }
+
                             break;
                         } else if (statement.space == shared_space) {
                             assert(src.identifier.size() == 1u);

@@ -169,6 +169,7 @@ paramArrayDimension : TOKEN_LBRACKET TOKEN_CONSTANT_DECIMAL TOKEN_RBRACKET {
     parser->function->param.array_size[
         parser->function->param.array_dimensions] = $<vsigned>2;
     parser->function->param.array_dimensions++;
+    parser->function->param.is_array = true;
 };
 
 optionalParamArray : /* */ | paramArrayDimension ;

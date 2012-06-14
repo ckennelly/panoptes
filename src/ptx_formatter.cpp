@@ -1051,7 +1051,7 @@ ostream & operator<<(ostream & o, const param_t & p) {
 
     if (p.is_array) {
         assert(p.array_dimensions == 1u);
-        o << "[" << p.array_size << "]";
+        o << "[" << p.array_size[0] << "]";
     }
 
     return o;
