@@ -6738,6 +6738,16 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
 }
 
 void cuda_context_memcheck::clear() {
+    for (stream_map_t::iterator it = streams_.begin();
+            it != streams_.end(); ++it) {
+        if (it->first) {
+            free_handle(it->first);
+        }
+
+        delete it->second;
+    }
+    streams_.clear();
+
     if (!(valgrind_)) {
         /* None of the operations below have any impact without Valgrind. */
         return;
