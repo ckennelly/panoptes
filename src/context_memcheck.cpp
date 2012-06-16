@@ -3650,7 +3650,7 @@ void global_context_memcheck::instrument_block(block_t * block,
                             const std::string not_valid_pred = "__panoptes_pred1";
 
                             aux.push_back(make_setp(upointer_type(),
-                                cmp_ge, valid_pred, not_valid_pred, limit,
+                                cmp_le, valid_pred, not_valid_pred, limit,
                                 original_ptr));
 
                             statement_t new_load = statement;
@@ -5310,7 +5310,7 @@ void global_context_memcheck::instrument_block(block_t * block,
                             }
 
                             aux.push_back(make_setp(upointer_type(),
-                                cmp_ge, valid_pred, limit, original_ptr));
+                                cmp_le, valid_pred, limit, original_ptr));
 
                             statement_t new_store = statement;
                             /**
