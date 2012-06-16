@@ -76,14 +76,6 @@ void worker(worker_data * data) {
 }
 
 TEST(Threads, PingPong) {
-    /**
-     * Initialize the context.
-     */
-    {
-        cudaError_t ret = cudaFree(0);
-        ASSERT_EQ(cudaSuccess, ret);
-    }
-
     const size_t n_threads = 2;
 
     ptr_vector_t addresses(n_threads, NULL);
