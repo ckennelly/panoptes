@@ -60,9 +60,16 @@ cuda_context & global_context::context() {
 
     assert(device < devices_);
     cuda_context * ctx = device_contexts_[device];
+    thread_info_t * local = threads_.get();
+    assert(local);
+
     if (!(ctx)) {
         ctx = factory(static_cast<int>(device), device_flags_[device]);
         device_contexts_[device] = ctx;
+    } else if (!(local->set_on_thread)) {
+        CUresult ret = cuCtxSetCurrent(ctx->ctx_);
+        assert(ret == CUDA_SUCCESS);
+        local->set_on_thread = true;
     }
 
     return *ctx;
@@ -76,9 +83,16 @@ const cuda_context & global_context::context() const {
     assert(device < devices_);
 
     cuda_context * ctx = device_contexts_[device];
+    thread_info_t * local = threads_.get();
+    assert(local);
+
     if (!(ctx)) {
         ctx = factory(static_cast<int>(device), device_flags_[device]);
         device_contexts_[device] = ctx;
+    } else if (!(local->set_on_thread)) {
+        CUresult ret = cuCtxSetCurrent(ctx->ctx_);
+        assert(ret == CUDA_SUCCESS);
+        local->set_on_thread = true;
     }
 
     return *ctx;
@@ -116,7 +130,8 @@ global_context::global_context() {
     device_flags_   .resize(devices_, 0);
 }
 
-global_context::thread_info_t::thread_info_t() : device(0) { }
+global_context::thread_info_t::thread_info_t() : device(0),
+    set_on_thread(false) { }
 
 global_context::thread_info_t * global_context::current() {
     thread_info_t * local = threads_.get();
@@ -675,7 +690,19 @@ cudaError_t global_context::cudaSetDevice(int device) {
         return cudaErrorInvalidDevice;
     }
 
-    current()->device = udevice;
+    thread_info_t * local = current();
+    local->device = udevice;
+
+    if (local->set_on_thread) {
+        cuda_context * ctx = device_contexts_[udevice];
+        if (ctx) {
+            CUresult ret = cuCtxSetCurrent(ctx->ctx_);
+            assert(ret == CUDA_SUCCESS);
+        } else {
+            local->set_on_thread = false;
+        }
+    } // else: defer until use
+
     return cudaSuccess;
 }
 

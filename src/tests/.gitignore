@@ -119,6 +119,7 @@ vtest_streamcreate
 vtest_streamquery
 vtest_streamsynchronize
 vtest_streamwaitevent
+vtest_threads
 vtest_unbindtexture
 *.cpp1.ii
 *.cpp2.i

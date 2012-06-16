@@ -20,6 +20,7 @@
 #define __PANOPTES__CONTEXT_H__
 
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/tss.hpp>
 #include <boost/unordered_map.hpp>
 #include <cuda.h>
 #include "host_gpu_vector.h"
@@ -266,7 +267,16 @@ protected:
     /**
      * Call argument stack
      */
-    std::stack<internal::call_t *> call_stack_;
+    typedef std::stack<internal::call_t *> call_stack_t;
+    struct td {
+        ~td();
+        call_stack_t call_stack;
+    };
+private:
+    boost::thread_specific_ptr<td> thread_data_;
+protected:
+    td & thread_data();
+    call_stack_t & call_stack();
 
     /**
      * The cuda_context has state which needs to be protected against concurrent updates.

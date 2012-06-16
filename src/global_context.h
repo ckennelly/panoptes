@@ -160,6 +160,7 @@ protected:
         thread_info_t();
 
         unsigned device;
+        bool set_on_thread;
     };
     mutable boost::thread_specific_ptr<thread_info_t> threads_;
           thread_info_t * current();

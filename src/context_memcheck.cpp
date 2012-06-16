@@ -5699,6 +5699,15 @@ void global_context_memcheck::instrument_block(block_t * block,
     }
 }
 
+cuda_context_memcheck::td & cuda_context_memcheck::thread_data() {
+    td * t = thread_data_.get();
+    if (!(t)) {
+        t = new td();
+        thread_data_.reset(t);
+    }
+    return *t;
+}
+
 cudaError_t cuda_context_memcheck::cudaConfigureCall(dim3 gridDim,
         dim3 blockDim, size_t sharedMem, cudaStream_t stream) {
     /**
@@ -5708,24 +5717,20 @@ cudaError_t cuda_context_memcheck::cudaConfigureCall(dim3 gridDim,
     cudaStream_t real_stream;
     void ** handle = reinterpret_cast<void **>(stream);
 
-    {
-        // Scope of lock
-        scoped_lock lock(mx_);
+    scoped_lock lock(mx_);
+    stream_map_t::iterator sit = streams_.find(handle);
+    if (sit == streams_.end()) {
+        char msg[128];
+        int ret = snprintf(msg, sizeof(msg),
+            "cudaConfigureCall called with invalid stream\n");
+        // sizeof(msg) is small, so the cast is safe.
+        assert(ret < (int) sizeof(msg) - 1);
+        logger::instance().print(msg);
 
-        stream_map_t::iterator sit = streams_.find(handle);
-        if (sit == streams_.end()) {
-            char msg[128];
-            int ret = snprintf(msg, sizeof(msg),
-                "cudaConfigureCall called with invalid stream\n");
-            // sizeof(msg) is small, so the cast is safe.
-            assert(ret < (int) sizeof(msg) - 1);
-            logger::instance().print(msg);
-
-            return cudaErrorInvalidConfiguration;
-        } else {
-            real_stream = sit->second->stream;
-            stream_stack_.push(sit->second);
-        }
+        return cudaErrorInvalidConfiguration;
+    } else {
+        real_stream = sit->second->stream;
+        thread_data().stream_stack.push(sit->second);
     }
 
     return cuda_context::cudaConfigureCall(gridDim, blockDim, sharedMem,
@@ -8124,6 +8129,7 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
         return cudaErrorUnknown;
     }
 
+    scoped_lock lock(mx_);
     internal::check_t * checker = new internal::check_t(this,
         get_entry_name(entry));
     /**
@@ -8146,7 +8152,7 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
         return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
-    if (call_stack_.size() == 0) {
+    if (call_stack().size() == 0) {
         /**
          * This isn't a specified return value in the CUDA 4.x documentation
          * for cudaLaunch, but this has been experimentally validated.
@@ -8155,11 +8161,10 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
         return cudaErrorInvalidConfiguration;
     }
 
-    /* TODO:  We should hold a lock. */
     const size_t pcount = it->second.user_params;
     size_t offset = it->second.user_param_size;
 
-    internal::call_t * call = call_stack_.top();
+    internal::call_t * call = call_stack().top();
 
     { /* Shared memory */
     uintptr_t shared = call->sharedMem;
@@ -8203,7 +8208,7 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
         delete checker;
 
         delete call;
-        call_stack_.pop();
+        call_stack().pop();
 
         return cudaErrorInvalidValue;
     }
@@ -8218,7 +8223,7 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
             if (arg->size + arg->offset > sizeof(buffer)) {
                 delete checker;
                 delete call;
-                call_stack_.pop();
+                call_stack().pop();
 
                 return cudaErrorInvalidValue;
             }
@@ -8249,16 +8254,16 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
     }
 
     cudaError_t ret = cuda_context::cudaLaunch(entry);
-    scoped_lock lock(mx_);
+    td & d = thread_data();
     if (ret != cudaSuccess) {
-        stream_stack_.pop();
+        d.stream_stack.pop();
         delete checker;
         return ret;
     }
 
     /* Add an event of our own onto the stream. */
-    internal::stream_t * cs = stream_stack_.top();
-    stream_stack_.pop();
+    internal::stream_t * cs = d.stream_stack.top();
+    d.stream_stack.pop();
 
     assert(cs);
     try {
@@ -8270,6 +8275,8 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
 
     return ret;
 }
+
+cuda_context_memcheck::td::~td() { }
 
 cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
         const struct textureReference *texref, const void *devPtr,

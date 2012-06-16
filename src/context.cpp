@@ -50,12 +50,15 @@ cuda_context::cuda_context(global_context * ctx, int device,
     assert(vret == cudaSuccess);
 }
 
-cuda_context::~cuda_context() {
+cuda_context::td::~td() {
     // Cleanup call stack.
-    while (!(call_stack_.empty())) {
-        delete call_stack_.top();
-        call_stack_.pop();
+    while (!(call_stack.empty())) {
+        delete call_stack.top();
+        call_stack.pop();
     }
+}
+
+cuda_context::~cuda_context() {
 
     // Ignore this result.  There is little we can do to change
     // things at this point
@@ -64,6 +67,7 @@ cuda_context::~cuda_context() {
 
 cudaError_t cuda_context::cudaConfigureCall(dim3 gridDim, dim3 blockDim,
         size_t sharedMem, cudaStream_t stream) {
+    scoped_lock lock(mx_);
     internal::call_t * call = new internal::call_t();
     call->gridDim   = gridDim;
     call->blockDim  = blockDim;
@@ -75,8 +79,8 @@ cudaError_t cuda_context::cudaConfigureCall(dim3 gridDim, dim3 blockDim,
     call->sharedMem = static_cast<uint32_t>(sharedMem & 0xFFFFFFFF);
     call->stream    = stream;
 
-    scoped_lock lock(mx_);
-    call_stack_.push(call);
+    call_stack_t & cs = thread_data().call_stack;
+    cs.push(call);
 
     /**
      * TODO:  Cache sufficient information about the current device to be able
@@ -89,7 +93,8 @@ cudaError_t cuda_context::cudaConfigureCall(dim3 gridDim, dim3 blockDim,
 cudaError_t cuda_context::cudaLaunch(const char *entry) {
     scoped_lock lock(mx_);
 
-    if (call_stack_.size() == 0) {
+    call_stack_t & cs = thread_data().call_stack;
+    if (cs.size() == 0) {
         /**
          * This isn't a specified return value in the CUDA 4.x documentation
          * for cudaLaunch, but this has been experimentally validated.
@@ -140,8 +145,9 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
     }
 
     const internal::module_t::function_t & config = config_it->second;
-    boost::scoped_ptr<internal::call_t> call(call_stack_.top());
-    call_stack_.pop();
+    td & d = thread_data();
+    boost::scoped_ptr<internal::call_t> call(d.call_stack.top());
+    d.call_stack.pop();
 
     const CUfunction & func = config.function;
 
@@ -238,7 +244,8 @@ cudaError_t cuda_context::cudaSetupArgument(const void *arg, size_t size,
         size_t offset) {
     scoped_lock lock(mx_);
 
-    if (call_stack_.size() == 0) {
+    td & d = thread_data();
+    if (d.call_stack.size() == 0) {
         /**
          * According to the CUDA 4.0 documentation, cudaSetupArgument always
          * returns cudaSuccess *but* requires that cudaConfigureCall is called
@@ -252,7 +259,7 @@ cudaError_t cuda_context::cudaSetupArgument(const void *arg, size_t size,
     }
 
     internal::arg_t * arg_copy = new internal::arg_t(arg, size, offset);
-    call_stack_.top()->args.push_back(arg_copy);
+    d.call_stack.top()->args.push_back(arg_copy);
 
     return setLastError(cudaSuccess);
 }
@@ -1461,3 +1468,16 @@ cudaError_t cuda_context::setLastError(cudaError_t error) const {
 }
 
 void cuda_context::clear() { }
+
+cuda_context::td & cuda_context::thread_data() {
+    td * t = thread_data_.get();
+    if (!(t)) {
+        t = new td();
+        thread_data_.reset(t);
+    }
+    return *t;
+}
+
+cuda_context::call_stack_t & cuda_context::call_stack() {
+    return thread_data().call_stack;
+}

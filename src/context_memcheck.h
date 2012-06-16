@@ -445,7 +445,12 @@ private:
     /**
      * Keep track of streams in-use for call stacks.
      */
-    std::stack<internal::stream_t *> stream_stack_;
+    struct td {
+        ~td();
+        std::stack<internal::stream_t *> stream_stack;
+    };
+    boost::thread_specific_ptr<td> thread_data_;
+    td & thread_data();
 
     /**
      * Error reporting buffers.
@@ -463,6 +468,11 @@ private:
      * The page size.
      */
     const size_t pagesize_;
+
+    /**
+     * A mutex of our own.
+     */
+    mutable boost::mutex mx_;
 };
 
 } // end namespace panoptes
