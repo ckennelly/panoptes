@@ -102,6 +102,75 @@ TEST(Threads, PingPong) {
     }
 }
 
+/**
+ * This test coordinates two threads taking turns interacting with the CUDA
+ * Runtime API as to distinguish whether the threads share the same call stack.
+ *
+ * One thread attempts to configure the stack; the other attempts to use that
+ * stack.  If they do not share common state, both will fail.
+ */
+struct turnstile_data {
+    boost::mutex * mx;
+    size_t rank;
+};
+
+static __global__ void k_noop() { }
+
+void turnstile_worker(turnstile_data * data) {
+    ASSERT_GE(1, data->rank);
+
+    cudaError_t ret;
+    dim3 grid(32, 1, 1);
+    dim3 block(256, 1, 1);
+
+    boost::mutex & here  = data->mx[data->rank    ];
+    boost::mutex & there = data->mx[data->rank ^ 1];
+
+    for (int i = 0; i < 1024; i++) {
+        here.lock();
+
+        switch (data->rank) {
+            case 0:
+                ret = cudaConfigureCall(grid, block, 0, 0);
+                EXPECT_EQ(cudaSuccess, ret);
+                break;
+            case 1:
+                ret = cudaLaunch(k_noop);
+                EXPECT_EQ(cudaErrorInvalidConfiguration, ret);
+                break;
+        }
+
+        /* Unlock the other thread. */
+        there.unlock();
+    }
+}
+
+TEST(Threads, Turnstile) {
+    const size_t n_threads = 2;
+
+    boost::mutex mx[2];
+    mx[1].lock();
+
+    turnstile_data default_data;
+    default_data.mx = mx;
+
+    std::vector<turnstile_data> data(n_threads, default_data);
+    std::vector<boost::thread *> threads(n_threads);
+
+    /* Start workers. */
+    for (size_t i = 0; i < n_threads; i++) {
+        data[i].rank = i;
+
+        threads[i] = new boost::thread(turnstile_worker, &data[i]);
+    }
+
+    /* Stop workers. */
+    for (size_t i = 0; i < n_threads; i++) {
+        threads[i]->join();
+        delete threads[i];
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
