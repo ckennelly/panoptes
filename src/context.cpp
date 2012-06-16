@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <__cudaFatFormat.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/thread/locks.hpp>
@@ -26,27 +25,23 @@
 #include <cstdio>
 #include <cstring>
 #include <cuda.h>
-#include "fat_binary.h"
+#include "global_context.h"
 #include "logger.h"
-#include "ptx_formatter.h"
-#include "ptx_ir.h"
-#include "ptx_parser.h"
 #include <signal.h>
 #include <sstream>
-#include "thread_context.h"
 #include <valgrind/memcheck.h>
 
 using namespace panoptes;
 
 typedef boost::unique_lock<boost::mutex> scoped_lock;
+typedef global_context global_t;
 
-cuda_context::cuda_context(int device) :
-        info_loaded_(false), device_(device) {
-    /**
-     * TODO:  Accept scheduling arguments.
-     */
-    CUresult ret = cuCtxGetCurrent(&ctx_);
+cuda_context::cuda_context(global_context * ctx, int device,
+        unsigned int flags) : info_loaded_(false), device_(device),
+        global_(ctx), error_(cudaSuccess) {
+    CUresult ret = cuCtxCreate(&ctx_, flags, device);
     assert(ret == CUDA_SUCCESS);
+    ctx->load_ptx();
 
     /**
      * Load version.
@@ -56,15 +51,6 @@ cuda_context::cuda_context(int device) :
 }
 
 cuda_context::~cuda_context() {
-    // Iterate over module registry to clean up
-    for (module_map_t::iterator it = modules_.begin();
-            it != modules_.end(); ++it) {
-        if (it->second->handle_owned) {
-            free_handle(it->first);
-        }
-        delete it->second;
-    }
-
     // Cleanup call stack.
     while (!(call_stack_.empty())) {
         delete call_stack_.top();
@@ -97,7 +83,7 @@ cudaError_t cuda_context::cudaConfigureCall(dim3 gridDim, dim3 blockDim,
      *        to return cudaErrorInvalidConfiguration here rather than at
      *        launch.
      */
-    return thread_context::instance().setLastError(cudaSuccess);
+    return setLastError(cudaSuccess);
 }
 
 cudaError_t cuda_context::cudaLaunch(const char *entry) {
@@ -114,30 +100,31 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
     /**
      * Find the containing module.
      */
-    function_map_t::const_iterator fit = functions_.find(entry);
-    if (fit == functions_.end()) {
+    global_t * const g = global();
+    global_t::function_map_t & functions = g->functions_;
+    global_t::function_map_t::const_iterator fit = functions.find(entry);
+    if (fit == functions.end()) {
         if (!(entry)) {
             /* Fail fast. */
-            return thread_context::instance().setLastError(
-                cudaErrorInvalidDeviceFunction);
+            return setLastError(cudaErrorInvalidDeviceFunction);
         }
 
         /**
          * Try to interpret the entry as an entry name.
          */
-        function_name_map_t::const_iterator nit = function_names_.find(entry);
-        if (nit == function_names_.end()) {
-            return thread_context::instance().setLastError(
-                cudaErrorInvalidDeviceFunction);
+        global_t::function_name_map_t & fnames = g->function_names_;
+        global_t::function_name_map_t::const_iterator nit =
+            fnames.find(entry);
+        if (nit == fnames.end()) {
+            return setLastError(cudaErrorInvalidDeviceFunction);
         }
 
         entry = nit->second;
 
         /* Retry. */
-        fit = functions_.find(entry);
-        if (fit == functions_.end()) {
-            return thread_context::instance().setLastError(
-                cudaErrorInvalidDeviceFunction);
+        fit = functions.find(entry);
+        if (fit == functions.end()) {
+            return setLastError(cudaErrorInvalidDeviceFunction);
         }
     }
 
@@ -149,8 +136,7 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
     internal::module_t::function_map_t::const_iterator config_it =
         fit->second->functions.find(entry);
     if (config_it == fit->second->functions.end()) {
-        return thread_context::instance().setLastError(
-            cudaErrorInvalidDeviceFunction);
+        return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
     const internal::module_t::function_t & config = config_it->second;
@@ -245,424 +231,7 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
             break;
     }
 
-    return thread_context::instance().setLastError(ret_);
-}
-
-void** cuda_context::cudaRegisterFatBinary(void *fatCubin) {
-    scoped_lock lock(mx_);
-
-    /**
-     * Check if it has already been registered.
-     */
-    fatbin_map_t::const_iterator it = fatbins_.find(fatCubin);
-    if (it != fatbins_.end()) {
-        return it->second;
-    }
-
-    /**
-     * Fat binaries contain an integer magic cookie.  Versions are
-     * distinguished by differing values.  See also GPU Ocelot's implementation
-     * of cuda::FatBinaryContext::FatBinaryContext, on which this is based.
-     */
-    const int    magic  = *(reinterpret_cast<int *>(fatCubin));
-    const char * ptx    = NULL;
-
-    if (magic == __cudaFatMAGIC) {
-        /* This parsing strategy follows from __cudaFatFormat.h */
-
-        const __cudaFatCudaBinary * handle =
-            static_cast<const __cudaFatCudaBinary *>(fatCubin);
-        /* TODO Handle gracefully */
-        assert(handle->ptx);
-        assert(handle->ptx[0].ptx);
-
-        unsigned best_version = 0;
-
-        for (unsigned i = 0; ; i++) {
-            if (!(handle->ptx[i].ptx)) {
-                break;
-            }
-
-            /* Grab compute capability in the form "compute_xy" */
-            std::string profile_name = handle->ptx[i].gpuProfileName;
-            std::string string_version(
-                profile_name.begin() + sizeof("compute_") - 1,
-                profile_name.end());
-
-            if (profile_name.size() > 10) {
-                char msg[128];
-                int msgret = snprintf(msg, sizeof(msg),
-                    "Compute mode is too long (%zu bytes).",
-                    profile_name.size());
-                // sizeof(msg) is small, so the cast is safe.
-                assert(msgret < (int) sizeof(msg) - 1);
-                logger::instance().print(msg);
-
-                exit(1);
-            }
-
-            unsigned numeric_version;
-            try {
-                numeric_version = boost::lexical_cast<unsigned>(
-                    string_version);
-            } catch (boost::bad_lexical_cast) {
-                char msg[128];
-                int msgret = snprintf(msg, sizeof(msg),
-                    "Unable to parse compute mode '%s'.",
-                    handle->ptx[i].gpuProfileName);
-                // sizeof(msg) is small, so the cast is safe.
-                assert(msgret < (int) sizeof(msg) - 1);
-                logger::instance().print(msg);
-
-                exit(1);
-            }
-
-            if (numeric_version > best_version) {
-                best_version    = numeric_version;
-                ptx             = handle->ptx[i].ptx;
-            }
-        }
-    } else if (magic == __cudaFatMAGIC2) {
-        /* This follows from GPU Ocelot */
-        const __cudaFatCudaBinary2 * handle =
-            static_cast<const __cudaFatCudaBinary2 *>(fatCubin);
-        const __cudaFatCudaBinary2Header * header =
-            reinterpret_cast<const __cudaFatCudaBinary2Header *>(
-                handle->fatbinData);
-
-        const char * base = reinterpret_cast<const char *>(header + 1);
-        unsigned long long offset = 0;
-
-        const __cudaFatCudaBinary2Entry * entry =
-            reinterpret_cast<const __cudaFatCudaBinary2Entry *>(base);
-        while (!(entry->type & FATBIN_2_PTX) && offset < header->length) {
-            entry   = reinterpret_cast<const __cudaFatCudaBinary2Entry *>(
-                base + offset);
-            offset  = entry->binary + entry->binarySize;
-        }
-
-        ptx = reinterpret_cast<const char *>(entry) + entry->binary;
-    } else {
-        char msg[128];
-        int msgret = snprintf(msg, sizeof(msg),
-            "Unknown cubin magic number '%08X'.", magic);
-        // sizeof(msg) is small, so the cast is safe.
-        assert(msgret < (int) sizeof(msg) - 1);
-        logger::instance().print(msg);
-
-        exit(1);
-    }
-
-    assert(ptx);
-
-    internal::module_t * module = new internal::module_t();
-    module->handle_owned = true;
-
-    ptx_parser      parser;
-
-    std::string _ptx(ptx);
-    parser.parse(_ptx, &module->ptx);
-
-    void** handle = create_handle();
-    instrument(handle, &module->ptx);
-
-    std::stringstream ss;
-    ss << module->ptx;
-
-    CUresult ret = cuModuleLoadData(&module->module, ss.str().c_str());
-
-    /**
-     * TODO:  Handle this failure more gracefully.
-     */
-    assert(ret == CUDA_SUCCESS);
-    if (ret != CUDA_SUCCESS) {
-        delete handle;
-        delete module;
-        return NULL;
-    }
-
-    /**
-     * Register the module.
-     */
-    modules_.insert(module_map_t::value_type(handle, module));
-
-    /* Note fatCubins. */
-    fatbins_.insert(fatbin_map_t::value_type(fatCubin, handle));
-    ifatbins_.insert(fatbin_imap_t::value_type(handle, fatCubin));
-
-    return handle;
-}
-
-bool cuda_context::insert_ptx(void ** handle, const ptx_t * ptx) {
-    std::stringstream ss;
-    ss << *ptx;
-
-    internal::module_t * module = new internal::module_t();
-    module->handle_owned = false;
-    CUresult ret = cuModuleLoadData(&module->module, ss.str().c_str());
-
-    /**
-     * TODO:  Handle this failure more gracefully.
-     */
-    assert(ret == CUDA_SUCCESS);
-    if (ret != CUDA_SUCCESS) {
-        delete module;
-        return false;
-    }
-
-    /**
-     * Register the module.
-     */
-    modules_.insert(module_map_t::value_type(handle, module));
-
-    return true;
-}
-
-void** cuda_context::cudaUnregisterFatBinary(void **fatCubinHandle) {
-    scoped_lock lock(mx_);
-
-    fatbin_imap_t::iterator iit = ifatbins_.find(fatCubinHandle);
-    if (iit == ifatbins_.end()) {
-        return NULL;
-    }
-
-    void* fatCubin = iit->second;
-
-    fatbin_map_t::iterator it = fatbins_.find(fatCubin);
-    assert(it != fatbins_.end());
-
-     fatbins_.erase( it);
-    ifatbins_.erase(iit);
-
-    module_map_t::iterator mit = modules_.find(fatCubinHandle);
-    if (mit != modules_.end()) {
-        delete mit->second;
-        modules_.erase(mit);
-    }
-
-    free_handle(fatCubinHandle);
-
-    /** TODO:  It is not clear what needs to be returned here */
-    return NULL;
-}
-
-void cuda_context::cudaRegisterFunction(void **fatCubinHandle,
-        const char *hostFun, char *deviceFun, const char *deviceName,
-        int thread_limit, uint3 *tid, uint3 *bid, dim3 *bDim, dim3 *gDim,
-        int *wSize) {
-    scoped_lock lock(mx_);
-
-    /**
-     * Check for registration.
-     */
-    module_map_t::const_iterator it = modules_.find(fatCubinHandle);
-    if (it == modules_.end()) {
-        /**
-         * We cannot signal an error here, but it the kernel will fail to
-         * launch when attempted.
-         */
-        return;
-    }
-
-    internal::module_t::function_map_t::const_iterator fit =
-        it->second->functions.find(hostFun);
-    if (fit != it->second->functions.end()) {
-        /**
-         * Already registered.
-         */
-        return;
-    }
-
-    internal::module_t::function_t reg;
-    reg.deviceFun       = deviceFun;
-    reg.deviceName      = deviceName;
-    reg.thread_limit    = thread_limit;
-    reg.tid             = tid;
-    reg.bid             = bid;
-    reg.bDim            = bDim;
-    reg.gDim            = gDim;
-    reg.wSize           = wSize;
-
-    CUresult ret = cuModuleGetFunction(&reg.function,
-        it->second->module, deviceName);
-    if (ret != CUDA_SUCCESS) {
-        /**
-         * Panoptes should properly manage its interactions to the driver API
-         * such that this is the only failure mode, if any.
-         */
-        assert(ret == CUDA_ERROR_NOT_FOUND);
-        return;
-    }
-
-    it->second->functions.insert(
-        internal::module_t::function_map_t::value_type(hostFun, reg));
-    functions_.insert(function_map_t::value_type(hostFun, it->second));
-    function_names_.insert(
-        function_name_map_t::value_type(deviceName, hostFun));
-}
-
-void cuda_context::cudaRegisterTexture(void **fatCubinHandle,
-        const struct textureReference *hostVar, const void **deviceAddress,
-        const char *deviceName, int dim, int norm, int ext) {
-    scoped_lock lock(mx_);
-
-    /**
-     * Check for registration.
-     */
-    module_map_t::const_iterator it = modules_.find(fatCubinHandle);
-    if (it == modules_.end()) {
-        /**
-         * CUDA SIGSEGV's here.
-         */
-        raise(SIGSEGV);
-        return;
-    }
-
-    internal::module_t::texture_map_t::const_iterator vit =
-        it->second->textures.find(hostVar);
-    if (vit != it->second->textures.end()) {
-        /**
-         * Already registered.
-         */
-        return;
-    }
-
-    internal::module_t::texture_t * reg = new internal::module_t::texture_t();
-    reg->hostVar        = hostVar;
-    reg->deviceAddress  = deviceAddress;
-    reg->deviceName     = deviceName;
-    reg->dim            = dim;
-    reg->norm           = norm;
-    reg->ext            = ext;
-
-    for (int i = 0; i < dim; i++) {
-        CUaddress_mode mode;
-        switch (hostVar->addressMode[dim]) {
-            case cudaAddressModeWrap:
-                mode = CU_TR_ADDRESS_MODE_WRAP;
-                break;
-            case cudaAddressModeClamp:
-                mode = CU_TR_ADDRESS_MODE_CLAMP;
-                break;
-            case cudaAddressModeMirror:
-                mode = CU_TR_ADDRESS_MODE_MIRROR;
-                break;
-            case cudaAddressModeBorder:
-                mode = CU_TR_ADDRESS_MODE_BORDER;
-                break;
-        }
-
-        CUresult ret = cuTexRefSetAddressMode(reg->texref, dim, mode);
-        if (ret != CUDA_SUCCESS) {
-            /* TODO Don't ignore failure */
-            continue;
-        }
-    }
-
-    { // Filter mode
-        CUfilter_mode mode;
-        switch (hostVar->filterMode) {
-            case cudaFilterModePoint:
-                mode = CU_TR_FILTER_MODE_POINT;
-                break;
-            case cudaFilterModeLinear:
-                mode = CU_TR_FILTER_MODE_LINEAR;
-                break;
-        }
-
-        /* TODO Don't ignore result. */
-        (void) cuTexRefSetFilterMode(reg->texref, mode);
-    }
-
-    /* TODO CU_TRSF_READ_AS_INTEGER */
-
-    if (hostVar->normalized) {
-        /* TODO Don't ignore result. */
-        (void) cuTexRefSetFlags(reg->texref, CU_TRSF_NORMALIZED_COORDINATES);
-    }
-
-    if (hostVar->sRGB) {
-        /* TODO Don't ignore result. */
-        (void) cuTexRefSetFlags(reg->texref, CU_TRSF_SRGB);
-    }
-
-    it->second->textures.insert(
-        internal::module_t::texture_map_t::value_type(hostVar, reg));
-    textures_.insert(texture_map_t::value_type(hostVar, it->second));
-    texture_names_.insert(
-        texture_name_map_t::value_type(deviceName, hostVar));
-}
-
-void cuda_context::cudaRegisterVar(void **fatCubinHandle,char *hostVar,
-        char *deviceAddress, const char *deviceName, int ext, int size,
-        int constant, int global) {
-    (void) deviceAddress;
-    scoped_lock lock(mx_);
-
-    /**
-     * Check for registration.
-     */
-    module_map_t::const_iterator it = modules_.find(fatCubinHandle);
-    if (it == modules_.end()) {
-        /**
-         * CUDA SIGSEGV's here.
-         */
-        raise(SIGSEGV);
-        return;
-    }
-
-    internal::module_t::variable_map_t::const_iterator vit =
-        it->second->variables.find(hostVar);
-    if (vit != it->second->variables.end()) {
-        /**
-         * Already registered.
-         */
-        return;
-    }
-
-    CUdeviceptr dptr;
-    size_t bytes;
-
-    CUresult ret = cuModuleGetGlobal(&dptr, &bytes, it->second->module,
-        deviceName);
-    if (ret == CUDA_ERROR_NOT_FOUND) {
-        char msg[256];
-        int sret = snprintf(msg, sizeof(msg), "Attempting to register "
-            "nonexistent symbol '%s' associated with fatbin handle %p "
-            "with cudaRegisterVar.", deviceName, fatCubinHandle);
-        assert(sret < (int) sizeof(msg));
-        logger::instance().print(msg);
-
-        return;
-    } else if (ret != CUDA_SUCCESS) {
-        /* Ignore the error. */
-        return;
-    }
-
-    internal::module_t::variable_t reg;
-    reg.hostVar         = hostVar;
-    reg.deviceAddress   = (char *) dptr;
-    reg.deviceName      = deviceName;
-    reg.ext             = ext;
-    reg.size            = bytes; /* Ignore the size the user told us. */
-    reg.constant        = constant;
-    reg.global          = global;
-
-    if (size < 0 || bytes != (size_t) size) {
-        char msg[128];
-        int msgret = snprintf(msg, sizeof(msg),
-            "cudaRegisterVar registered a size (%d) different from the actual "
-            "size (%zu) of the variable.", size, bytes);
-        // sizeof(msg) is small, so the cast is safe.
-        assert(msgret < (int) sizeof(msg) - 1);
-        logger::instance().print(msg);
-    }
-
-    it->second->variables.insert(
-        internal::module_t::variable_map_t::value_type(hostVar, reg));
-    variables_.insert(variable_map_t::value_type(hostVar, it->second));
-    variable_names_.insert(
-        variable_name_map_t::value_type(deviceName, hostVar));
+    return setLastError(ret_);
 }
 
 cudaError_t cuda_context::cudaSetupArgument(const void *arg, size_t size,
@@ -679,14 +248,13 @@ cudaError_t cuda_context::cudaSetupArgument(const void *arg, size_t size,
          * CUDA 4.1 SIGSEGV's
          */
         raise(SIGSEGV);
-        return thread_context::instance().setLastError(
-            cudaErrorMissingConfiguration);
+        return setLastError(cudaErrorMissingConfiguration);
     }
 
     internal::arg_t * arg_copy = new internal::arg_t(arg, size, offset);
     call_stack_.top()->args.push_back(arg_copy);
 
-    return thread_context::instance().setLastError(cudaSuccess);
+    return setLastError(cudaSuccess);
 }
 
 cudaError_t cuda_context::cudaThreadGetCacheConfig(
@@ -713,21 +281,6 @@ cudaError_t cuda_context::cudaThreadSynchronize() {
     return cudaDeviceSynchronize();
 }
 
-/**
- * Opaque handle strategy:  Allocate a void* and then mark it as inaccessible
- * to Valgrind.
- */
-void** cuda_context::create_handle() const {
-    void** ret = new void*();
-    (void) VALGRIND_MAKE_MEM_NOACCESS(ret, sizeof(void*));
-    return ret;
-}
-
-void cuda_context::free_handle(void ** handle) const {
-    (void) VALGRIND_MAKE_MEM_UNDEFINED(handle, sizeof(void**));
-    delete handle;
-}
-
 cudaError_t cuda_context::cudaBindSurfaceToArray(
         const struct surfaceReference *surfref, const struct cudaArray *array,
         const struct cudaChannelFormatDesc *desc) {
@@ -739,8 +292,9 @@ cudaError_t cuda_context::cudaBindTexture(size_t *offset,
         const struct cudaChannelFormatDesc *desc, size_t size) {
     scoped_lock lock(mx_);
 
-    texture_map_t::const_iterator it = textures_.find(texref);
-    if (it == textures_.end()) {
+    global_t::texture_map_t::const_iterator it =
+        global_->textures_.find(texref);
+    if (it == global_->textures_.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
     }
@@ -828,8 +382,9 @@ cudaError_t cuda_context::cudaBindTextureToArray(
         const struct cudaChannelFormatDesc *desc) {
     scoped_lock lock(mx_);
 
-    texture_map_t::const_iterator it = textures_.find(texref);
-    if (it == textures_.end()) {
+    global_t::texture_map_t::const_iterator it =
+        global_->textures_.find(texref);
+    if (it == global_->textures_.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
     }
@@ -900,10 +455,6 @@ cudaError_t cuda_context::cudaDeviceGetLimit(size_t *pValue,
     return callout::cudaDeviceGetLimit(pValue, limit);
 }
 
-cudaError_t cuda_context::cudaDeviceReset() {
-    return callout::cudaDeviceReset();
-}
-
 cudaError_t cuda_context::cudaDeviceSetCacheConfig(
         enum cudaFuncCache cacheConfig) {
     return callout::cudaDeviceSetCacheConfig(cacheConfig);
@@ -916,7 +467,7 @@ cudaError_t cuda_context::cudaDeviceSetLimit(enum cudaLimit limit,
 
 cudaError_t cuda_context::cudaDeviceSynchronize() {
     cudaError_t ret = callout::cudaDeviceSynchronize();
-    return thread_context::instance().setLastError(ret);
+    return setLastError(ret);
 }
 
 cudaError_t cuda_context::cudaDriverGetVersion(int *driverVersion) {
@@ -962,8 +513,7 @@ cudaError_t cuda_context::cudaEventSynchronize(cudaEvent_t event) {
 }
 
 cudaError_t cuda_context::cudaFree(void *devPtr) {
-    cudaError_t ret = callout::cudaFree(devPtr);
-    return thread_context::instance().setLastError(ret);
+    return setLastError(callout::cudaFree(devPtr));
 }
 
 cudaError_t cuda_context::cudaFreeArray(struct cudaArray *array) {
@@ -1012,17 +562,16 @@ cudaError_t cuda_context::cudaFuncGetAttributes(
 
     scoped_lock lock(mx_);
 
-    function_map_t::const_iterator fit = functions_.find(func);
-    if (fit == functions_.end()) {
-        return thread_context::instance().setLastError(
-            cudaErrorInvalidDeviceFunction);
+    global_t::function_map_t::const_iterator fit =
+        global_->functions_.find(func);
+    if (fit == global_->functions_.end()) {
+        return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
     internal::module_t::function_map_t::const_iterator config_it =
         fit->second->functions.find(func);
     if (config_it == fit->second->functions.end()) {
-        return thread_context::instance().setLastError(
-            cudaErrorInvalidDeviceFunction);
+        return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
     CUfunction dfunc = config_it->second.function;
@@ -1067,17 +616,16 @@ cudaError_t cuda_context::cudaFuncSetCacheConfig(const char *func,
         enum cudaFuncCache cacheConfig) {
     scoped_lock lock(mx_);
 
-    function_map_t::const_iterator fit = functions_.find(func);
-    if (fit == functions_.end()) {
-        return thread_context::instance().setLastError(
-            cudaErrorInvalidDeviceFunction);
+    global_t::function_map_t::const_iterator fit =
+        global_->functions_.find(func);
+    if (fit == global_->functions_.end()) {
+        return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
     internal::module_t::function_map_t::const_iterator config_it =
         fit->second->functions.find(func);
     if (config_it == fit->second->functions.end()) {
-        return thread_context::instance().setLastError(
-            cudaErrorInvalidDeviceFunction);
+        return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
     CUfunction dfunc = config_it->second.function;
@@ -1131,6 +679,12 @@ cudaError_t cuda_context::cudaGetSurfaceReference(
     return callout::cudaGetSurfaceReference(surfRef, symbol);
 }
 
+cudaError_t cuda_context::cudaGetLastError() {
+    cudaError_t ret = error_;
+    error_ = cudaSuccess;
+    return ret;
+}
+
 cudaError_t cuda_context::cudaGetSymbolAddress(void **devPtr,
         const char *symbol) {
     if (!(devPtr)) {
@@ -1138,17 +692,19 @@ cudaError_t cuda_context::cudaGetSymbolAddress(void **devPtr,
     }
 
     scoped_lock lock(mx_);
-    variable_map_t::const_iterator it = variables_.find(symbol);
-    if (it == variables_.end()) {
-        variable_name_map_t::const_iterator nit = variable_names_.find(symbol);
-        if (nit == variable_names_.end()) {
+    global_t::variable_map_t::const_iterator it =
+        global_->variables_.find(symbol);
+    if (it == global_->variables_.end()) {
+        global_t::variable_name_map_t::const_iterator nit =
+            global_->variable_names_.find(symbol);
+        if (nit == global_->variable_names_.end()) {
             return cudaErrorInvalidSymbol;
         }
 
         /* Try again */
         symbol = static_cast<const char *>(nit->second);
-        it = variables_.find(symbol);
-        if (it == variables_.end()) {
+        it = global_->variables_.find(symbol);
+        if (it == global_->variables_.end()) {
             /* It shouldn't be in our variable names list if it's not
              * actually there. */
             assert(0 && "The impossible happened.");
@@ -1170,17 +726,21 @@ cudaError_t cuda_context::cudaGetSymbolSize(size_t *size, const char *symbol) {
     }
 
     scoped_lock lock(mx_);
-    variable_map_t::const_iterator it = variables_.find(symbol);
-    if (it == variables_.end()) {
-        variable_name_map_t::const_iterator nit = variable_names_.find(symbol);
-        if (nit == variable_names_.end()) {
+    global_t::variable_map_t & variables = global_->variables_;
+    global_t::variable_map_t::const_iterator it = variables.find(symbol);
+
+    if (it == variables.end()) {
+        global_t::variable_name_map_t & vnames = global_->variable_names_;
+        global_t::variable_name_map_t::const_iterator nit =
+            vnames.find(symbol);
+        if (nit == vnames.end()) {
             return cudaErrorInvalidSymbol;
         }
 
         /* Try again */
         symbol = static_cast<const char *>(nit->second);
-        it = variables_.find(symbol);
-        if (it == variables_.end()) {
+        it = variables.find(symbol);
+        if (it == variables.end()) {
             /* It shouldn't be in our variable names list if it's not
              * actually there. */
             assert(0 && "The impossible happened.");
@@ -1200,8 +760,9 @@ cudaError_t cuda_context::cudaGetTextureAlignmentOffset(size_t *offset,
         const struct textureReference *texref) {
     scoped_lock lock(mx_);
 
-    texture_map_t::const_iterator it = textures_.find(texref);
-    if (it == textures_.end()) {
+    global_t::texture_map_t & textures = global_->textures_;
+    global_t::texture_map_t::const_iterator it = textures.find(texref);
+    if (it == textures.end()) {
         return cudaErrorInvalidTexture;
     }
 
@@ -1232,8 +793,10 @@ cudaError_t cuda_context::cudaGetTextureReference(
 
     scoped_lock lock(mx_);
 
-    texture_name_map_t::const_iterator it = texture_names_.find(symbol);
-    if (it == texture_names_.end()) {
+    global_t::texture_name_map_t & texture_names = global_->texture_names_;
+    global_t::texture_name_map_t::const_iterator it =
+        texture_names.find(symbol);
+    if (it == texture_names.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
     }
@@ -1323,15 +886,12 @@ cudaError_t cuda_context::cudaIpcCloseMemHandle(void *devPtr) {
 }
 
 cudaError_t cuda_context::cudaMalloc(void **devPtr, size_t size) {
-    return thread_context::instance().setLastError(
-        callout::cudaMalloc(devPtr, size));
+    return setLastError(callout::cudaMalloc(devPtr, size));
 }
-
 
 cudaError_t cuda_context::cudaMalloc3D(struct cudaPitchedPtr *pitchedDevPtr,
         struct cudaExtent extent) {
-    return thread_context::instance().setLastError(
-        callout::cudaMalloc3D(pitchedDevPtr, extent));
+    return setLastError(callout::cudaMalloc3D(pitchedDevPtr, extent));
 }
 
 cudaError_t cuda_context::cudaMalloc3DArray(struct cudaArray** array,
@@ -1650,8 +1210,7 @@ cudaError_t cuda_context::cudaMemGetInfo(size_t *free, size_t *total) {
 }
 
 cudaError_t cuda_context::cudaMemset(void *devPtr, int value, size_t count) {
-    return thread_context::instance().setLastError(
-        callout::cudaMemset(devPtr, value, count));
+    return setLastError(callout::cudaMemset(devPtr, value, count));
 }
 
 cudaError_t cuda_context::cudaMemset2D(void *devPtr, size_t pitch, int value,
@@ -1679,6 +1238,10 @@ cudaError_t cuda_context::cudaMemset3DAsync(
 cudaError_t cuda_context::cudaMemsetAsync(void *devPtr, int value,
         size_t count, cudaStream_t stream) {
     return callout::cudaMemsetAsync(devPtr, value, count, stream);
+}
+
+cudaError_t cuda_context::cudaPeekAtLastError() {
+    return error_;
 }
 
 cudaError_t cuda_context::cudaPointerGetAttributes(struct
@@ -1827,8 +1390,9 @@ cudaError_t cuda_context::cudaUnbindTexture(
         const struct textureReference *texref) {
     scoped_lock lock(mx_);
 
-    texture_map_t::const_iterator it = textures_.find(texref);
-    if (it == textures_.end()) {
+    global_t::texture_map_t & textures = global_->textures_;
+    global_t::texture_map_t::const_iterator it = textures.find(texref);
+    if (it == textures.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
     }
@@ -1858,8 +1422,9 @@ cudaError_t cuda_context::cudaUnbindTexture(
 
 const char * cuda_context::get_entry_name(const char * entry) const {
     /* Find module. */
-    function_map_t::const_iterator fit = functions_.find(entry);
-    if (fit == functions_.end()) {
+    global_t::function_map_t & functions = global_->functions_;
+    global_t::function_map_t::const_iterator fit = functions.find(entry);
+    if (fit == functions.end()) {
         return NULL;
     }
 
@@ -1871,11 +1436,6 @@ const char * cuda_context::get_entry_name(const char * entry) const {
     }
 
     return config_it->second.deviceName;
-}
-
-void cuda_context::instrument(void ** /* fatCubinHandle */,
-        ptx_t * /* target */) {
-    // Do nothing
 }
 
 bool cuda_context::load_device_info() {
@@ -1891,3 +1451,13 @@ bool cuda_context::load_device_info() {
 
     return true;
 }
+
+cudaError_t cuda_context::setLastError(cudaError_t error) const {
+    if (error != cudaSuccess) {
+        error_ = error;
+    }
+
+    return error_;
+}
+
+void cuda_context::clear() { }

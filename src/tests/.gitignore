@@ -25,6 +25,7 @@ test_streamwaitevent
 vtest_bindtexture
 vtest_bindtexturetoarray
 vtest_devicecacheconfig
+vtest_devicereset
 vtest_devicesynchronize
 vtest_eventcreate
 vtest_eventcreatewithflags

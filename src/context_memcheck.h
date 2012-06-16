@@ -21,6 +21,7 @@
 
 #include <boost/unordered_set.hpp>
 #include "context.h"
+#include "global_context.h"
 #include "gpu_stack.h"
 #include "ptx_ir.h"
 
@@ -36,16 +37,79 @@ namespace internal {
     struct instrumentation_t;
 }
 
-class cuda_context_memcheck : public cuda_context {
-public:
-    typedef gpu_pool<metadata_chunk> pool_t;
+struct error_buffer_t {
+    uint32_t data[1024];
+};
 
-    explicit cuda_context_memcheck(int device);
-    virtual ~cuda_context_memcheck();
+class global_context_memcheck : public global_context {
+public:
+    global_context_memcheck();
+    ~global_context_memcheck();
+
+    virtual cuda_context * factory(int device, unsigned int flags) const;
 
     virtual void cudaRegisterVar(void **fatCubinHandle,char *hostVar,
         char *deviceAddress, const char *deviceName, int ext, int size,
         int constant, int global);
+protected:
+    /**
+     * Instruments the given PTX program in-place for validity and
+     * addressability checks.
+     */
+    virtual void instrument(void **fatCubinHandle, ptx_t * target);
+
+    void analyze_entry(function_t * entry);
+    void instrument_entry(function_t * entry);
+    void instrument_block(block_t * block, internal::instrumentation_t * inst);
+private:
+    friend class cuda_context_memcheck;
+    friend struct internal::check_t;
+
+    typedef std::pair<void **, std::string> variable_handle_t;
+    struct variable_data_t {
+        variable_t ptx;
+        char * hostVar;
+    };
+    typedef boost::unordered_map<variable_handle_t, variable_data_t>
+        variable_definition_map_t;
+    variable_definition_map_t variable_definitions_;
+
+    /**
+     * Instrumentation information.
+     */
+    void * auxillary_handle;
+    typedef std::set<std::string> string_set_t;
+    string_set_t external_entries_;
+    string_set_t nonentries_;
+
+    struct entry_info_t {
+        entry_info_t() : function(NULL), inst(NULL),
+            fixed_shared_memory(0), local_memory(0) { }
+
+        function_t * function;
+        internal::instrumentation_t * inst;
+        size_t user_params;
+        size_t user_param_size;
+        size_t fixed_shared_memory;
+        size_t local_memory;
+    };
+
+    typedef std::map<std::string, entry_info_t> entry_info_map_t;
+    entry_info_map_t entry_info_;
+};
+
+class cuda_context_memcheck : public cuda_context {
+public:
+    typedef gpu_pool<metadata_chunk> pool_t;
+
+    explicit cuda_context_memcheck(
+        global_context_memcheck * g, int device, unsigned int flags);
+    virtual ~cuda_context_memcheck();
+
+    /**
+     * Quickly clears the state of the context.
+     */
+    virtual void clear();
 
 /*
     virtual cudaError_t cudaBindSurfaceToArray(const struct surfaceReference *surfref,
@@ -60,8 +124,7 @@ public:
             const struct cudaArray *array, const struct
             cudaChannelFormatDesc *desc);
     virtual cudaError_t cudaConfigureCall(dim3 gridDim, dim3 blockDim,
-        size_t sharedMem, cudaStream_t stream); /*
-    virtual cudaError_t cudaDeviceReset(); */
+        size_t sharedMem, cudaStream_t stream);
     virtual cudaError_t cudaDeviceSynchronize();
     virtual cudaError_t cudaEventCreate(cudaEvent_t *event);
     virtual cudaError_t cudaEventCreateWithFlags(cudaEvent_t *event, unsigned int flags);
@@ -266,15 +329,8 @@ protected:
     void release_texture(internal::texture_t * texture,
         const struct textureReference * texref);
 
-    /**
-     * Instruments the given PTX program in-place for validity and
-     * addressability checks.
-     */
-    virtual void instrument(void **fatCubinHandle, ptx_t * target);
-
-    void analyze_entry(function_t * entry);
-    void instrument_entry(function_t * entry);
-    void instrument_block(block_t * block, internal::instrumentation_t * inst);
+    global_context_memcheck * global();
+    const global_context_memcheck * global() const;
 private:
     /**
      * Master list pointing into chunks by their corresponding upper address bits
@@ -323,6 +379,7 @@ private:
         typedef boost::unordered_set<const struct textureReference *>
             binding_set_t;
         binding_set_t bindings;
+        bool must_free;
     };
 
     /**
@@ -386,49 +443,15 @@ private:
     texture_map_t bound_textures_;
 
     /**
-     * Keep the PTX that created any device allocations.
-     */
-    typedef std::pair<void **, std::string> variable_handle_t;
-    typedef boost::unordered_map<variable_handle_t, variable_t>
-        variable_definition_map_t;
-    variable_definition_map_t variable_definitions_;
-
-    /**
      * Keep track of streams in-use for call stacks.
      */
     std::stack<internal::stream_t *> stream_stack_;
-
-    /**
-     * Instrumentation information.
-     */
-    void * auxillary_handle;
-    typedef std::set<std::string> string_set_t;
-    string_set_t external_entries_;
-    string_set_t nonentries_;
-
-    struct entry_info_t {
-        entry_info_t() : function(NULL), inst(NULL),
-            fixed_shared_memory(0), local_memory(0) { }
-
-        function_t * function;
-        internal::instrumentation_t * inst;
-        size_t user_params;
-        size_t user_param_size;
-        size_t fixed_shared_memory;
-        size_t local_memory;
-    };
-
-    typedef std::map<std::string, entry_info_t> entry_info_map_t;
-    entry_info_map_t entry_info_;
 
     /**
      * Error reporting buffers.
      */
     friend struct internal::check_t;
     gpu_stack<uint32_t> error_counts_;
-    struct error_buffer_t {
-        uint32_t data[1024];
-    };
     gpu_stack<error_buffer_t> error_buffers_;
 
     /**

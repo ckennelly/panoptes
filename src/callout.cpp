@@ -40,6 +40,7 @@ typedef cudaError_t (*cudaBindTexture_t)(size_t *,
     const struct cudaChannelFormatDesc *, size_t);
 typedef cudaError_t (*cudaConfigureCall_t)(dim3, dim3, size_t, cudaStream_t);
 typedef cudaError_t (*cudaDeviceGetCacheConfig_t)(enum cudaFuncCache *);
+typedef cudaError_t (*cudaDeviceReset_t)();
 typedef cudaError_t (*cudaDeviceSetCacheConfig_t)(enum cudaFuncCache);
 typedef cudaError_t (*cudaDeviceSynchronize_t)();
 typedef cudaError_t (*cudaDriverGetVersion_t)(int *);
@@ -123,6 +124,12 @@ cudaError_t callout::cudaDeviceGetCacheConfig(enum cudaFuncCache *
     cudaDeviceGetCacheConfig_t method = (cudaDeviceGetCacheConfig_t) dlsym(
         callout::instance().libcudart, "cudaDeviceGetCacheConfig");
     return method(pCacheConfig);
+}
+
+cudaError_t callout::cudaDeviceReset() {
+    cudaDeviceReset_t method = (cudaDeviceReset_t) dlsym(
+        callout::instance().libcudart, "cudaDeviceReset");
+    return method();
 }
 
 cudaError_t callout::cudaDeviceSetCacheConfig(enum cudaFuncCache

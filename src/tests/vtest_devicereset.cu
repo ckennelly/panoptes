@@ -17,44 +17,56 @@
  */
 
 #include <cuda.h>
-#include <cuda_runtime_api.h>
 #include <gtest/gtest.h>
 
-TEST(SetDeviceFlags, Simple) {
+static __global__ void k_copy(int * out, int in) {
+    *out = in;
+}
+
+TEST(DeviceReset, Simple) {
     cudaError_t ret;
+    cudaStream_t stream;
 
-    ret = cudaSetDeviceFlags(cudaDeviceScheduleAuto);
-    EXPECT_EQ(cudaSuccess, ret);
-
-    ret = cudaFree(0);
+    int * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out));
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaSetDeviceFlags(cudaDeviceScheduleSpin);
-    EXPECT_EQ(cudaErrorSetOnActiveProcess, ret);
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaGetLastError();
-    EXPECT_EQ(cudaErrorSetOnActiveProcess, ret);
+    int in = 1;
+    k_copy<<<1, 1, 0, stream>>>(out, in);
 
-    ret = cudaGetLastError();
-    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
 
+    int hout = 0;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+    ASSERT_EQ(in, hout);
+
+    /* Pervious value of out is now invalidated. */
     ret = cudaDeviceReset();
-    ASSERT_EQ(cudaSuccess, ret);
-
-    ret = cudaSetDeviceFlags(cudaDeviceScheduleAuto);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaFree(0);
+    ret = cudaMalloc((void **) &out, sizeof(*out));
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaSetDeviceFlags(cudaDeviceScheduleSpin);
-    EXPECT_EQ(cudaErrorSetOnActiveProcess, ret);
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaGetLastError();
-    EXPECT_EQ(cudaErrorSetOnActiveProcess, ret);
+    in = 2;
+    k_copy<<<1, 1, 0, stream>>>(out, in);
 
-    ret = cudaGetLastError();
-    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+    ASSERT_EQ(in, hout);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 int main(int argc, char **argv) {

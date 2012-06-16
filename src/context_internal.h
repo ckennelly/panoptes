@@ -60,22 +60,23 @@ struct module_t {
         char *deviceAddress;
         const char *deviceName;
         int ext;
+        int user_size;
         size_t size;
         int constant;
         int global;
     };
 
     struct texture_t : boost::noncopyable {
-        texture_t() : bound(false) {
-            CUresult ret = cuTexRefCreate(&texref);
-            assert(ret == CUDA_SUCCESS);
-        }
+        texture_t() : has_texref(false), bound(false) { }
 
         ~texture_t() {
-            CUresult ret = cuTexRefDestroy(texref);
-            assert(ret == CUDA_SUCCESS);
+            if (has_texref) {
+                CUresult ret = cuTexRefDestroy(texref);
+                assert(ret == CUDA_SUCCESS);
+            }
         }
 
+        bool has_texref;
         CUtexref texref;
         const struct textureReference *hostVar;
         const void **deviceAddress;
@@ -138,6 +139,12 @@ struct call_t {
 
     std::vector<arg_t *> args;
 };
+
+/**
+ * For user-exposed handles, we return a specialized opaque type.
+ */
+void** create_handle();
+void free_handle(void **);
 
 } // end namespace internal
 } // end namespace panoptes

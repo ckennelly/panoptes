@@ -37,6 +37,7 @@ namespace internal {
 }
 
 struct ptx_t;
+class global_context;
 
 class cuda_context {
 public:
@@ -50,37 +51,6 @@ public:
      * Launches the kernel.
      */
     virtual cudaError_t cudaLaunch(const char *entry);
-
-    /**
-     * Registers the fat binary, returning an opaque handle, to emulate
-     * __cudaRegisterFatBinary.
-     */
-    virtual void** cudaRegisterFatBinary(void *fatCubin);
-
-    virtual void** cudaUnregisterFatBinary(void **fatCubinHandle);
-
-    /**
-     * Registers the function, emulating __cudaRegisterFunction.  fatCubinHandle
-     * must be an opaque handle registered by cudaRegisterFatBinary.
-     */
-    virtual void cudaRegisterFunction(void **fatCubinHandle, const char *hostFun,
-        char *deviceFun, const char *deviceName, int thread_limit, uint3 *tid,
-        uint3 *bid, dim3 *bDim, dim3 *gDim, int *wSize);
-
-    /**
-     * Registers the variable, emulating __cudaRegisterVar.  fatCubinHandle
-     * must be an opaque handle registered by cudaRegisterFatBinary.
-     */
-    virtual void cudaRegisterVar(void **fatCubinHandle,char *hostVar,
-        char *deviceAddress, const char *deviceName, int ext, int size,
-        int constant, int global);
-
-    /**
-     * Emulates __cudaRegisterTexture.
-     */
-    virtual void cudaRegisterTexture(void **fatCubinHandle,
-        const struct textureReference *hostVar, const void **deviceAddress,
-        const char *deviceName, int dim, int norm, int ext);
 
     /**
      * Provides cudaSetupArgument functionality.
@@ -106,7 +76,6 @@ public:
     virtual cudaError_t cudaChooseDevice(int *device, const struct cudaDeviceProp *prop);
     virtual cudaError_t cudaDeviceGetCacheConfig(enum cudaFuncCache *pCacheConfig);
     virtual cudaError_t cudaDeviceGetLimit(size_t *pValue, enum cudaLimit limit);
-    virtual cudaError_t cudaDeviceReset();
     virtual cudaError_t cudaDeviceSetCacheConfig(enum cudaFuncCache cacheConfig);
     virtual cudaError_t cudaDeviceSetLimit(enum cudaLimit limit, size_t value);
     virtual cudaError_t cudaDeviceSynchronize();
@@ -132,6 +101,7 @@ public:
     virtual cudaError_t cudaGetDeviceProperties(struct cudaDeviceProp *prop, int device);
     virtual cudaError_t cudaGetExportTable(const void **ppExportTable, const cudaUUID_t
             *pExportTableId);
+    virtual cudaError_t cudaGetLastError();
     virtual cudaError_t cudaGetSurfaceReference(const struct surfaceReference **surfRef,
             const char *symbol);
     virtual cudaError_t cudaGetSymbolAddress(void **devPtr, const char *symbol);
@@ -244,6 +214,7 @@ public:
             struct cudaExtent extent, cudaStream_t stream);
     virtual cudaError_t cudaMemsetAsync(void *devPtr, int value, size_t count,
             cudaStream_t stream);
+    virtual cudaError_t cudaPeekAtLastError();
     virtual cudaError_t cudaPointerGetAttributes(struct cudaPointerAttributes *attributes,
         const void *ptr);
     virtual cudaError_t cudaRuntimeGetVersion(int *runtimeVersion);
@@ -261,20 +232,10 @@ public:
     virtual cudaError_t cudaThreadSetLimit(enum cudaLimit limit, size_t value);
     virtual cudaError_t cudaUnbindTexture(const struct textureReference *texref);
 
-    cuda_context(int device);
+    cuda_context(global_context * ctx, int device, unsigned int flags);
     virtual ~cuda_context();
+    virtual void clear();
 protected:
-    /**
-     * For user-exposed handles, we return a specialized opaque type.
-     */
-    void** create_handle() const;
-    void free_handle(void **) const;
-
-    /**
-     * Instruments the given PTX program in-place.
-     */
-    virtual void instrument(void **fatCubinHandle, ptx_t * target);
-
     /**
      * Loads device information.
      */
@@ -287,14 +248,10 @@ protected:
     struct cudaDeviceProp info_;
 
     /**
-     * Inserts the given PTX program without further modification.
-     */
-    bool insert_ptx(void ** handle, const ptx_t * ptx);
-
-    /**
      * Sets the thread's last error.
      */
-    void setLastError(cudaError_t error) const;
+    friend class global_context;
+    cudaError_t setLastError(cudaError_t error) const;
 
     /**
      * Returns the user readable name of the function given its address.
@@ -305,55 +262,6 @@ protected:
      * This context's device
      */
     const int device_;
-
-    /**
-     * The raw context
-     */
-    CUcontext ctx_;
-
-    /**
-     * Module registry mapping from the handle returned to the module.
-     */
-    typedef boost::unordered_map<void **, internal::module_t *> module_map_t;
-    module_map_t modules_;
-
-    /**
-     * fatCubin to registration handle map
-     */
-    typedef boost::unordered_map<void *, void**> fatbin_map_t;
-    fatbin_map_t fatbins_;
-
-    typedef boost::unordered_map<void **, void *> fatbin_imap_t;
-    fatbin_imap_t ifatbins_;
-
-    /**
-     * Mapping of functions to their parent modules.
-     */
-    typedef boost::unordered_map<const char *, internal::module_t *> function_map_t;
-    function_map_t functions_;
-
-    typedef boost::unordered_map<std::string, const char *> function_name_map_t;
-    function_name_map_t function_names_;
-
-    /**
-     * Mapping of variables to their parent modules.
-     */
-    typedef boost::unordered_map<const char *, internal::module_t *> variable_map_t;
-    variable_map_t variables_;
-
-    typedef boost::unordered_map<std::string, const void *> variable_name_map_t;
-    variable_name_map_t variable_names_;
-
-    /**
-     * Mapping of textures to their parent modules.
-     */
-    typedef boost::unordered_map<const struct textureReference *,
-        internal::module_t *> texture_map_t;
-    texture_map_t textures_;
-
-    typedef boost::unordered_map<std::string, const struct textureReference *>
-        texture_name_map_t;
-    texture_name_map_t texture_names_;
 
     /**
      * Call argument stack
@@ -369,6 +277,17 @@ protected:
      * The CUDA runtime version.
      */
     int runtime_version_;
+
+    global_context * global() { return global_; }
+    const global_context * global() const { return global_; }
+private:
+    global_context * const global_;
+    mutable cudaError_t error_;
+
+    /**
+     * The raw context
+     */
+    CUcontext ctx_;
 }; // end class cuda_context
 
 } // end namespace panoptes
