@@ -3383,18 +3383,45 @@ void global_context_memcheck::instrument_block(block_t * block,
 
                 bool drop_load = false;
                 bool invalidate = false;
+                bool validate = false;
 
                 switch (src.op_type) {
                     case operand_identifier:
                     case operand_addressable:
                         if (statement.space == param_space) {
                             assert(src.identifier.size() == 1u);
-                            new_src  = src;
-                            new_vsrc = operand_t::make_identifier(
-                                make_validity_symbol(src.identifier[0]));
-                            if (src.op_type == operand_addressable) {
-                                new_vsrc.op_type = operand_addressable;
-                                new_vsrc.offset  = src.offset;
+                            /* Verify that this is a parameter to us and not a
+                             * call-level parameter. */
+                            const block_t    * b = block;
+                            const function_t * f = NULL;
+                            while (b) {
+                                f = b->fparent;
+                                b = b->parent;
+                            }
+                            assert(f);
+
+                            bool found = false;
+                            for (function_t::param_vt::const_iterator jit =
+                                    f->params.begin(); jit != f->params.end();
+                                    ++jit) {
+                                if (jit->name == src.identifier[0]) {
+                                    found = true;
+                                }
+                            }
+
+                            if (found) {
+                                new_src  = src;
+                                new_vsrc = operand_t::make_identifier(
+                                    make_validity_symbol(src.identifier[0]));
+                                if (src.op_type == operand_addressable) {
+                                    new_vsrc.op_type = operand_addressable;
+                                    new_vsrc.offset  = src.offset;
+                                }
+                            } else {
+                                /* Mark as valid.  Keep load as-is. */
+                                validate = true;
+                                drop_load = true;
+                                aux.push_back(statement);
                             }
 
                             break;
@@ -3870,6 +3897,7 @@ void global_context_memcheck::instrument_block(block_t * block,
 
                 keep = false;
 
+                assert(!(invalidate) || !(validate));
                 if (invalidate) {
                     /**
                      * TODO:  We may want to actually fill in the data with
@@ -3886,6 +3914,17 @@ void global_context_memcheck::instrument_block(block_t * block,
                             operand_t::make_identifier(
                                 make_validity_symbol(dst.identifier[i])),
                             negone));
+                    }
+                } else if (validate) {
+                    const operand_t & dst = statement.operands[0];
+                    const size_t ni = dst.identifier.size();
+                    const type_t btype = bitwise_type(statement.type);
+                    const operand_t zero = operand_t::make_iconstant(0);
+                    for (size_t i = 0; i < ni; i++) {
+                        aux.push_back(make_mov(btype,
+                            operand_t::make_identifier(
+                                make_validity_symbol(dst.identifier[i])),
+                            zero));
                     }
                 }
 
