@@ -58,6 +58,7 @@ typedef cudaError_t (*cudaFuncSetCacheConfig_t)(const char *,
     enum cudaFuncCache);
 typedef cudaError_t (*cudaGetDeviceCount_t)(int *);
 typedef cudaError_t (*cudaGetDeviceProperties_t)(struct cudaDeviceProp *, int);
+typedef cudaError_t (*cudaGetLastError_t)(void);
 typedef cudaError_t (*cudaGetTextureReference_t)(
     const struct textureReference **, const char *);
 typedef cudaError_t (*cudaHostAlloc_t)(void **, size_t , unsigned int);
@@ -230,6 +231,12 @@ cudaError_t callout::cudaGetDeviceProperties(struct cudaDeviceProp *prop,
     cudaGetDeviceProperties_t method = (cudaGetDeviceProperties_t)
         dlsym(callout::instance().libcudart, "cudaGetDeviceProperties");
     return method(prop, device);
+}
+
+cudaError_t callout::cudaGetLastError() {
+    cudaGetLastError_t method = (cudaGetLastError_t)
+        dlsym(callout::instance().libcudart, "cudaGetLastError");
+    return method();
 }
 
 cudaError_t callout::cudaGetTextureReference(
