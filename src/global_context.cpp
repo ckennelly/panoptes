@@ -79,7 +79,6 @@ const cuda_context & global_context::context() const {
     const unsigned device = current_device();
     scoped_lock lock(mx_);
 
-    assert(device >= 0);
     assert(device < devices_);
 
     cuda_context * ctx = device_contexts_[device];
@@ -641,7 +640,6 @@ cudaError_t global_context::cudaSetDeviceFlags(unsigned int flags) {
     const unsigned device = current_device();
     scoped_lock lock(mx_);
 
-    assert(device >= 0);
     assert(device < devices_);
     cuda_context * ctx = device_contexts_[device];
     if (ctx) {
