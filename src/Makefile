@@ -8,7 +8,7 @@ WARNINGS := -Wall -Wextra -Wshadow -Wpointer-arith -Wcast-align \
 			-Wwrite-strings -Wmissing-declarations -Wredundant-decls \
 			-Winline -Wno-long-long -Wuninitialized -Wconversion
 CWARNINGS := $(WARNINGS) -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes
-CXXWARNINGS := $(WARNINGS)
+CXXWARNINGS := $(WARNINGS) -Wabi -Wnon-virtual-dtor -fno-rtti
 CFLAGS := -g -fPIC -std=c99 $(CWARNINGS)
 CXXFLAGS := -g $(CXXWARNINGS)
 CUDAINC=/opt/cuda/include
