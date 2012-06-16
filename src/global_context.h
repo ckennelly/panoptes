@@ -121,7 +121,8 @@ protected:
     /**
      * Mapping of functions to their parent modules.
      */
-    typedef boost::unordered_map<const char *, internal::module_t *> function_map_t;
+    typedef boost::unordered_map<const char *,
+        internal::module_t *> function_map_t;
     function_map_t functions_;
 
     typedef boost::unordered_map<std::string, const char *> function_name_map_t;
@@ -130,7 +131,8 @@ protected:
     /**
      * Mapping of variables to their parent modules.
      */
-    typedef boost::unordered_map<const char *, internal::module_t *> variable_map_t;
+    typedef boost::unordered_map<const char *, internal::module_t *>
+        variable_map_t;
     variable_map_t variables_;
 
     typedef boost::unordered_map<std::string, const void *> variable_name_map_t;

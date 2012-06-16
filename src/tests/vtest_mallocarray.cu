@@ -27,25 +27,43 @@ TEST(MallocArray, NullArguments) {
 
     // Commented out cases segfault.
 
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(NULL, NULL, 0, 0, 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(NULL, NULL, 0, 8, 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(NULL, NULL, 8, 0, 0), 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(NULL, NULL, 8, 8, 0));
+    cudaError_t ret;
 
-    EXPECT_EQ(cudaSuccess,           cudaMallocArray(&ary, NULL, 0, 0, 0));
-    EXPECT_EQ(cudaSuccess,           cudaFreeArray(ary));
+    ret = cudaMallocArray(NULL, NULL, 0, 0, 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
 
-    EXPECT_EQ(cudaSuccess,           cudaMallocArray(&ary, NULL, 0, 8, 0));
-    EXPECT_EQ(cudaSuccess,           cudaFreeArray(ary));
+    ret = cudaMallocArray(NULL, NULL, 0, 8, 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+    // ret = cudaMallocArray(NULL, NULL, 8, 0, 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret));
+    // ret = cudaMallocArray(NULL, NULL, 8, 8, 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
 
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(&ary, NULL, 8, 0, 0));
+    ret = cudaMallocArray(&ary, NULL, 0, 0, 0);
+    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaFreeArray(ary);
+    EXPECT_EQ(cudaSuccess, ret);
 
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(&ary, NULL, 8, 8, 0));
+    ret = cudaMallocArray(&ary, NULL, 0, 8, 0);
+    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaFreeArray(ary);
+    EXPECT_EQ(cudaSuccess, ret);
 
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(NULL, &dsc, 0, 0, 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(NULL, &dsc, 0, 8, 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(NULL, &dsc, 8, 0, 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMallocArray(NULL, &dsc, 8, 8, 0));
+    // ret = cudaMallocArray(&ary, NULL, 8, 0, 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    // ret = cudaMallocArray(&ary, NULL, 8, 8, 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMallocArray(NULL, &dsc, 0, 0, 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMallocArray(NULL, &dsc, 0, 8, 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+    // ret = cudaMallocArray(NULL, &dsc, 8, 0, 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+    // ret = cudaMallocArray(NULL, &dsc, 8, 8, 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
 }
 
 TEST(MallocArray, Limits) {

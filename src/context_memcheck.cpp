@@ -41,29 +41,31 @@ typedef global_context_memcheck global_t;
  * cuda_context_memcheck does not provide:
  *  cudaGetSymbolAddress
  *  cudaGetSymbolSize
- *      These are implemented in cuda_context and interact with the loaded modules
+ *      These are implemented in cuda_context and interact with the loaded
+ *      modules
  *
  *  cudaGetTextureAlignmentOffset
  *  cudaGetTextureReference
  *
  *  cudaPointerGetAttributes
- *      We do a few calls in cuda_context to work around getting interference from
- *      driver/runtime API mixing.  While we could provide more information here,
- *      there is no way of exposing it without changing the outward behavior of the
- *      system.
+ *      We do a few calls in cuda_context to work around getting interference
+ *      from driver/runtime API mixing.  While we could provide more
+ *      information here, there is no way of exposing it without changing the
+ *      outward behavior of the system.
  *
  *  cudaMemcpyFromSymbol
  *  cudaMemcpyFromSymbolAsync
  *  cudaMemcpyToSymbol
  *  cudaMemcpyToSymbolAsync
- *      These are decomposed into a symbol lookup and a memcpy within cuda_context.
+ *      These are decomposed into a symbol lookup and a memcpy within
+ *      cuda_context.
  *
  *  cudaMemGetInfo
  *      This is passed on to the CUDA library by cuda_context
  *
  *  cudaRuntimeGetVersion
- *      This is implemented by cuda_context.  There's no need to change the outward
- *      behavior of the system.
+ *      This is implemented by cuda_context.  There's no need to change the
+ *      outward behavior of the system.
  */
 
 namespace {
@@ -337,7 +339,8 @@ struct internal::array_t : boost::noncopyable {
     void * validity;
     backtrace_t allocation_bt;
 
-    typedef boost::unordered_set<const struct textureReference *> binding_set_t;
+    typedef boost::unordered_set<const struct textureReference *>
+        binding_set_t;
     binding_set_t bindings;
 
     size_t size() const;
@@ -400,7 +403,8 @@ internal::check_t::check_t(cuda_context_memcheck * c, const char * ename) :
 
             break;
         } catch (std::bad_alloc) {
-            /* Synchronize the device, clean up some resources, and try again. */
+            /* Synchronize the device, clean up some resources, and try
+             * again. */
             context->cudaDeviceSynchronize();
             continue;
         }
@@ -769,7 +773,8 @@ cuda_context * global_context_memcheck::factory(int device,
         const_cast<global_t *>(this), device, flags);
 }
 
-bool cuda_context_memcheck::check_access_device(const void * ptr, size_t len) const {
+bool cuda_context_memcheck::check_access_device(const void * ptr,
+        size_t len) const {
     /**
      * Scan through device allocations in the address range [ptr, ptr + len)
      * to check for addressability.
@@ -784,7 +789,8 @@ bool cuda_context_memcheck::check_access_device(const void * ptr, size_t len) co
 
         aumap_t::const_iterator it = udevice_allocations_.upper_bound(search);
         if (it == udevice_allocations_.end()) {
-            amap_t::const_iterator jit = device_allocations_.lower_bound(search);
+            amap_t::const_iterator jit =
+                device_allocations_.lower_bound(search);
             if (jit != device_allocations_.end()) {
                 aptr  = jit->first;
                 asize = jit->second.size;
@@ -816,7 +822,8 @@ bool cuda_context_memcheck::check_access_device(const void * ptr, size_t len) co
             // Invalid read starts at usrc + offset
             // TODO CHECK FOR RECENTLY FREED
             char msg[128];
-            int ret = snprintf(msg, sizeof(msg), "Invalid device read of size %zu\n"
+            int ret = snprintf(msg, sizeof(msg),
+                "Invalid device read of size %zu\n"
                 " Address %p is not malloc'd or (recently) free'd.\n"
                 " Possible host pointer?", len, ptr);
             // sizeof(msg) is small, so the cast is safe.
@@ -827,11 +834,12 @@ bool cuda_context_memcheck::check_access_device(const void * ptr, size_t len) co
         } else {
             // Invalid read starts at usrc + offset
             //
-            // Technically, we don't know whether the full read of (len - offset)
-            // additional bytes is invalid.
+            // Technically, we don't know whether the full read of
+            // (len - offset) additional bytes is invalid.
             char msg[128];
-            int ret = snprintf(msg, sizeof(msg), "Invalid device read of size %zu\n"
-                "Address %p is 0 bytes after a block of size %zu alloc'd\n",
+            int ret = snprintf(msg, sizeof(msg),
+                "Invalid device read of size %zu\n"
+                " Address %p is 0 bytes after a block of size %zu alloc'd\n",
                 len - offset, uptr + offset, asize);
             // sizeof(msg) is small, so the cast is safe.
             assert(ret < (int) sizeof(msg) - 1);
@@ -846,8 +854,10 @@ bool cuda_context_memcheck::check_access_device(const void * ptr, size_t len) co
     return true;
 }
 
-bool cuda_context_memcheck::check_access_host(const void * ptr, size_t len) const {
-    return valgrind_ ? (VALGRIND_CHECK_MEM_IS_ADDRESSABLE(ptr, len) == 0) : true;
+bool cuda_context_memcheck::check_access_host(const void * ptr,
+        size_t len) const {
+    return valgrind_ ?
+        (VALGRIND_CHECK_MEM_IS_ADDRESSABLE(ptr, len) == 0) : true;
 }
 
 /**
@@ -949,7 +959,8 @@ cuda_context_memcheck::~cuda_context_memcheck() {
     for (stream_map_t::iterator it = streams_.begin();
             it != streams_.end(); ++it) {
         if (it->second->busy() != cudaSuccess) {
-            /** TODO:  A backtrace of the original allocation would be nice... */
+            /** TODO:  A backtrace of the original allocation would be
+             * nice... */
             char msg[128];
             int ret = snprintf(msg, sizeof(msg),
                 "cudaStream_t has outstanding work at shutdown.\n");
@@ -1718,12 +1729,13 @@ static operand_t make_validity_operand(const operand_t & in) {
                 const char env[] = "envreg";
 
                 if (id == "%tid" || id == "%ntid" || id == "%laneid" ||
-                        id == "%warpid" || id == "%nwarpid" || id == "%ctaid" ||
-                        id == "%nctaid" || id == "%smid" || id == "%nsmid" ||
-                        id == "%gridid" || id == "%lanemask_eq" ||
-                        id == "%lanemask_le" || id == "%lanemask_lt" ||
-                        id == "%lanemask_ge" || id == "%lanemask_gt" ||
-                        id == "%clock" || id == "%clock64" || id == "WARP_SZ") {
+                        id == "%warpid" || id == "%nwarpid" ||
+                        id == "%ctaid" || id == "%nctaid" || id == "%smid" ||
+                        id == "%nsmid" || id == "%gridid" ||
+                        id == "%lanemask_eq" || id == "%lanemask_le" ||
+                        id == "%lanemask_lt" || id == "%lanemask_ge" ||
+                        id == "%lanemask_gt" || id == "%clock" ||
+                        id == "%clock64" || id == "WARP_SZ") {
                     constant = true;
                 } else {
                     if (memcmp(id.c_str(), pm, sizeof(pm) - 1u) == 0) {
@@ -2156,11 +2168,13 @@ void global_context_memcheck::instrument_block(block_t * block,
                                 const type_t swtype  = signed_of(width * 2u);
                                 add_tmps[lwidth] = 1;
 
-                                aux.push_back(make_or(btype, tmp, tmp, blended));
-                                aux.push_back(make_cvt(swtype, stype, vd, tmp,
-                                    false));
+                                aux.push_back(
+                                    make_or(btype, tmp, tmp, blended));
+                                aux.push_back(
+                                    make_cvt(swtype, stype, vd, tmp, false));
                             } else {
-                                aux.push_back(make_or(btype, vd, tmp, blended));
+                                aux.push_back(
+                                    make_or(btype, vd, tmp, blended));
                             }
                         }
 
@@ -2225,7 +2239,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                     case pred_type:
                         /**
                          * For simplicity, we assume the worst case and OR the
-                         * validity bits without regard for the underlying data.
+                         * validity bits without regard for the underlying
+                         * data.
                          */
                         if (va.is_constant() && vb.is_constant()) {
                             aux.push_back(make_mov(b16_type, vd, va));
@@ -3565,7 +3580,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                                     }
                                 }
 
-                                const std::string not_valid_pred = "__panoptes_pred1";
+                                const std::string not_valid_pred =
+                                    "__panoptes_pred1";
 
                                 aux.push_back(make_setp(upointer_type(),
                                     cmp_ge, valid_pred, not_valid_pred, limit,
@@ -3582,7 +3598,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                                 aux.push_back(new_load);
 
                                 const operand_t vsrc =
-                                    operand_t::make_identifier("__panoptes_ptr1");
+                                    operand_t::make_identifier(
+                                    "__panoptes_ptr1");
 
                                 aux.push_back(make_add(upointer_type(),
                                     vsrc, original_ptr, limit));
@@ -3674,7 +3691,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                                 }
                             }
 
-                            const std::string not_valid_pred = "__panoptes_pred1";
+                            const std::string not_valid_pred =
+                                "__panoptes_pred1";
 
                             aux.push_back(make_setp(upointer_type(),
                                 cmp_le, valid_pred, not_valid_pred, limit,
@@ -3845,7 +3863,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                         }
 
                         aux.push_back(make_setp(wread_t, cmp_eq, valid_pred,
-                            a_cdata, operand_t::make_iconstant((1 << width) - 1)));
+                            a_cdata,
+                            operand_t::make_iconstant((1 << width) - 1)));
                         aux.push_back(make_selp(pointer_type(), valid_pred,
                             data_ptr, original_ptr, global_ro_reg));
 
@@ -3874,7 +3893,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                         aux.push_back(make_ld(read_t, global_space,
                             a_data, a_data_ptr));
                         aux.push_back(make_setp(read_t, cmp_eq, valid_pred,
-                            a_data, operand_t::make_iconstant((1 << width) - 1)));
+                            a_data,
+                            operand_t::make_iconstant((1 << width) - 1)));
                         aux.push_back(make_selp(pointer_type(), valid_pred,
                             data_ptr, src, global_ro));
                         aux.push_back(make_add(upointer_type(),
@@ -3885,7 +3905,8 @@ void global_context_memcheck::instrument_block(block_t * block,
 
                         break;
                     default:
-                        assert(0 && "Unsupported operand type for load source.");
+                        assert(0 &&
+                            "Unsupported operand type for load source.");
                         break;
                 }
 
@@ -4696,7 +4717,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                         tmpb[lwidth - 1u] = std::max(tmpb[lwidth - 1u], 2);
 
                         assert(btype != b32_type);
-                        const operand_t tmp32_0 = make_temp_operand(b32_type, 0);
+                        const operand_t tmp32_0 =
+                            make_temp_operand(b32_type, 0);
                         assert(tmp0 != tmp32_0);
                         const operand_t tmp1 = make_temp_operand(btype, 1);
 
@@ -5271,15 +5293,10 @@ void global_context_memcheck::instrument_block(block_t * block,
                                         dst.identifier[0])));
                                 if (dst.op_type == operand_addressable &&
                                         dst.offset != 0) {
-                                    if (dst.offset > 0) {
-                                        aux.push_back(make_add(upointer_type(),
-                                            original_ptr, original_ptr,
-                                            operand_t::make_iconstant(dst.offset)));
-                                    } else {
-                                        aux.push_back(make_sub(upointer_type(),
-                                            original_ptr, original_ptr,
-                                            operand_t::make_iconstant(-dst.offset)));
-                                    }
+                                    const int64_t poffset = llabs(dst.offset);
+                                    aux.push_back(make_add(upointer_type(),
+                                        original_ptr, original_ptr,
+                                        operand_t::make_iconstant(poffset)));
                                 }
 
                                 aux.push_back(make_setp(upointer_type(),
@@ -5337,15 +5354,10 @@ void global_context_memcheck::instrument_block(block_t * block,
                                 operand_t::make_identifier(id)));
                             if (dst.op_type == operand_addressable &&
                                     dst.offset != 0) {
-                                if (dst.offset > 0) {
-                                    aux.push_back(make_add(upointer_type(),
-                                        original_ptr, original_ptr,
-                                        operand_t::make_iconstant(dst.offset)));
-                                } else {
-                                    aux.push_back(make_sub(upointer_type(),
-                                        original_ptr, original_ptr,
-                                        operand_t::make_iconstant(-dst.offset)));
-                                }
+                                const int64_t poffset = llabs(dst.offset);
+                                aux.push_back(make_add(upointer_type(),
+                                    original_ptr, original_ptr,
+                                    operand_t::make_iconstant(poffset)));
                             }
 
                             aux.push_back(make_setp(upointer_type(),
@@ -5468,7 +5480,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                         }
 
                         aux.push_back(make_setp(wread_t, cmp_eq, valid_pred,
-                            a_cdata, operand_t::make_iconstant((1 << width) - 1)));
+                            a_cdata,
+                            operand_t::make_iconstant((1 << width) - 1)));
 
                         aux.push_back(make_selp(pointer_type(), valid_pred,
                             data_ptr, original_ptr, global_wo_reg));
@@ -5514,7 +5527,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                         aux.push_back(make_ld(read_t, global_space,
                             a_data, a_data_ptr));
                         aux.push_back(make_setp(read_t, cmp_eq, valid_pred,
-                            a_data, operand_t::make_iconstant((1 << width) - 1)));
+                            a_data,
+                            operand_t::make_iconstant((1 << width) - 1)));
                         aux.push_back(make_selp(pointer_type(), valid_pred,
                             data_ptr, dst, global_wo));
                         aux.push_back(make_add(upointer_type(),
@@ -5531,7 +5545,8 @@ void global_context_memcheck::instrument_block(block_t * block,
 
                         break;
                     default:
-                        assert(0 && "Unsupported operand type for store destination.");
+                        assert(0 &&
+                            "Unsupported operand type for store destination.");
                         break;
                 }
 
@@ -5579,7 +5594,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                     case pred_type:
                         /**
                          * For simplicity, we assume the worst case and OR the
-                         * validity bits without regard for the underlying data.
+                         * validity bits without regard for the underlying
+                         * data.
                          */
                         if (va.is_constant() && vb.is_constant()) {
                             aux.push_back(make_mov(b16_type, vd, va));
@@ -6171,7 +6187,8 @@ cudaError_t cuda_context_memcheck::cudaFreeArray(struct cudaArray *array) {
             assert(pret < (int) sizeof(msg) - 1);
             logger::instance().print(msg);
 
-            pret = snprintf(msg, sizeof(msg), "Texture most recently bound by:");
+            pret = snprintf(msg, sizeof(msg),
+                "Texture most recently bound by:");
             assert(pret < (int) sizeof(msg) - 1);
             logger::instance().print(msg, kit->second->binding);
 
@@ -6255,8 +6272,8 @@ cudaError_t cuda_context_memcheck::cudaFreeHost(void * ptr) {
     return setLastError(callout::cudaFreeHost(ptr));
 }
 
-cudaError_t cuda_context_memcheck::cudaGetDeviceProperties(struct cudaDeviceProp *prop,
-        int device) {
+cudaError_t cuda_context_memcheck::cudaGetDeviceProperties(
+        struct cudaDeviceProp *prop, int device) {
     struct cudaDeviceProp prop_;
 
     if (device == device_) {
@@ -6553,7 +6570,8 @@ cudaError_t cuda_context_memcheck::cudaHostUnregister(void *ptr) {
     return callout::cudaHostUnregister(ptr);
 }
 
-cudaError_t cuda_context_memcheck::remove_device_allocation(const void * device_ptr) {
+cudaError_t cuda_context_memcheck::remove_device_allocation(
+        const void * device_ptr) {
     /**
      * Retrieve the pointer from the allocation list and erase it.
      */
@@ -6567,7 +6585,8 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(const void * device_
     aumap_t::iterator uit = udevice_allocations_.find(
         static_cast<const uint8_t *>(device_ptr) + size);
     if (uit == udevice_allocations_.end()) {
-        assert(0 && "The impossible happened.  Inconsistent upper/lower bounds");
+        assert(0 &&
+            "The impossible happened.  Inconsistent upper/lower bounds");
         return cudaErrorInvalidDevicePointer;
     } else {
         assert(uit->second == size);
@@ -6647,19 +6666,21 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(const void * device_
 
         /* Set addressability bits...
          *
-         * Starting at (ptr       ) or  i      * chunk_bytes,     whichever is greater.
+         * Starting at (ptr       ) or  i      * chunk_bytes,x    whichever is greater.
          * Ending at   (ptr + size) or (i + 1) * chunk_bytes - 1, whichever is less.
          */
         uintptr_t start = std::max(ptr,         i * chunk_bytes)     & (chunk_bytes - 1);
         uintptr_t end   = std::min(ptr + size - i * chunk_bytes, chunk_bytes);
 
-        /* These form the ranges for applying memset to a_data.  They may differ from
-         * start and end because the last byte on each end needs to be adjusted. */
+        /* These form the ranges for applying memset to a_data.  They may
+         * differ from start and end because the last byte on each end needs to
+         * be adjusted. */
         uintptr_t astart, aend;
 
         if ((start & (CHAR_BIT - 1)) != 0) {
             /* This write isn't a whole byte */
-            uint8_t mask    = static_cast<uint8_t>(0xFF << (start & (CHAR_BIT - 1)));
+            uint8_t mask    = static_cast<uint8_t>(
+                0xFF << (start & (CHAR_BIT - 1)));
             astart          = (start + CHAR_BIT - 1) & ~((uintptr_t) CHAR_BIT);
 
             /* If the new start > end, we need to unset the high order bits */
@@ -6975,7 +6996,8 @@ internal::array_t::array_t(struct cudaChannelFormatDesc _desc) :
         desc(_desc), x(0), y(0), z(0), validity(NULL) { }
 
 internal::array_t::array_t(struct cudaChannelFormatDesc _desc,
-        struct cudaExtent extent) : desc(_desc), x(0), y(0), z(0), validity(NULL) {
+        struct cudaExtent extent) : desc(_desc), x(0), y(0), z(0),
+        validity(NULL) {
     if (extent.width == 0) {
         return;
     }
@@ -7284,7 +7306,8 @@ cudaError_t cuda_context_memcheck::cudaMallocPitch(void **devPtr,
         return cudaErrorInvalidValue;
     }
 
-    cudaError_t ret = cuda_context::cudaMallocPitch(devPtr, pitch, width, height);
+    cudaError_t ret = cuda_context::cudaMallocPitch(devPtr, pitch, width,
+        height);
     if (ret == cudaSuccess) {
         scoped_lock lock(mx_);
         const size_t size = *pitch * height;
@@ -7513,11 +7536,11 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
             /**
              *
              * For reasons that are not entirely clear, cudaMemcpyHostToHost in
-             * CUDA 4.1 is quite adept at performing seemingly impossible memory
-             * copies without segfault or error.  In an ideal world, we would use
-             * our own memcpy here (as host-to-host predates CUDA) but we can't
-             * perform impossible copies (NULL to NULL with size > 0 segfaults for
-             * mere mortals).
+             * CUDA 4.1 is quite adept at performing seemingly impossible
+             * memory copies without segfault or error.  In an ideal world, we
+             * would use our own memcpy here (as host-to-host predates CUDA)
+             * but we can't perform impossible copies (NULL to NULL with
+             * size > 0 segfaults for mere mortals).
              */
             return callout::cudaMemcpy(dst, src, size, kind);
         } else {
@@ -7529,7 +7552,8 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
     }
 }
 
-cudaError_t cuda_context_memcheck::cudaMemset(void *devPtr, int value, size_t count) {
+cudaError_t cuda_context_memcheck::cudaMemset(void *devPtr, int value,
+        size_t count) {
     if (count == 0) {
         // No-op
         return setLastError(cudaSuccess);
@@ -7767,8 +7791,11 @@ bool cuda_context_memcheck::validity_clear(const void * ptr, size_t len,
          * default chunk */
         assert(chunks_[i] != default_chunk_);
 
-        uintptr_t start = std::max(upptr,        i * chunk_bytes) & (chunk_bytes - 1);
-        uintptr_t end   = std::min(upptr + len - i * chunk_bytes, chunk_bytes);
+        const uintptr_t chunk_start = i * chunk_bytes;
+        const uintptr_t chunk_mask  = chunk_bytes - 1;
+
+        uintptr_t start = std::max(upptr,        chunk_start) & chunk_mask;
+        uintptr_t end   = std::min(upptr + len - chunk_start, chunk_bytes);
         assert(end >= start);
         uintptr_t diff  = end - start;
 
@@ -7831,13 +7858,17 @@ bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
     const size_t first_chunk =  upsrc        >> lg_chunk_bytes;
     const size_t last_chunk  = (upsrc + len) >> lg_chunk_bytes;
 
-    for (size_t srcidx = first_chunk, voffset = 0; srcidx <= last_chunk; srcidx++) {
+    for (size_t srcidx = first_chunk, voffset = 0; srcidx <= last_chunk;
+            srcidx++) {
         /* Since we got this far, no chunk should point at the
          * default chunk */
         assert(chunks_[srcidx] != default_chunk_);
 
-        uintptr_t sstart = std::max(upsrc,        srcidx * chunk_bytes) & (chunk_bytes - 1);
-        uintptr_t send   = std::min(upsrc + len - srcidx * chunk_bytes, chunk_bytes);
+        const uintptr_t chunk_start = srcidx * chunk_bytes;
+        const uintptr_t chunk_mask  = chunk_bytes - 1;
+
+        uintptr_t sstart = std::max(upsrc,        chunk_start) & chunk_mask;
+        uintptr_t send   = std::min(upsrc + len - chunk_start, chunk_bytes);
         assert(send >= sstart);
         uintptr_t srcrem = send - sstart;
         if (srcrem == 0) {
@@ -7938,8 +7969,11 @@ bool cuda_context_memcheck::validity_download(void * host, const void *
          * default chunk */
         assert(chunks_[i] != default_chunk_);
 
-        uintptr_t start = std::max(upgpu,        i * chunk_bytes) & (chunk_bytes - 1);
-        uintptr_t end   = std::min(upgpu + len - i * chunk_bytes, chunk_bytes);
+        const uintptr_t chunk_start = i * chunk_bytes;
+        const uintptr_t chunk_mask  = chunk_bytes - 1;
+
+        uintptr_t start = std::max(upgpu,        chunk_start) & chunk_mask;
+        uintptr_t end   = std::min(upgpu + len - chunk_start, chunk_bytes);
         assert(end >= start);
         uintptr_t diff  = end - start;
 
@@ -7979,7 +8013,8 @@ bool cuda_context_memcheck::validity_download(void * host, const void *
         }
 
         /* Transfer bits into Valgrind */
-        unsigned set = VALGRIND_SET_VBITS(static_cast<uint8_t *>(host) + voffset,
+        unsigned set =
+            VALGRIND_SET_VBITS(static_cast<uint8_t *>(host) + voffset,
             buffer, diff);
         if (set != 1) {
             assert(0 && "Valgrind failed to set validity bits.");
@@ -8029,8 +8064,11 @@ bool cuda_context_memcheck::validity_set(const void * ptr, size_t len,
          * default chunk */
         assert(chunks_[i] != default_chunk_);
 
-        uintptr_t start = std::max(upptr,        i * chunk_bytes) & (chunk_bytes - 1);
-        uintptr_t end   = std::min(upptr + len - i * chunk_bytes, chunk_bytes);
+        const uintptr_t chunk_start = i * chunk_bytes;
+        const uintptr_t chunk_mask  = chunk_bytes - 1;
+
+        uintptr_t start = std::max(upptr,        chunk_start) & chunk_mask;
+        uintptr_t end   = std::min(upptr + len - chunk_start, chunk_bytes);
         assert(end >= start);
         uintptr_t diff  = end - start;
 
@@ -8102,15 +8140,20 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
          * default chunk */
         assert(chunks_[i] != default_chunk_);
 
-        uintptr_t start = std::max(upgpu,        i * chunk_bytes) & (chunk_bytes - 1);
-        uintptr_t end   = std::min(upgpu + len - i * chunk_bytes, chunk_bytes);
+        const uintptr_t chunk_start = i * chunk_bytes;
+        const uintptr_t chunk_mask  = chunk_bytes - 1;
+
+        uintptr_t start = std::max(upgpu,        chunk_start) & chunk_mask;
+        uintptr_t end   = std::min(upgpu + len - chunk_start, chunk_bytes);
         assert(end >= start);
         uintptr_t diff  = end - start;
 
         /* Transfer bits out of Valgrind */
-        const uint8_t * host_chunk = static_cast<const uint8_t *>(host) + voffset;
+        const uint8_t * host_chunk =
+            static_cast<const uint8_t *>(host) + voffset;
         (void) VALGRIND_GET_VBITS(host_chunk, buffer, diff);
-        memset(static_cast<uint8_t *>(buffer) + chunk_bytes - diff, 0, chunk_bytes - diff);
+        memset(static_cast<uint8_t *>(buffer) + chunk_bytes - diff, 0,
+            chunk_bytes - diff);
 
         /* Copy validity bits onto device from buffer */
         uint8_t * const chunk_ptr =
@@ -8172,7 +8215,8 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
     internal::check_t * checker = new internal::check_t(this,
         get_entry_name(entry));
     /**
-     * Go over call stack, pass in validity information and other auxillary information.
+     * Go over call stack, pass in validity information and other auxillary
+     * information.
      */
     const char * entry_name = get_entry_name(entry);
     global_t::entry_info_map_t::const_iterator it;
@@ -8409,8 +8453,8 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
         } else {
             // Invalid read starts at usrc + coffset
             //
-            // Technically, we don't know whether the full read of (len - coffset)
-            // additional bytes is invalid.
+            // Technically, we don't know whether the full read of
+            // (len - coffset) additional bytes is invalid.
             char msg[128];
             int pret = snprintf(msg, sizeof(msg), "Texture bound %zu bytes "
                 "beyond allocation.\n"

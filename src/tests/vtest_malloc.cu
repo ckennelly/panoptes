@@ -43,14 +43,16 @@ TEST(MallocFree, Simple) {
 }
 
 TEST(MallocFree, Validity) {
-    /* Allocate a piece of memory, transfer it to the host, verify it is uninitialized */
+    /* Allocate a piece of memory, transfer it to the host, verify it is
+     * uninitialized */
     void * ptr;
     cudaError_t ret;
     ret = cudaMalloc(&ptr, sizeof(ptr));
     ASSERT_EQ(cudaSuccess, ret);
     ASSERT_NE((void *) NULL, ptr);
 
-    /* This sets the validity bits, so we need the memcpy to set them as well or the test fails */
+    /* This sets the validity bits, so we need the memcpy to set them as well
+     * or the test fails */
     uintptr_t ptr_ = 0;
     BOOST_STATIC_ASSERT(sizeof(ptr_) == sizeof(ptr));
 
@@ -60,7 +62,8 @@ TEST(MallocFree, Validity) {
 
     BOOST_STATIC_ASSERT(sizeof(ptr_validity) == sizeof(ptr_));
     int valgrind = VALGRIND_GET_VBITS(&ptr_, &ptr_validity, sizeof(ptr_));
-    /* valgrind == 3 indicates we didn't do something right on the test side. */
+    /* valgrind == 3 indicates we didn't do something right on the test
+     * side. */
     assert(valgrind == 0 || valgrind == 1);
 
     if (valgrind == 1) {

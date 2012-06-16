@@ -128,8 +128,8 @@ public:
      * Copies all host-based data to the GPU.
      */
     void to_gpu() {
-        for (typename block_set_t::iterator it = blocks_.begin(); it != blocks_.end();
-                ++it) {
+        for (typename block_set_t::iterator it = blocks_.begin();
+                it != blocks_.end(); ++it) {
             (*it)->to_gpu();
         }
     }
@@ -152,8 +152,8 @@ public:
      * Copies all GPU-based data to the host.
      */
     void to_host() {
-        for (typename block_set_t::iterator it = blocks_.begin(); it != blocks_.end();
-                ++it) {
+        for (typename block_set_t::iterator it = blocks_.begin();
+                it != blocks_.end(); ++it) {
             (*it)->to_host();
         }
     }
@@ -174,8 +174,9 @@ public:
 
     /**
      * Constructs a pool.  block_size is the number of T's which are allocated
-     * at a time.  If at any point there would be at least max_free T's that are free
-     * after deallocating a contiguous block, that block is deallocated.
+     * at a time.  If at any point there would be at least max_free T's that
+     * are free after deallocating a contiguous block, that block is
+     * deallocated.
      */
     gpu_pool(size_t block_size, size_t max_free) : block_size_(block_size),
             max_free_(max_free) {
@@ -189,8 +190,8 @@ public:
         assert(in_use_.size() == 0);
 
         // Free the blocks
-        for (typename block_set_t::iterator it = blocks_.begin(); it != blocks_.end();
-                ++it) {
+        for (typename block_set_t::iterator it = blocks_.begin();
+                it != blocks_.end(); ++it) {
             free_.erase(*it);
             delete *it;
         }
@@ -210,8 +211,8 @@ private:
 
     /**
      * Mapping for host pointers which have been given out to their parent
-     * blocks.  Host pointers alone are necessary since everything is given out in
-     * pairs.  Pointer arithmetic is sufficient to compute the index.
+     * blocks.  Host pointers alone are necessary since everything is given
+     * out in pairs.  Pointer arithmetic is sufficient to compute the index.
      */
     typedef std::map<T*, storage_type *> used_map_t;
     used_map_t in_use_;

@@ -480,7 +480,8 @@ cudaError_t cuda_context::cudaDeviceSynchronize() {
 cudaError_t cuda_context::cudaDriverGetVersion(int *driverVersion) {
     cudaError_t ret = callout::cudaDriverGetVersion(driverVersion);
     if (ret == cudaSuccess) {
-        (void) VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(driverVersion, sizeof(int));
+        (void) VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(
+            driverVersion, sizeof(int));
     } else {
         (void) VALGRIND_MAKE_MEM_UNDEFINED(driverVersion, sizeof(int));
     }

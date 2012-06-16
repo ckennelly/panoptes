@@ -38,7 +38,8 @@ public:
      * @throws std::bad_alloc on failure
      */
     explicit host_gpu_vector(size_t n) : gpu_vector<T>(n) {
-        cudaError_t ret = callout::cudaMallocHost((void**)&host_, sizeof(T) * n);
+        cudaError_t ret = callout::cudaMallocHost((void**)&host_,
+            sizeof(T) * n);
         if (ret != cudaSuccess) {
             throw std::bad_alloc();
         }

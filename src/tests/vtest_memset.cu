@@ -22,7 +22,9 @@
 #include <valgrind/memcheck.h>
 
 TEST(Memset, NullArguments) {
-    EXPECT_EQ(cudaSuccess, cudaMemset(NULL, 0, 0));
+    cudaError_t ret;
+    ret = cudaMemset(NULL, 0, 0);
+    EXPECT_EQ(cudaSuccess, ret);
 
     /* Caught by Panoptes.  Disabling for now
     EXPECT_EQ(cudaErrorInvalidValue, cudaMemset(NULL, 0, 4));
@@ -81,8 +83,10 @@ TEST_P(MemsetValidity, Aligned) {
     const size_t param = GetParam();
     const size_t alloc = sizeof(void *) << param;
 
+    cudaError_t ret;
     uint8_t * ptr;
-    ASSERT_EQ(cudaSuccess, cudaMalloc((void **) &ptr, alloc));
+    ret = cudaMalloc((void **) &ptr, alloc);
+    ASSERT_EQ(cudaSuccess, ret);
 
     uint8_t *  data  = new uint8_t[alloc];
     uint8_t * vdata  = new uint8_t[alloc];
@@ -95,13 +99,14 @@ TEST_P(MemsetValidity, Aligned) {
         const size_t range  = sizeof(void *) *  (1 << i);
         assert(range * 2 <= alloc);
 
-        cudaError_t ret;
-        ASSERT_EQ(cudaSuccess, cudaMemset(ptr    + range, i & 0x0, range));
-                                   memset(expect + range,     0x0, range);
+        cudaError_t ret = cudaMemset(ptr    + range, i & 0x0, range);
+                              memset(expect + range,     0x0, range);
+        ASSERT_EQ(cudaSuccess, ret);
     }
 
     // Download data
-    ASSERT_EQ(cudaSuccess, cudaMemcpy(data, ptr, alloc, cudaMemcpyDeviceToHost));
+    ret = cudaMemcpy(data, ptr, alloc, cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
 
     // Copy out validity bits
     int valgrind = VALGRIND_GET_VBITS(data, vdata, alloc);
@@ -109,14 +114,16 @@ TEST_P(MemsetValidity, Aligned) {
 
     // Check if Valgrind is running
     if (valgrind == 1) {
-        EXPECT_EQ(0, memcmp(vdata, expect, alloc));
+        const int iret = memcmp(vdata, expect, alloc);
+        EXPECT_EQ(0, iret);
     }
 
     delete[] expect;
     delete[] vdata;
     delete[]  data;
 
-    ASSERT_EQ(cudaSuccess, cudaFree(ptr));
+    ret = cudaFree(ptr);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 INSTANTIATE_TEST_CASE_P(MemsetValidityInst, MemsetValidity,

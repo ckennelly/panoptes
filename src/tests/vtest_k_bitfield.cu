@@ -195,7 +195,8 @@ __global__ void k_bfe_constc(T * d, const T * a, uint32_t b, int N) {
 }
 
 template<>
-__global__ void k_bfe_constc(uint32_t * d, const uint32_t * a, uint32_t b, int N) {
+__global__ void k_bfe_constc(uint32_t * d, const uint32_t * a, uint32_t b,
+        int N) {
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
             idx < N; idx += blockDim.x * gridDim.x) {
         uint32_t _d;
@@ -206,7 +207,8 @@ __global__ void k_bfe_constc(uint32_t * d, const uint32_t * a, uint32_t b, int N
 }
 
 template<>
-__global__ void k_bfe_constc(uint64_t * d, const uint64_t * a, uint32_t b, int N) {
+__global__ void k_bfe_constc(uint64_t * d, const uint64_t * a, uint32_t b,
+        int N) {
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
             idx < N; idx += blockDim.x * gridDim.x) {
         uint64_t _d;
@@ -217,7 +219,8 @@ __global__ void k_bfe_constc(uint64_t * d, const uint64_t * a, uint32_t b, int N
 }
 
 template<>
-__global__ void k_bfe_constc(int32_t * d, const int32_t * a, uint32_t b, int N) {
+__global__ void k_bfe_constc(int32_t * d, const int32_t * a, uint32_t b,
+        int N) {
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
             idx < N; idx += blockDim.x * gridDim.x) {
         int32_t _d;
@@ -228,7 +231,8 @@ __global__ void k_bfe_constc(int32_t * d, const int32_t * a, uint32_t b, int N) 
 }
 
 template<>
-__global__ void k_bfe_constc(int64_t * d, const int64_t * a, uint32_t b, int N) {
+__global__ void k_bfe_constc(int64_t * d, const int64_t * a, uint32_t b,
+        int N) {
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
             idx < N; idx += blockDim.x * gridDim.x) {
         int64_t _d;
@@ -442,7 +446,8 @@ __global__ void k_bfi_constd(int64_t * f, const int64_t * a,
 
 TYPED_TEST_P(BitfieldTestFixture, InsertConstantD) {
     const uint32_t c = 5;
-    k_bfi_constd<<<256, 16, 0, this->stream>>>(this->f, this->a, this->d, c, this->n);
+    k_bfi_constd<<<256, 16, 0, this->stream>>>(this->f, this->a, this->d, c,
+        this->n);
 }
 
 template<typename T>

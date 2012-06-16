@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/thread/once.hpp>
 #include "backtrace.h"
 #include "callout.h"
 #include <cassert>
@@ -66,8 +65,9 @@ void __cudaRegisterTexture(void **fatCubinHandle,
 }
 
 extern "C"
-void __cudaRegisterVar(void **fatCubinHandle,char *hostVar, char *deviceAddress,
-        const char *deviceName, int ext, int size, int constant, int global) {
+void __cudaRegisterVar(void **fatCubinHandle,char *hostVar,
+        char *deviceAddress, const char *deviceName, int ext, int size,
+        int constant, int global) {
     backtrace_t::instance().refresh();
     global_context::instance().cudaRegisterVar(fatCubinHandle, hostVar,
         deviceAddress, deviceName, ext, size, constant, global);
@@ -87,9 +87,9 @@ cudaError_t cudaBindSurfaceToArray(const struct surfaceReference *surfref,
         surfref, array, desc);
 }
 
-cudaError_t cudaBindTexture(size_t *offset, const struct textureReference *texref,
-        const void *devPtr, const struct cudaChannelFormatDesc *desc,
-        size_t size) {
+cudaError_t cudaBindTexture(size_t *offset,
+        const struct textureReference *texref, const void *devPtr,
+        const struct cudaChannelFormatDesc *desc, size_t size) {
     backtrace_t::instance().refresh();
     return global_context::instance().context().cudaBindTexture(
         offset, texref, devPtr, desc, size);
@@ -230,7 +230,8 @@ cudaError_t cudaEventDestroy(cudaEvent_t event) {
     return global_context::instance().context().cudaEventDestroy(event);
 }
 
-cudaError_t cudaEventElapsedTime(float *ms, cudaEvent_t start, cudaEvent_t end) {
+cudaError_t cudaEventElapsedTime(float *ms, cudaEvent_t start,
+        cudaEvent_t end) {
     backtrace_t::instance().refresh();
 
     return global_context::instance().context().cudaEventElapsedTime(
@@ -387,16 +388,16 @@ cudaError_t cudaGraphicsResourceGetMappedPointer(void **devPtr, size_t *size,
         cudaGraphicsResource_t resource) {
     backtrace_t::instance().refresh();
 
-    return global_context::instance().context().cudaGraphicsResourceGetMappedPointer(
-        devPtr, size, resource);
+    return global_context::instance().context().
+        cudaGraphicsResourceGetMappedPointer(devPtr, size, resource);
 }
 
 cudaError_t cudaGraphicsResourceSetMapFlags(cudaGraphicsResource_t resource,
         unsigned int flags) {
     backtrace_t::instance().refresh();
 
-    return global_context::instance().context().cudaGraphicsResourceSetMapFlags(
-        resource, flags);
+    return global_context::instance().context().
+        cudaGraphicsResourceSetMapFlags(resource, flags);
 }
 
 cudaError_t cudaGraphicsSubResourceGetMappedArray(struct cudaArray **array,
@@ -404,8 +405,9 @@ cudaError_t cudaGraphicsSubResourceGetMappedArray(struct cudaArray **array,
         mipLevel) {
     backtrace_t::instance().refresh();
 
-    return global_context::instance().context().cudaGraphicsSubResourceGetMappedArray(
-        array, resource, arrayIndex, mipLevel);
+    return global_context::instance().context().
+        cudaGraphicsSubResourceGetMappedArray(array, resource, arrayIndex,
+        mipLevel);
 }
 
 cudaError_t cudaGraphicsUnmapResources(int count, cudaGraphicsResource_t
@@ -430,7 +432,8 @@ cudaError_t cudaHostAlloc(void **pHost, size_t size, unsigned int flags) {
         flags);
 }
 
-cudaError_t cudaHostGetDevicePointer(void **pDevice, void *pHost, unsigned int flags) {
+cudaError_t cudaHostGetDevicePointer(void **pDevice, void *pHost,
+        unsigned int flags) {
     backtrace_t::instance().refresh();
 
     return global_context::instance().context().cudaHostGetDevicePointer(
@@ -532,14 +535,16 @@ cudaError_t cudaMallocHost(void **ptr, size_t size) {
     return global_context::instance().context().cudaMallocHost(ptr, size);
 }
 
-cudaError_t cudaMallocPitch(void **devPtr, size_t *pitch, size_t width, size_t height) {
+cudaError_t cudaMallocPitch(void **devPtr, size_t *pitch, size_t width,
+        size_t height) {
     backtrace_t::instance().refresh();
 
     return global_context::instance().context().cudaMallocPitch(devPtr,
         pitch, width, height);
 }
 
-cudaError_t cudaMemcpy(void *dst, const void *src, size_t size, enum cudaMemcpyKind kind) {
+cudaError_t cudaMemcpy(void *dst, const void *src, size_t size,
+        enum cudaMemcpyKind kind) {
     backtrace_t::instance().refresh();
 
     return global_context::instance().context().cudaMemcpy(dst, src, size,
@@ -655,7 +660,8 @@ cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count,
 }
 
 cudaError_t cudaMemcpyFromArray(void *dst, const struct cudaArray *src,
-        size_t wOffset, size_t hOffset, size_t count, enum cudaMemcpyKind kind) {
+        size_t wOffset, size_t hOffset, size_t count,
+        enum cudaMemcpyKind kind) {
     backtrace_t::instance().refresh();
 
     return global_context::instance().context().cudaMemcpyFromArray(dst, src,

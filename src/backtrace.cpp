@@ -72,12 +72,13 @@ void backtrace_t::print() const {
 
         for (int i = start; i < bt_size_; i++) {
             /**
-             * Attempt to pattern match for libc's provided components.  For example:
+             * Attempt to pattern match for libc's provided components.  For
+             * example:
              *
              * /usr/lib64/libgtest.so.0(_ZN7testing4Test3RunEv+0xaa) [0x7fc59066e3da]
              *
-             * This strategy will break if some parenthesis show up in the filename.
-             * Parsing from the other direction might help?
+             * This strategy will break if some parenthesis show up in the
+             * filename. Parsing from the other direction might help?
              */
             char * mangled_start = NULL;
             char * offset_mark   = NULL;
@@ -102,17 +103,20 @@ void backtrace_t::print() const {
             const char * attr = (i == start) ? ats : bys;
 
             if (address_end) {
-                /* The others except possibly offset_mark being non-NULL follows from this. */
+                /* The others except possibly offset_mark being non-NULL
+                 * follows from this. */
                 const char * filename = bt_syms[i];
                 *mangled_start = '\0'; // Chop all characters starting at the (
 
                 const char * name     = mangled_start + 1;
                 const char * offset;
                 if (offset_mark) {
-                    *offset_mark      = '\0'; // Chop all characters starting at the +
+                    /* Chop all characters starting at the + */
+                    *offset_mark      = '\0';
                     offset            = offset_mark + 1;
                 } else {
-                   /* This will end up being an empty string after the next chop */
+                   /* This will end up being an empty string after the next
+                    * chop */
                    offset             = mangled_end;
                 }
 

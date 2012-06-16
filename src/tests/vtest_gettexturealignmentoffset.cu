@@ -58,7 +58,8 @@ TEST(GetTextureAlignmentOffset, Simple) {
         signed char * offset_data = data + 1;
 
         size_t bind_time_offset;
-        ret = cudaBindTexture(&bind_time_offset, texref, offset_data, &desc, bytes);
+        ret = cudaBindTexture(&bind_time_offset, texref, offset_data, &desc,
+            bytes);
         ASSERT_EQ(cudaSuccess, ret);
         bound = true;
 

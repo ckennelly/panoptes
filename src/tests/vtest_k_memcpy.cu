@@ -23,7 +23,8 @@
 #include <stdint.h>
 #include <valgrind/memcheck.h>
 
-extern "C" __global__ void k_memcpy(void * dst, const void * src, uint32_t bytes) {
+extern "C" __global__ void k_memcpy(void * dst, const void * src,
+        uint32_t bytes) {
     /* Very simple byte-by-byte transfer approach. */
     for (uint32_t i = 0; i < bytes; i++) {
         static_cast<char *>(dst)[i] = static_cast<const char *>(src)[i];

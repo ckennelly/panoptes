@@ -513,8 +513,8 @@ ostream & operator<<(ostream & o, const statement_t & s) {
             if (s.is_volatile) {
                 o << ".volatile";
             }
-            o << s.space << s.cache << s.vector << s.type << " " << s.operands[0] <<
-                ", [" << s.operands[1] << "]";
+            o << s.space << s.cache << s.vector << s.type << " " <<
+                s.operands[0] << ", [" << s.operands[1] << "]";
             break;
         case op_ldu:
             assert(s.operands.size() == 2u);

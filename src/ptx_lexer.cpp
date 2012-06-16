@@ -25,9 +25,8 @@
 
 namespace panoptes {
 
-ptx_lexer::ptx_lexer(std::istream * in, std::ostream * out) : ptxFlexLexer(in, out), yylval(NULL) {
-
-}
+ptx_lexer::ptx_lexer(std::istream * in, std::ostream * out) :
+    ptxFlexLexer(in, out), yylval(NULL) { }
 
 ptx_lexer::~ptx_lexer() {
 

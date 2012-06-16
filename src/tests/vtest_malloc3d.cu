@@ -25,17 +25,34 @@
 //   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
 TEST(Malloc3DFree, NullArguments) {
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3D(NULL, make_cudaExtent(0, 0, 0)));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3D(NULL, make_cudaExtent(0, 0, 8)));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3D(NULL, make_cudaExtent(0, 8, 0)));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3D(NULL, make_cudaExtent(0, 8, 8)));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3D(NULL, make_cudaExtent(8, 0, 0)));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3D(NULL, make_cudaExtent(8, 0, 8)));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3D(NULL, make_cudaExtent(8, 8, 0)));
+    cudaError_t ret;
+
+    ret = cudaMalloc3D(NULL, make_cudaExtent(0, 0, 0));
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3D(NULL, make_cudaExtent(0, 0, 8));
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3D(NULL, make_cudaExtent(0, 8, 0));
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3D(NULL, make_cudaExtent(0, 8, 8));
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3D(NULL, make_cudaExtent(8, 0, 0));
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3D(NULL, make_cudaExtent(8, 0, 8));
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3D(NULL, make_cudaExtent(8, 8, 0));
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
     /**
      * This segfaults...
 
-     EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3D(NULL, make_cudaExtent(8, 8, 8)));
+    ret = cudaMalloc3D(NULL, make_cudaExtent(8, 8, 8));
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
 
      */
 }
@@ -57,7 +74,8 @@ TEST(Malloc3DFree, Validity) {
     const size_t height = 3;
     const size_t width  = 3;
 
-    /* Allocate a piece of memory, transfer it to the host, verify it is uninitialized */
+    /* Allocate a piece of memory, transfer it to the host, verify it is
+     * uninitialized */
     cudaPitchedPtr ptr;
     cudaError_t ret;
     ret = cudaMalloc3D(&ptr, make_cudaExtent(width, height, depth));
@@ -67,18 +85,21 @@ TEST(Malloc3DFree, Validity) {
     ASSERT_EQ(width,         ptr.xsize);
     ASSERT_EQ(height,        ptr.ysize);
 
-    /* This sets the validity bits, so we need the memcpy to set them as well or the test fails */
+    /* This sets the validity bits, so we need the memcpy to set them as well
+     * or the test fails */
     const size_t alloc_size = ptr.pitch * ptr.xsize * ptr.ysize;
     boost::scoped_array<uint8_t> host_ptr(new uint8_t[alloc_size]);
     memset(host_ptr.get(), 0, alloc_size);
 
-    ret = cudaMemcpy(host_ptr.get(), ptr.ptr, alloc_size, cudaMemcpyDeviceToHost);
+    ret = cudaMemcpy(host_ptr.get(), ptr.ptr, alloc_size,
+        cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
     boost::scoped_array<uint8_t> vptr(new uint8_t[alloc_size]);
 
     int valgrind = VALGRIND_GET_VBITS(host_ptr.get(), vptr.get(), alloc_size);
-    /* valgrind == 3 indicates we didn't do something right on the test side. */
+    /* valgrind == 3 indicates we didn't do something right on the test
+     * side. */
     assert(valgrind == 0 || valgrind == 1);
 
     if (valgrind == 1) {

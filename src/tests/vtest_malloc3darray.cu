@@ -27,46 +27,84 @@ TEST(Malloc3DArray, NullArguments) {
 
     // Commented out cases segfault.
 
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, NULL, make_cudaExtent(0, 0, 0), 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, NULL, make_cudaExtent(0, 0, 8), 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, NULL, make_cudaExtent(0, 8, 0), 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, NULL, make_cudaExtent(0, 8, 8), 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, NULL, make_cudaExtent(8, 0, 0), 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, NULL, make_cudaExtent(8, 0, 8), 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, NULL, make_cudaExtent(8, 8, 0), 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, NULL, make_cudaExtent(8, 8, 8), 0));
+    cudaError_t ret;
+    ret = cudaMalloc3DArray(NULL, NULL, make_cudaExtent(0, 0, 0), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
 
-    EXPECT_EQ(cudaSuccess,           cudaMalloc3DArray(&ary, NULL, make_cudaExtent(0, 0, 0), 0));
-    EXPECT_EQ(cudaSuccess,           cudaFreeArray(ary));
-    EXPECT_EQ(cudaSuccess,           cudaMalloc3DArray(&ary, NULL, make_cudaExtent(0, 0, 8), 0));
-    EXPECT_EQ(cudaSuccess,           cudaFreeArray(ary));
+    ret = cudaMalloc3DArray(NULL, NULL, make_cudaExtent(0, 0, 8), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
 
-    EXPECT_EQ(cudaSuccess,           cudaMalloc3DArray(&ary, NULL, make_cudaExtent(0, 8, 0), 0));
-    EXPECT_EQ(cudaSuccess,           cudaFreeArray(ary));
+    ret = cudaMalloc3DArray(NULL, NULL, make_cudaExtent(0, 8, 0), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
 
-    EXPECT_EQ(cudaSuccess,           cudaMalloc3DArray(&ary, NULL, make_cudaExtent(0, 8, 8), 0));
-    EXPECT_EQ(cudaSuccess,           cudaFreeArray(ary));
+    ret = cudaMalloc3DArray(NULL, NULL, make_cudaExtent(0, 8, 8), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
 
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(&ary, NULL, make_cudaExtent(8, 0, 0), 0));
+    // ret = cudaMalloc3DArray(NULL, NULL, make_cudaExtent(8, 0, 0), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+    ret = cudaMalloc3DArray(NULL, NULL, make_cudaExtent(8, 0, 8), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+    // ret = cudaMalloc3DArray(NULL, NULL, make_cudaExtent(8, 8, 0), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+    // ret = cudaMalloc3DArray(NULL, NULL, make_cudaExtent(8, 8, 8), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3DArray(&ary, NULL, make_cudaExtent(0, 0, 0), 0);
+    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaFreeArray(ary);
+    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaMalloc3DArray(&ary, NULL, make_cudaExtent(0, 0, 8), 0);
+    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaFreeArray(ary);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMalloc3DArray(&ary, NULL, make_cudaExtent(0, 8, 0), 0);
+    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaFreeArray(ary);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMalloc3DArray(&ary, NULL, make_cudaExtent(0, 8, 8), 0);
+    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaFreeArray(ary);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    // ret = cudaMalloc3DArray(&ary, NULL, make_cudaExtent(8, 0, 0), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
 
     /**
      * There's no reason why this should pass...
 
-    EXPECT_EQ(cudaSuccess,           cudaMalloc3DArray(&ary, NULL, make_cudaExtent(8, 0, 8), 0));
-    EXPECT_EQ(cudaSuccess,           cudaFreeArray(ary));
+    ret = cudaMalloc3DArray(&ary, NULL, make_cudaExtent(8, 0, 8), 0);
+    EXPECT_EQ(cudaSuccess, ret);
+    ret = cudaFreeArray(ary);
+    EXPECT_EQ(cudaSuccess, ret);
      */
 
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(&ary, NULL, make_cudaExtent(8, 8, 0), 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(&ary, NULL, make_cudaExtent(8, 8, 8), 0));
+    // ret = cudaMalloc3DArray(&ary, NULL, make_cudaExtent(8, 8, 0), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+    // ret = cudaMalloc3DArray(&ary, NULL, make_cudaExtent(8, 8, 8), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
 
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(0, 0, 0), 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(0, 0, 8), 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(0, 8, 0), 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(0, 8, 8), 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(8, 0, 0), 0));
-    EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(8, 0, 8), 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(8, 8, 0), 0));
-    // EXPECT_EQ(cudaErrorInvalidValue, cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(8, 8, 8), 0));
+    ret = cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(0, 0, 0), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(0, 0, 8), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(0, 8, 0), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(0, 8, 8), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    // ret = cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(8, 0, 0), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+    ret = cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(8, 0, 8), 0);
+    EXPECT_EQ(cudaErrorInvalidValue, ret);
+    // ret = cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(8, 8, 0), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
+    // ret = cudaMalloc3DArray(NULL, &dsc, make_cudaExtent(8, 8, 8), 0);
+    // EXPECT_EQ(cudaErrorInvalidValue, ret);
 }
 
 TEST(Malloc3DArray, Limits) {
@@ -177,12 +215,12 @@ TEST(Malloc3DArray, Limits) {
         }
     } else if ((size_t) prop.maxTexture2D[0] * prop.maxTexture2D[1] >
             prop.totalGlobalMem) {
-        EXPECT_EQ(cudaErrorMemoryAllocation,
-            cudaMalloc3DArray(&ary, &dsc,
-            make_cudaExtent(prop.maxTexture2D[0], prop.maxTexture2D[1], 0), 0));
+        ret = cudaMalloc3DArray(&ary, &dsc,
+            make_cudaExtent(prop.maxTexture2D[0], prop.maxTexture2D[1], 0), 0);
+        EXPECT_EQ(cudaErrorMemoryAllocation, ret);
     }
 
-   ret = cudaMalloc3DArray(&ary, &dsc,
+    ret = cudaMalloc3DArray(&ary, &dsc,
         make_cudaExtent(1,         1,         1),        0);
     EXPECT_EQ(cudaSuccess, ret);
     if (ret == cudaSuccess) {

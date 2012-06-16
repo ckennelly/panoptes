@@ -383,8 +383,8 @@ void global_context::load_ptx() {
                 module->module, reg.deviceName);
             if (ret != CUDA_SUCCESS) {
                 /**
-                 * Panoptes should properly manage its interactions to the driver API
-                 * such that this is the only failure mode, if any.
+                 * Panoptes should properly manage its interactions to the
+                 * driver API such that this is the only failure mode, if any.
                  */
                 assert(ret == CUDA_ERROR_NOT_FOUND);
 

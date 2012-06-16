@@ -47,7 +47,8 @@ typedef cudaError_t (*cudaDriverGetVersion_t)(int *);
 typedef cudaError_t (*cudaEventCreate_t)(cudaEvent_t *);
 typedef cudaError_t (*cudaEventCreateWithFlags_t)(cudaEvent_t *, unsigned int);
 typedef cudaError_t (*cudaEventDestroy_t)(cudaEvent_t);
-typedef cudaError_t (*cudaEventElapsedTime_t)(float *, cudaEvent_t, cudaEvent_t);
+typedef cudaError_t (*cudaEventElapsedTime_t)(float *, cudaEvent_t,
+    cudaEvent_t);
 typedef cudaError_t (*cudaEventQuery_t)(cudaEvent_t);
 typedef cudaError_t (*cudaEventRecord_t)(cudaEvent_t, cudaStream_t);
 typedef cudaError_t (*cudaEventSynchronize_t)(cudaEvent_t);
@@ -62,22 +63,25 @@ typedef cudaError_t (*cudaGetLastError_t)(void);
 typedef cudaError_t (*cudaGetTextureReference_t)(
     const struct textureReference **, const char *);
 typedef cudaError_t (*cudaHostAlloc_t)(void **, size_t , unsigned int);
-typedef cudaError_t (*cudaHostGetDevicePointer_t)(void **, void *, unsigned int);
+typedef cudaError_t (*cudaHostGetDevicePointer_t)(void **, void *,
+    unsigned int);
 typedef cudaError_t (*cudaHostGetFlags_t)(unsigned int *, void *);
 typedef cudaError_t (*cudaHostRegister_t)(void *, size_t, unsigned int);
 typedef cudaError_t (*cudaHostUnregister_t)(void *);
 typedef cudaError_t (*cudaLaunch_t)(const char *);
 typedef cudaError_t (*cudaMalloc_t)(void **, size_t);
-typedef cudaError_t (*cudaMalloc3D_t)(struct cudaPitchedPtr *, struct cudaExtent);
-typedef cudaError_t (*cudaMalloc3DArray_t)(struct cudaArray**, const struct
-    cudaChannelFormatDesc*, struct cudaExtent, unsigned int);
-typedef cudaError_t (*cudaMallocArray_t)(struct cudaArray**, const struct
-    cudaChannelFormatDesc*, size_t, size_t, unsigned int);
+typedef cudaError_t (*cudaMalloc3D_t)(struct cudaPitchedPtr *,
+    struct cudaExtent);
+typedef cudaError_t (*cudaMalloc3DArray_t)(struct cudaArray**,
+    const struct cudaChannelFormatDesc*, struct cudaExtent, unsigned int);
+typedef cudaError_t (*cudaMallocArray_t)(struct cudaArray**,
+    const struct cudaChannelFormatDesc*, size_t, size_t, unsigned int);
 typedef cudaError_t (*cudaMallocHost_t)(void **, size_t);
 typedef cudaError_t (*cudaMallocPitch_t)(void **, size_t *, size_t, size_t);
-typedef cudaError_t (*cudaMemcpy_t)(void *, const void *, size_t, cudaMemcpyKind);
+typedef cudaError_t (*cudaMemcpy_t)(void *, const void *, size_t,
+    cudaMemcpyKind);
 typedef cudaError_t (*cudaMemcpyAsync_t)(void *, const void *, size_t,
-    cudaMemcpyKind,cudaStream_t);
+    cudaMemcpyKind, cudaStream_t);
 typedef cudaError_t (*cudaMemcpyFromSymbol_t)(void *, const char *,
     size_t, size_t, enum cudaMemcpyKind);
 typedef cudaError_t (*cudaMemcpyFromSymbolAsync_t)(void *, const char *,
@@ -85,7 +89,8 @@ typedef cudaError_t (*cudaMemcpyFromSymbolAsync_t)(void *, const char *,
 typedef cudaError_t (*cudaMemGetInfo_t)(size_t *, size_t *);
 typedef cudaError_t (*cudaMemset_t)(void *, int, size_t);
 typedef cudaError_t (*cudaMemsetAsync_t)(void *, int, size_t, cudaStream_t);
-typedef cudaError_t (*cudaPointerGetAttributes_t)(struct cudaPointerAttributes *, void *);
+typedef cudaError_t (*cudaPointerGetAttributes_t)(
+    struct cudaPointerAttributes *, void *);
 typedef cudaError_t (*cudaRuntimeGetVersion_t)(int *);
 typedef cudaError_t (*cudaSetDeviceFlags_t)(unsigned int);
 typedef cudaError_t (*cudaSetDoubleForDevice_t)(double *);
@@ -115,8 +120,8 @@ cudaError_t callout::cudaBindTexture(size_t *offset,
 
 cudaError_t callout::cudaConfigureCall(dim3 gridDim, dim3
         blockDim, size_t sharedMem, cudaStream_t stream) {
-    cudaConfigureCall_t method = (cudaConfigureCall_t) dlsym(callout::instance().libcudart,
-        "cudaConfigureCall");
+    cudaConfigureCall_t method = (cudaConfigureCall_t)
+        dlsym(callout::instance().libcudart, "cudaConfigureCall");
     return method(gridDim, blockDim, sharedMem, stream);
 }
 
@@ -197,7 +202,8 @@ cudaError_t callout::cudaEventSynchronize(cudaEvent_t event) {
 }
 
 cudaError_t callout::cudaFree(void *devPtr) {
-    cudaFree_t method = (cudaFree_t) dlsym(callout::instance().libcudart, "cudaFree");
+    cudaFree_t method = (cudaFree_t)
+        dlsym(callout::instance().libcudart, "cudaFree");
     return method(devPtr);
 }
 
@@ -208,7 +214,8 @@ cudaError_t callout::cudaFreeArray(struct cudaArray * array) {
 }
 
 cudaError_t callout::cudaFreeHost(void *ptr) {
-    cudaFreeHost_t method = (cudaFreeHost_t) dlsym(callout::instance().libcudart,
+    cudaFreeHost_t method = (cudaFreeHost_t)
+        dlsym(callout::instance().libcudart,
         "cudaFreeHost");
     return method(ptr);
 }
@@ -280,12 +287,14 @@ cudaError_t callout::cudaHostUnregister(void *ptr) {
 }
 
 cudaError_t callout::cudaLaunch(const char *entry) {
-    cudaLaunch_t method = (cudaLaunch_t) dlsym(callout::instance().libcudart, "cudaLaunch");
+    cudaLaunch_t method = (cudaLaunch_t)
+        dlsym(callout::instance().libcudart, "cudaLaunch");
     return method(entry);
 }
 
 cudaError_t callout::cudaMalloc(void **devPtr, size_t size) {
-    cudaMalloc_t method = (cudaMalloc_t) dlsym(callout::instance().libcudart, "cudaMalloc");
+    cudaMalloc_t method = (cudaMalloc_t)
+        dlsym(callout::instance().libcudart, "cudaMalloc");
     return method(devPtr, size);
 }
 
@@ -304,17 +313,17 @@ cudaError_t callout::cudaMalloc3DArray(struct cudaArray** array, const struct
     return method(array, desc, extent, flags);
 }
 
-cudaError_t callout::cudaMallocArray(struct cudaArray **array, const struct
-            cudaChannelFormatDesc *desc, size_t width, size_t height, unsigned int
-            flags) {
+cudaError_t callout::cudaMallocArray(struct cudaArray **array,
+        const struct cudaChannelFormatDesc *desc, size_t width, size_t height,
+        unsigned int flags) {
     cudaMallocArray_t method = (cudaMallocArray_t)
         dlsym(callout::instance().libcudart, "cudaMallocArray");
     return method(array, desc, width, height, flags);
 }
 
 cudaError_t callout::cudaMallocHost(void **ptr, size_t size) {
-    cudaMallocHost_t method = (cudaMallocHost_t) dlsym(callout::instance().libcudart,
-        "cudaMallocHost");
+    cudaMallocHost_t method = (cudaMallocHost_t)
+        dlsym(callout::instance().libcudart, "cudaMallocHost");
     return method(ptr, size);
 }
 
@@ -327,7 +336,8 @@ cudaError_t callout::cudaMallocPitch(void **devPtr, size_t *pitch,
 
 cudaError_t callout::cudaMemcpy(void *dst, const void *src, size_t count,
         cudaMemcpyKind kind) {
-    cudaMemcpy_t method = (cudaMemcpy_t) dlsym(callout::instance().libcudart, "cudaMemcpy");
+    cudaMemcpy_t method = (cudaMemcpy_t)
+        dlsym(callout::instance().libcudart, "cudaMemcpy");
     return method(dst, src, count, kind);
 }
 
@@ -372,16 +382,16 @@ cudaError_t callout::cudaMemsetAsync(void *devPtr, int value, size_t count,
     return method(devPtr, value, count, stream);
 }
 
-cudaError_t callout::cudaPointerGetAttributes(struct cudaPointerAttributes *attributes,
-        void *ptr) {
+cudaError_t callout::cudaPointerGetAttributes(
+        struct cudaPointerAttributes *attributes, void *ptr) {
     cudaPointerGetAttributes_t method = (cudaPointerGetAttributes_t) dlsym(
         callout::instance().libcudart, "cudaPointerGetAttributes");
     return method(attributes, ptr);
 }
 
 cudaError_t callout::cudaRuntimeGetVersion(int *runtimeVersion) {
-    cudaRuntimeGetVersion_t method = (cudaRuntimeGetVersion_t) dlsym(callout::instance().libcudart,
-        "cudaRuntimeGetVersion");
+    cudaRuntimeGetVersion_t method = (cudaRuntimeGetVersion_t)
+        dlsym(callout::instance().libcudart, "cudaRuntimeGetVersion");
     return method(runtimeVersion);
 }
 
@@ -405,20 +415,20 @@ cudaError_t callout::cudaSetDoubleForHost(double *d) {
 
 cudaError_t callout::cudaSetupArgument(const void *arg, size_t size, size_t
         offset) {
-    cudaSetupArgument_t method = (cudaSetupArgument_t) dlsym(callout::instance().libcudart,
-        "cudaSetupArgument");
+    cudaSetupArgument_t method = (cudaSetupArgument_t)
+        dlsym(callout::instance().libcudart, "cudaSetupArgument");
     return method(arg, size, offset);
 }
 
 cudaError_t callout::cudaStreamCreate(cudaStream_t *pStream) {
-    cudaStreamCreate_t method = (cudaStreamCreate_t) dlsym(callout::instance().libcudart,
-        "cudaStreamCreate");
+    cudaStreamCreate_t method = (cudaStreamCreate_t)
+        dlsym(callout::instance().libcudart, "cudaStreamCreate");
     return method(pStream);
 }
 
 cudaError_t callout::cudaStreamDestroy(cudaStream_t stream) {
-    cudaStreamDestroy_t method = (cudaStreamDestroy_t) dlsym(callout::instance().libcudart,
-        "cudaStreamDestroy");
+    cudaStreamDestroy_t method = (cudaStreamDestroy_t)
+        dlsym(callout::instance().libcudart, "cudaStreamDestroy");
     return method(stream);
 }
 
@@ -434,8 +444,8 @@ cudaError_t callout::cudaStreamSynchronize(cudaStream_t stream) {
     return method(stream);
 }
 
-cudaError_t callout::cudaStreamWaitEvent(cudaStream_t stream, cudaEvent_t event,
-            unsigned int flags) {
+cudaError_t callout::cudaStreamWaitEvent(cudaStream_t stream,
+        cudaEvent_t event, unsigned int flags) {
     cudaStreamWaitEvent_t method = (cudaStreamWaitEvent_t)
         dlsym(callout::instance().libcudart, "cudaStreamWaitEvent");
     return method(stream, event, flags);
@@ -450,21 +460,21 @@ cudaError_t callout::cudaThreadSynchronize() {
 void callout::cudaRegisterFunction(void **fatCubinHandle, const char *hostFun,
         char *deviceFun, const char *deviceName, int thread_limit, uint3 *tid,
         uint3 *bid, dim3 *bDim, dim3 *gDim, int *wSize) {
-    registerFunction_t method = (registerFunction_t) dlsym(callout::instance().libcudart,
-        "__cudaRegisterFunction");
+    registerFunction_t method = (registerFunction_t)
+        dlsym(callout::instance().libcudart, "__cudaRegisterFunction");
     return method(fatCubinHandle, hostFun, deviceFun, deviceName,
         thread_limit, tid, bid, bDim, gDim, wSize);
 }
 
 void** callout::cudaRegisterFatBinary(void *fatCubin) {
-    registerFatBinary_t method = (registerFatBinary_t) dlsym(callout::instance().libcudart,
-        "__cudaRegisterFatBinary");
+    registerFatBinary_t method = (registerFatBinary_t)
+        dlsym(callout::instance().libcudart, "__cudaRegisterFatBinary");
     return method(fatCubin);
 }
 
 void callout::cudaUnregisterFatBinary(void **fatCubinHandle) {
-    unregisterFatBinary_t method = (unregisterFatBinary_t) dlsym(callout::instance().libcudart,
-        "__cudaUnregisterFatBinary");
+    unregisterFatBinary_t method = (unregisterFatBinary_t)
+        dlsym(callout::instance().libcudart, "__cudaUnregisterFatBinary");
     return method(fatCubinHandle);
 }
 
