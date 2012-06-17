@@ -74,6 +74,9 @@ TEST(MemsetAsync, MallocAfterMemset) {
 
     ret = cudaFree(ptr1);
     ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFreeHost(hptr1);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 class MemsetAsyncValidity : public ::testing::TestWithParam<int> {

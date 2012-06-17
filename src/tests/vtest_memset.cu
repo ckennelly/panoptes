@@ -73,6 +73,9 @@ TEST(Memset, MallocAfterMemset) {
 
     ret = cudaFree(ptr1);
     ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFreeHost(hptr1);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 class MemsetValidity : public ::testing::TestWithParam<int> {

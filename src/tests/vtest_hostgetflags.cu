@@ -78,6 +78,9 @@ TEST(HostGetFlags, NextPage) {
     unsigned int flags;
     ret = cudaHostGetFlags(&flags, host_ptr + page_size);
     EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaFreeHost(host_ptr);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 TEST(HostGetFlags, OffPage) {
@@ -104,6 +107,9 @@ TEST(HostGetFlags, OffPage) {
     unsigned int flags;
     ret = cudaHostGetFlags(&flags, host_ptr + offset);
     EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaFreeHost(host_ptr);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 int main(int argc, char **argv) {

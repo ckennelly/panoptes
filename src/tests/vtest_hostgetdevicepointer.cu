@@ -127,6 +127,9 @@ TEST(HostGetDevicePointer, NextPage) {
     } else {
         EXPECT_EQ(cudaErrorMemoryAllocation, ret);
     }
+
+    ret = cudaFreeHost(host_ptr);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 TEST(HostGetDevicePointer, OffPage) {
@@ -166,6 +169,9 @@ TEST(HostGetDevicePointer, OffPage) {
     } else {
         EXPECT_EQ(cudaErrorMemoryAllocation, ret);
     }
+
+    ret = cudaFreeHost(host_ptr);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 int main(int argc, char **argv) {
