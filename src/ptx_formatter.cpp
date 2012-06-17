@@ -240,6 +240,7 @@ ostream & operator<<(ostream & o, const statement_t & s) {
             o << "!";
         }
 
+        assert(s.predicate.size() > 0);
         o << s.predicate << " ";
     }
 
@@ -706,6 +707,14 @@ ostream & operator<<(ostream & o, const statement_t & s) {
                 o << ".mask";
             }
             o << " " << s.operands[0];
+            break;
+        case op_prefetch:
+        case op_prefetchu:
+            assert(s.operands.size() == 1u);
+            if (s.space != generic_space) {
+                o << s.space;
+            }
+            o << s.prefetch_cache << " [" << s.operands[0] << "]";
             break;
         case op_prmt:
             assert(s.operands.size() == 4u);
@@ -1447,4 +1456,16 @@ ostream & operator<<(ostream & o, const panoptes::prmt_mode_t & m) {
     }
 
     return o;
+}
+
+ostream & operator<<(ostream & o, const panoptes::prefetch_cache_t & c) {
+    switch (c) {
+        case invalid_cache:
+            assert(0 && "Invalid cache level.");
+            return o;
+        case cache_L1: return o << ".L1";
+        case cache_L2: return o << ".L2";
+    }
+
+    __builtin_unreachable();
 }

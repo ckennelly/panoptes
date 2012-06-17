@@ -45,6 +45,7 @@ std::ostream & operator<<(std::ostream &, const panoptes::field_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::op_set_cmp_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::op_set_bool_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::operand_t &);
+std::ostream & operator<<(std::ostream &, const panoptes::prefetch_cache_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::prmt_mode_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::ptx_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::rounding_t &);

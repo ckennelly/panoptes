@@ -73,6 +73,7 @@ vtest_k_mulhi
 vtest_k_noop
 vtest_k_pmevent
 vtest_k_popc
+vtest_k_prefetch
 vtest_k_printf
 vtest_k_prmt
 vtest_k_prng

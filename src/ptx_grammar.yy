@@ -82,6 +82,7 @@ void yyerror(YYLTYPE * location, panoptes::ptx_lexer * lexer, panoptes::ptx_pars
 %token<vsigned> TOKEN_CARRY TOKEN_SHIFTAMT TOKEN_FINITE TOKEN_INFINITE
 %token<vsigned> TOKEN_NUMBER TOKEN_NOTANUMBER TOKEN_NORMAL TOKEN_SUBNORMAL
 %token<vsigned> TOKEN_F4E TOKEN_B4E TOKEN_RC8 TOKEN_ECL TOKEN_ECR TOKEN_RC16
+%token<vsigned> TOKEN_L1 TOKEN_L2
 
 /* Important pairings. */
 %token<vsigned> TOKEN_CONSTANT_DECIMAL
@@ -1132,8 +1133,32 @@ popc : OPCODE_POPC dataType identifierOperand TOKEN_COMMA identifierOperand {
     parser->operands.clear();
 };
 
-prefetch : ;
-prefetchu : ;
+prefetchCacheToken : TOKEN_L1 | TOKEN_L2 ;
+prefetchCacheLevel : prefetchCacheToken {
+    parser->function->top->instruction.set_token($<vsigned>1);
+};
+
+prefetchSpaceToken : TOKEN_GLOBAL | TOKEN_LOCAL ;
+prefetchSpace : prefetchSpaceToken {
+    parser->function->top->instruction.set_token($<vsigned>1);
+};
+prefetchSpace : /* */ {
+    parser->function->top->instruction.space = generic_space;
+}
+
+prefetch : OPCODE_PREFETCH prefetchSpace prefetchCacheLevel ldSource {
+    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_operands(parser->operands);
+    parser->operands.clear();
+}
+
+prefetchu : OPCODE_PREFETCHU TOKEN_L1 ldSource {
+    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_token($<vsigned>2);
+    parser->function->top->instruction.space = generic_space;
+    parser->function->top->instruction.set_operands(parser->operands);
+    parser->operands.clear();
+}
 
 prmtModeToken: TOKEN_F4E | TOKEN_B4E | TOKEN_RC8 | TOKEN_ECL | TOKEN_ECR |
     TOKEN_RC16 ;

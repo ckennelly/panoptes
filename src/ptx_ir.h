@@ -219,6 +219,10 @@ enum prmt_mode_t {
     prmt_ecr, prmt_rc16
 };
 
+enum prefetch_cache_t {
+    invalid_cache, cache_L1, cache_L2
+};
+
 struct statement_t {
     statement_t();
     void reset();
@@ -261,6 +265,7 @@ struct statement_t {
     bool            shiftamt;
     testp_op_t      testp_op;
     prmt_mode_t     prmt_mode;
+    prefetch_cache_t prefetch_cache;
 
     vector_t        vector;
 

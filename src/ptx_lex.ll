@@ -299,6 +299,8 @@ COMMENT ("/*"([^*]|"*"[^/])*"*/")|("/"(\\\n)*"/"[^\n]*)
 ".ecl"              { yylval->vsigned = TOKEN_ECL;      return TOKEN_ECL;    }
 ".ecr"              { yylval->vsigned = TOKEN_ECR;      return TOKEN_ECR;    }
 ".rc16"             { yylval->vsigned = TOKEN_RC16;     return TOKEN_RC16;   }
+".L1"               { yylval->vsigned = TOKEN_L1;       return TOKEN_L1;     }
+".L2"               { yylval->vsigned = TOKEN_L2;       return TOKEN_L2;     }
 
 {CONSTANT_DECIMAL}   { yylval->vsigned = boost::lexical_cast<int64_t>(yytext); \
                         return TOKEN_CONSTANT_DECIMAL; }

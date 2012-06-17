@@ -59,10 +59,9 @@ cuda_context::td::~td() {
 }
 
 cuda_context::~cuda_context() {
-
     // Ignore this result.  There is little we can do to change
     // things at this point
-    // (void) cuCtxDestroy(ctx_);
+    (void) cuCtxDestroy(ctx_);
 }
 
 cudaError_t cuda_context::cudaConfigureCall(dim3 gridDim, dim3 blockDim,

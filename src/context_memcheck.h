@@ -58,9 +58,12 @@ protected:
      */
     virtual void instrument(void **fatCubinHandle, ptx_t * target);
 
+    struct entry_info_t;
+
     void analyze_entry(function_t * entry);
     void instrument_entry(function_t * entry);
-    void instrument_block(block_t * block, internal::instrumentation_t * inst);
+    void instrument_block(block_t * block, internal::instrumentation_t * inst,
+        const entry_info_t & e);
 private:
     friend class cuda_context_memcheck;
     friend struct internal::check_t;
@@ -81,7 +84,7 @@ private:
     typedef std::set<std::string> string_set_t;
     string_set_t external_entries_;
     string_set_t nonentries_;
-
+protected:
     struct entry_info_t {
         entry_info_t() : function(NULL), inst(NULL),
             fixed_shared_memory(0), local_memory(0) { }
@@ -93,7 +96,7 @@ private:
         size_t fixed_shared_memory;
         size_t local_memory;
     };
-
+private:
     typedef std::map<std::string, entry_info_t> entry_info_map_t;
     entry_info_map_t entry_info_;
 };

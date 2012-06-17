@@ -92,6 +92,9 @@ vtest_k_isspacep.o: vtest_k_isspacep.cu Makefile
 vtest_k_mulhi.o: vtest_k_mulhi.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
+vtest_k_prefetch.o: vtest_k_prefetch.cu Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
+
 vtest_k_pmevent.o: vtest_k_pmevent.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 

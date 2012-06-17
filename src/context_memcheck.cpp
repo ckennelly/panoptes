@@ -309,6 +309,17 @@ namespace {
         return ret;
     }
 
+    static statement_t make_isspacep(space_t space,
+            const operand_t & dst, const operand_t & src) {
+        statement_t ret;
+        ret.op = op_isspacep;
+        ret.space = space;
+        ret.operands.push_back(dst);
+        ret.operands.push_back(src);
+
+        return ret;
+    }
+
     static statement_t make_mov(type_t type, const operand_t & dst,
             const operand_t & src) {
         statement_t ret;
@@ -350,7 +361,7 @@ struct internal::check_t {
     check_t(cuda_context_memcheck * c, const char * ename);
     virtual ~check_t();
 
-    virtual void check(cudaError_t);
+    virtual cudaError_t check(cudaError_t);
 
     cuda_context_memcheck * const context;
     const char            * const entry_name;
@@ -364,7 +375,11 @@ struct internal::instrumentation_t {
 
     enum error_type_t {
         no_error,
-        wild_branch
+        wild_branch,
+        wild_prefetch,
+        misaligned_prefetch,
+        outofbounds_prefetch_global,
+        outofbounds_prefetch_local
     };
 
     struct error_desc_t {
@@ -435,9 +450,14 @@ internal::check_t::~check_t() {
     context->error_buffers_.push(error_buffer);
 }
 
-void internal::check_t::check(cudaError_t r) {
-    if (r != cudaSuccess) {
-        return;
+cudaError_t internal::check_t::check(cudaError_t r) {
+    if (r == cudaErrorNotReady) {
+        return cudaSuccess;
+    } else if (r != cudaSuccess) {
+        /**
+         * Our instrumentation should keep this from happening.
+         */
+        return r;
     }
 
     /**
@@ -462,7 +482,7 @@ void internal::check_t::check(cudaError_t r) {
         if (it == global->entry_info_.end()) {
             /* We couldn't find the metadata. */
             assert(0 && "The impossible happened.");
-            return;
+            return cudaSuccess;
         }
 
         std::string buffer;
@@ -500,6 +520,11 @@ void internal::check_t::check(cudaError_t r) {
                     "Error %u: Unknown error code (%u).\n", i, e);
                 assert(sret < (int) sizeof(buf));
                 buffer += buf;
+
+                /**
+                 * This was probably a severe error.
+                 */
+                ret = cudaErrorLaunchFailure;
                 continue;
             }
 
@@ -516,6 +541,40 @@ void internal::check_t::check(cudaError_t r) {
                     assert(sret < (int) sizeof(buf));
                     buffer += buf;
                     break;
+                case instrumentation_t::wild_prefetch:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Wild prefetch at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+                    break;
+                case instrumentation_t::misaligned_prefetch:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Misaligned prefetch at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
+                case instrumentation_t::outofbounds_prefetch_global:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds global prefetch at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
+                case instrumentation_t::outofbounds_prefetch_local:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds local prefetch at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
             }
         }
 
@@ -525,6 +584,8 @@ void internal::check_t::check(cudaError_t r) {
         assert(sret < (int) sizeof(buf) - 1);
         logger::instance().print(buf, bt);
     } /* else: no errors. */
+
+    return ret;
 }
 
 enum event_type_t {
@@ -612,13 +673,6 @@ internal::event_t::event_t(event_type_t et, unsigned int flags_,
 }
 
 internal::event_t::~event_t() {
-    if (stream && checker) {
-        cudaError_t ret = callout::cudaEventQuery(event);
-        if (ret != cudaErrorNotReady) {
-            checker->check(ret);
-        }
-    }
-
     callout::cudaEventDestroy(event);
     delete checker;
 }
@@ -727,6 +781,13 @@ cudaError_t internal::stream_t::synchronize(event_t * target) {
 
             if (ev->event_type == panoptes_created) {
                 deleted = true;
+                if (ev->checker) {
+                    ret = ev->checker->check(ev->query());
+                    if (ret != cudaSuccess) {
+                        last_error = ret;
+                    }
+                }
+
                 delete ev;
             } else {
                 /*
@@ -742,6 +803,13 @@ cudaError_t internal::stream_t::synchronize(event_t * target) {
         if (!(deleted)) {
             ev->references--;
             if (ev->references == 0) {
+                if (ev->checker) {
+                    cudaError_t ret = ev->checker->check(ev->query());
+                    if (ret != cudaSuccess) {
+                        last_error = ret;
+                    }
+                }
+
                 delete ev;
             }
         }
@@ -1065,7 +1133,7 @@ void global_context_memcheck::instrument(
 
     { // global_ro
         variable_t m;
-        m.space     = const_space;
+        m.space     = global_space;
         m.type      = b64_type;
         m.name      = __global_ro;
         m.is_array  = true;
@@ -1286,14 +1354,14 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
     internal::instrumentation_t * inst = new
         internal::instrumentation_t();
 
-    instrument_block(&entry->scope, inst);
-
     entry_info_map_t::iterator it = entry_info_.find(entry->entry_name);
     if (it == entry_info_.end()) {
         assert(0 && "The impossible happened.");
         delete inst;
         return;
     }
+
+    instrument_block(&entry->scope, inst, it->second);
 
     /* Add entry-wide error count initialization after instrumentation
      * pass */
@@ -1821,7 +1889,8 @@ static operand_t make_temp_operand(type_t type, unsigned id) {
 }
 
 void global_context_memcheck::instrument_block(block_t * block,
-        internal::instrumentation_t * inst) {
+        internal::instrumentation_t * inst,
+        const entry_info_t & e) {
     if (block->block_type == block_invalid) {
         assert(0 && "Invalid block type.");
         return;
@@ -1888,7 +1957,7 @@ void global_context_memcheck::instrument_block(block_t * block,
     for (scope_t::block_vt::iterator it = scope->blocks.begin();
             it != scope->blocks.end(); ) {
         if ((*it)->block_type != block_statement) {
-            instrument_block(*it, inst);
+            instrument_block(*it, inst, e);
             ++it;
             continue;
         }
@@ -4381,6 +4450,419 @@ void global_context_memcheck::instrument_block(block_t * block,
 
                 break; }
             case op_pmevent: /* No-op */ break;
+            case op_prefetch:
+            case op_prefetchu:
+                assert(statement.operands.size() == 1u);
+
+                /**
+                 * From the vtest_k_prefetch test, we make the following
+                 * observations:
+                 * 1.  Prefetch operations in explicit spaces do not seem to
+                 *     cause faults when they are out of bounds.
+                 * 2.  There is some amount of slack:  Prefetch operations at
+                 *     the bounds of a memory allocation succeed without
+                 *     errors (even after accounting for cache line size).
+                 *     For local operations, there seems to be 2k of slack.
+                 *     For global operations, there can be up to 1M of slack
+                 *     (from empirical experiments with the
+                 *     Prefetch.GlobalEdgeOfBounds test).  Since allocations
+                 *     are commonly aligned, Panoptes permits 1k of slack.
+                 * 3.  Misaligned global accesses in the generic space with
+                 *     prefetch (but not prefetchu) fail.  Misaligned local
+                 *     accesses in the generic space fail with either prefetch
+                 *     operation.
+                 *
+                 *     Misaligned accesses in explicit spaces succeed.
+                 *
+                 * From this, we implement the following checks.
+                 * 1.  Operations with explicit space specifications are not
+                 *     checked.
+                 * 2.  Generic operations are checked for alignment and bounds.
+                 */
+                if (statement.space == generic_space) {
+                    const std::string tmpp0 = "__panoptes_pred0";
+                    const std::string tmpp1 = "__panoptes_pred1";
+                    const std::string tmpp2 = "__panoptes_pred2";
+
+                    /**
+                     * The "good" state of the predicates is true if:
+                     * -> has_predicate is false
+                     * -> has_predicate is true and is_negated is false
+                     */
+                    const bool good = !(statement.has_predicate) ||
+                        !(statement.is_negated);
+                    const operand_t up = operand_t::make_identifier(
+                        statement.predicate);
+
+                    const operand_t op0 = operand_t::make_identifier(tmpp0);
+                    const operand_t op1 = operand_t::make_identifier(tmpp1);
+                    const operand_t op2 = operand_t::make_identifier(tmpp2);
+
+                    tmp_pred = std::max(tmp_pred, 3);
+
+                    const operand_t ptr = operand_t::make_identifier(
+                        "__panoptes_ptr0");
+                    tmp_ptr  = std::max(tmp_ptr,  1);
+
+                    const operand_t & a = statement.operands[0];
+                    operand_t clean_a = a;
+                    assert(clean_a.op_type == operand_identifier ||
+                           clean_a.op_type == operand_addressable ||
+                           clean_a.op_type == operand_constant);
+                    if (clean_a.op_type == operand_addressable) {
+                        assert(clean_a.offset == 0 &&
+                            "Offset preloads are not supported.");
+                        clean_a.op_type = operand_identifier;
+                        clean_a.field.push_back(field_none);
+                    }
+
+                    const operand_t va  = make_validity_operand(clean_a);
+                    const operand_t zero = operand_t::make_iconstant(0);
+
+                    /* If everything is okay, the predicates are set to good. */
+
+                    /* Check alignment. */
+                    const operand_t ptrmask = operand_t::make_iconstant(
+                        sizeof(void *) - 1);
+                    const type_t ptr_t = pointer_type();
+
+                    aux.push_back(make_and(ptr_t, ptr, clean_a, ptrmask));
+                    aux.push_back(make_setp(ptr_t,
+                        good ? cmp_eq : cmp_ne, tmpp0, ptr, zero));
+
+                    /* If prefetchu and the address is global, suppress this
+                     * error. */
+                    if (statement.op == op_prefetchu) {
+                        aux.push_back(
+                            make_isspacep(global_space, op2, clean_a));
+                        if (good) {
+                            aux.push_back(make_or(pred_type, op0, op0, op2));
+                        } else {
+                            aux.push_back(make_and(pred_type, op0, op0, op2));
+                        }
+                    }
+
+                    /* If has_predicate, mix in user predicate. */
+                    if (statement.has_predicate) {
+                        if (statement.is_negated) {
+                            aux.push_back(make_or(pred_type, op0, op0, up));
+                        } else {
+                            aux.push_back(make_and(pred_type, op0, op0, up));
+                        }
+                    }
+
+                    typedef internal::instrumentation_t inst_t;
+                    inst_t::error_desc_t desc_align;
+                    desc_align.type = inst_t::misaligned_prefetch;
+                    desc_align.orig = statement;
+                    inst->errors.push_back(desc_align);
+                    const size_t error_align = inst->errors.size();
+                    const operand_t op_align =
+                        operand_t::make_iconstant((int64_t) error_align);
+
+                    aux.push_back(make_selp(u32_type, tmpp0, local_errors,
+                        good ? local_errors : op_align,
+                        good ? op_align     : local_errors));
+
+                    /* Check bounds. */
+                    const intptr_t ialignmask = -(sizeof(void *) - 1);
+                    const operand_t oalignmask =
+                        operand_t::make_iconstant(ialignmask);
+                    /* Check for local.
+                     *
+                     * If not local:
+                     *      p1 not initialized.
+                     *      p2 is false.
+                     * If valid local:
+                     *      p1 is true.
+                     *      p2 is true.
+                     * If invalid local:
+                     *      p1 is false.
+                     *      p2 is true.
+                     */
+
+                    aux.push_back(make_isspacep(local_space, op2, clean_a));
+
+                    const type_t uptr_t = upointer_type();
+                    {
+                        statement_t c;
+                        c.has_predicate = true;
+                        c.is_negated    = false;
+                        c.predicate     = tmpp2;
+                        c.op            = op_cvta;
+                        c.is_to         = true;
+                        c.space         = local_space;
+                        c.type          = uptr_t;
+                        c.operands.push_back(ptr);
+                        assert(clean_a.op_type != operand_addressable);
+                        c.operands.push_back(clean_a);
+                        assert(c.operands[1].op_type == operand_identifier);
+                        aux.push_back(c);
+
+                        /**
+                         * 0xFFFCA0 was derived by taking the address of
+                         * variously sized local memory addresses.  Rather
+                         * consistently, given:
+                         *    .local .b8 t[N];
+                         *
+                         *    t + N == 0xFFFCA0.
+                         *
+                         * TODO: Panoptes currently does not consider
+                         *       underflow.
+                         */
+                        statement_t s;
+                        s.has_predicate  = true;
+                        s.is_negated     = false;
+                        s.predicate      = tmpp2;
+                        s.op             = op_setp;
+                        s.type           = uptr_t;
+                        s.cmp            = cmp_ge;
+                        s.has_ppredicate = true;
+                        s.ppredicate     = tmpp1;
+                        s.operands.push_back(
+                            operand_t::make_iconstant(0xFFFCA0));
+                        s.operands.push_back(ptr);
+                        aux.push_back(s);
+                    }
+
+                    if (!(good)) {
+                        aux.push_back(make_not(pred_type, op1, op1));
+                    }
+
+                    if (statement.has_predicate) {
+                        if (statement.is_negated) {
+                            aux.push_back(make_or(pred_type, op1, op1, up));
+                        } else {
+                            aux.push_back(make_and(pred_type, op1, op1, up));
+                        }
+                    }
+
+                    inst_t::error_desc_t desc_oobl;
+                    desc_oobl.type = inst_t::outofbounds_prefetch_local;
+                    desc_oobl.orig = statement;
+                    inst->errors.push_back(desc_oobl);
+                    const size_t error_oobl = inst->errors.size();
+                    const operand_t op_oobl =
+                        operand_t::make_iconstant((int64_t) error_oobl);
+
+                    aux.push_back(make_selp(u32_type, tmpp1, local_errors,
+                        good ? local_errors : op_oobl,
+                        good ? op_oobl      : local_errors));
+
+                    aux.back().has_predicate = true;
+                    aux.back().predicate     = tmpp2;
+
+                    /* Fold validity predicate into p0. */
+                    if (good) {
+                        aux.push_back(make_and(pred_type, op0, op0, op1));
+                    } else {
+                        aux.push_back(make_or(pred_type, op0, op0, op1));
+                    }
+
+                    aux.back().has_predicate = true;
+                    aux.back().predicate     = tmpp2;
+
+                    /* Check for global bounds.  Panoptes predicates costlier
+                     * instructions on !(p2), e.g., loads.  While the other
+                     * instructions are unnecessary as well, shuffling bits
+                     * around that will discarded later harms nothing.
+                     */
+                    {
+                        const size_t chunk_size = 1u << lg_chunk_bytes;
+                        const size_t chunk_mask =
+                            (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
+
+                        /**
+                         * chunk *** ptr = __master;
+                         */
+                        const operand_t master =
+                            operand_t::make_identifier(__master_symbol);
+
+                        /**
+                         * chunk ** ptr = *ptr;
+                         */
+                        aux.push_back(make_ld(uptr_t, const_space, ptr, master));
+
+                        aux.back().has_predicate = true;
+                        aux.back().is_negated    = true;
+                        aux.back().predicate     = tmpp2;
+
+                        /**
+                         * uintptr_t ptr1 = clean_a >> lg_chunk_bytes;
+                         * ptr1 &= max_chunks;
+                         */
+                        const operand_t ptr1 = operand_t::make_identifier(
+                            "__panoptes_ptr1");
+                        statement_t c;
+                        c.op    = op_cvta;
+                        c.is_to = true;
+                        c.space = global_space;
+                        c.type  = uptr_t;
+                        c.operands.push_back(ptr1);
+                        c.operands.push_back(clean_a);
+                        aux.push_back(c);
+
+                        aux.push_back(make_shr(ptr_t, ptr1, ptr1,
+                            operand_t::make_iconstant(lg_chunk_bytes)));
+                        aux.push_back(make_and(ptr_t, ptr1, ptr1,
+                            operand_t::make_iconstant(chunk_mask)));
+
+                        /**
+                         * ptr1 *= sizeof(void *);
+                         */
+                        if (sizeof(void *) == 8) {
+                            aux.push_back(make_shl(ptr_t, ptr1, ptr1,
+                                operand_t::make_iconstant(3)));
+                        } else {
+                            aux.push_back(make_shl(ptr_t, ptr1, ptr1,
+                                operand_t::make_iconstant(2)));
+                        }
+
+                        /**
+                         * ptr += ptr1;
+                         */
+                        aux.push_back(make_add(uptr_t, ptr, ptr, ptr1));
+
+                        /**
+                         * chunk * ptr = *ptr;
+                         */
+                        aux.push_back(make_ld(uptr_t, global_space, ptr, ptr));
+
+                        aux.back().has_predicate = true;
+                        aux.back().is_negated    = true;
+                        aux.back().predicate     = tmpp2;
+
+                        /*
+                         * Align:
+                         * ptr1 = clean_a;
+                         * ptr1 &= (chunk_size - 1) & ~(1024 - 1);
+                         * (1024 is the amount of slack permitted for global
+                         *  addresses.)
+                         *
+                         * Ignore lower bits.
+                         * ptr  >>= 3;
+                         */
+                        aux.push_back(c);
+                        aux.push_back(make_and(ptr_t, ptr1, ptr1,
+                            operand_t::make_iconstant(
+                            (chunk_size - 1) & ~(1024 - 1))));
+                        aux.push_back(make_shr(ptr_t, ptr1, ptr1,
+                            operand_t::make_iconstant(3)));
+
+                        /**
+                         * uint8_t * ptr += ptr1;
+                         */
+                        aux.push_back(make_add(uptr_t, ptr, ptr, ptr1));
+
+                        /**
+                         * uintptr_t ptr = *ptr;
+                         */
+                        aux.push_back(make_ld(uptr_t, global_space, ptr, ptr));
+
+                        aux.back().has_predicate = true;
+                        aux.back().is_negated    = true;
+                        aux.back().predicate     = tmpp2;
+
+                        statement_t s;
+                        s.has_predicate = true;
+                        s.is_negated    = true;
+                        s.predicate     = tmpp2;
+                        s.op            = op_setp;
+                        s.type          = uptr_t;
+                        s.cmp           = cmp_eq;
+                        s.has_ppredicate= true;
+                        s.ppredicate    = tmpp1;
+                        s.operands.push_back(ptr);
+                        s.operands.push_back(operand_t::make_iconstant(-1));
+                        aux.push_back(s);
+
+                        tmp_ptr  = std::max(tmp_ptr,  2);
+                    }
+
+                    if (!(good)) {
+                        aux.push_back(make_not(pred_type, op1, op1));
+                    }
+
+                    if (statement.has_predicate) {
+                        if (statement.is_negated) {
+                            aux.push_back(make_or(pred_type, op1, op1, up));
+                        } else {
+                            aux.push_back(make_and(pred_type, op1, op1, up));
+                        }
+                    }
+
+                    inst_t::error_desc_t desc_oobg;
+                    desc_oobg.type = inst_t::outofbounds_prefetch_global;
+                    desc_oobg.orig = statement;
+                    inst->errors.push_back(desc_oobg);
+                    const size_t error_oobg = inst->errors.size();
+                    const operand_t op_oobg =
+                        operand_t::make_iconstant((int64_t) error_oobg);
+
+                    aux.push_back(make_selp(u32_type, tmpp1, local_errors,
+                        good ? local_errors : op_oobg,
+                        good ? op_oobg      : local_errors));
+
+                    aux.back().has_predicate = true;
+                    aux.back().is_negated    = true;
+                    aux.back().predicate     = tmpp2;
+
+                    /* Fold validity predicate into p0. */
+                    if (good) {
+                        aux.push_back(make_and(pred_type, op0, op0, op1));
+                    } else {
+                        aux.push_back(make_or(pred_type, op0, op0, op1));
+                    }
+
+                    aux.back().has_predicate = true;
+                    aux.back().is_negated    = true;
+                    aux.back().predicate     = tmpp2;
+
+                    /* Check validity. */
+                    aux.push_back(make_setp(ptr_t,
+                        good ? cmp_eq : cmp_ne, tmpp1, va, zero));
+                    if (statement.has_predicate) {
+                        if (statement.is_negated) {
+                            aux.push_back(make_or(pred_type, op1, op1, up));
+                        } else {
+                            aux.push_back(make_and(pred_type, op1, op1, up));
+                        }
+                    }
+
+                    inst_t::error_desc_t desc_wild;
+                    desc_wild.type = inst_t::wild_prefetch;
+                    desc_wild.orig = statement;
+                    inst->errors.push_back(desc_wild);
+                    const size_t error_wild = inst->errors.size();
+                    const operand_t op_wild =
+                        operand_t::make_iconstant((int64_t) error_wild);
+
+                    aux.push_back(make_selp(u32_type, tmpp1, local_errors,
+                        good ? local_errors : op_wild,
+                        good ? op_wild      : local_errors));
+                    /* Fold validity predicate into p0. */
+                    if (good) {
+                        aux.push_back(make_and(pred_type, op0, op0, op1));
+                    } else {
+                        aux.push_back(make_or(pred_type, op0, op0, op1));
+                    }
+
+                    /**
+                     * Prefetch the global read only address if invalid.
+                     */
+                    const operand_t global_ro =
+                        operand_t::make_identifier(__global_ro);
+                    aux.push_back(make_mov(ptr_t, ptr, global_ro));
+                    aux.push_back(make_selp(ptr_t, tmpp0, ptr, clean_a, ptr));
+
+                    keep = false;
+                    statement_t new_prefetch = statement;
+                    new_prefetch.operands.clear();
+                    new_prefetch.operands.push_back(ptr);
+                    aux.push_back(new_prefetch);
+                }
+
+                break;
             case op_prmt: {
                 assert(statement.operands.size() == 4u);
                 assert(statement.type == b32_type);

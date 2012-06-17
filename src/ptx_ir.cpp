@@ -80,6 +80,7 @@ void statement_t::reset() {
     shiftamt        = false;
     testp_op        = invalid_testp_op;
     prmt_mode       = invalid_prmt_mode;
+    prefetch_cache  = invalid_cache;
     vector          = v1;
     operands.clear();
 }
@@ -415,6 +416,8 @@ void statement_t::set_token(int token) {
         case TOKEN_ECL:         prmt_mode = prmt_ecl;           return;
         case TOKEN_ECR:         prmt_mode = prmt_ecr;           return;
         case TOKEN_RC16:        prmt_mode = prmt_rc16;          return;
+        case TOKEN_L1:          prefetch_cache = cache_L1;      return;
+        case TOKEN_L2:          prefetch_cache = cache_L2;      return;
         default:
             assert(0 && "Unknown token.");
             return;
