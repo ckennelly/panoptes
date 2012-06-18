@@ -214,7 +214,6 @@ __device__   symbol_t initialized_symbol = 0xDEADBEEF;
 
 TEST(MemcpyFromSymbol, InitializedSymbol) {
     cudaError_t ret;
-    void * ptr;
 
     symbol_t target;
     BOOST_STATIC_ASSERT(sizeof(target) == sizeof(initialized_symbol));
