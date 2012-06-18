@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "common.h"
 #include <cuda.h>
 #include <gtest/gtest.h>
 
@@ -85,7 +86,7 @@ extern "C" __global__ void k_global_count_evens(const int * in, int * out,
          * Since "(void) atomicAdd(out, block)" does not issue a red
          * instruction, we use inline PTX.
          */
-        asm("red.global.add.s32 [%0], %1;" : : "l"(out), "r"(block));
+        asm("red.global.add.s32 [%0], %1;" : : PTRC(out), "r"(block));
     }
 }
 

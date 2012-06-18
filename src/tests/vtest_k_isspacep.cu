@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "common.h"
 #include <cuda.h>
 #include <gtest/gtest.h>
 
@@ -25,7 +26,7 @@ __global__ void k_is_global(bool * out, const void * ptr) {
         "{ .reg .pred %tmp;\n"
         "isspacep.global %tmp, %1;\n"
         "selp.s32 %0, 1, 0, %tmp;}\n" :
-        "=r"(ret) : "l"(ptr));
+        "=r"(ret) : PTRC(ptr));
     *out = ret;
 }
 
@@ -35,7 +36,7 @@ __global__ void k_is_local(bool * out, const void * ptr) {
         "{ .reg .pred %tmp;\n"
         "isspacep.local %tmp, %1;\n"
         "selp.s32 %0, 1, 0, %tmp;}\n" :
-        "=r"(ret) : "l"(ptr));
+        "=r"(ret) : PTRC(ptr));
     *out = ret;
 }
 
@@ -45,7 +46,7 @@ __global__ void k_is_shared(bool * out, const void * ptr) {
         "{ .reg .pred %tmp;\n"
         "isspacep.shared %tmp, %1;\n"
         "selp.s32 %0, 1, 0, %tmp;}\n" :
-        "=r"(ret) : "l"(ptr));
+        "=r"(ret) : PTRC(ptr));
     *out = ret;
 }
 
