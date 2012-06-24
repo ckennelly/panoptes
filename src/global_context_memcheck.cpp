@@ -1170,7 +1170,7 @@ void global_context_memcheck::instrument_block(block_t * block,
                  * a check. */
                 const operand_t vp = operand_t::make_identifier(
                     make_validity_symbol(statement.predicate));
-                const std::string tmpp = "__panoptes_pred0";
+                const std::string tmpp = "__panoptes_pred_0";
                 tmp_pred = std::max(tmp_pred, 1);
 
                 inst_t::error_desc_t desc;
@@ -2632,7 +2632,7 @@ void global_context_memcheck::instrument_block(block_t * block,
                     operand_t::make_identifier("__panoptes_ptr7");
                 const operand_t vidx =
                     operand_t::make_identifier("__panoptes_ptr8");
-                const std::string valid_pred = "__panoptes_pred0";
+                const std::string valid_pred = "__panoptes_pred_0";
                 const size_t chunk_size = 1u << lg_chunk_bytes;
                 const size_t max_chunks =
                     (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
@@ -2848,7 +2848,7 @@ void global_context_memcheck::instrument_block(block_t * block,
                                 }
 
                                 const std::string not_valid_pred =
-                                    "__panoptes_pred1";
+                                    "__panoptes_pred_1";
 
                                 aux.push_back(make_setp(upointer_type(),
                                     cmp_ge, valid_pred, not_valid_pred, limit,
@@ -2959,7 +2959,7 @@ void global_context_memcheck::instrument_block(block_t * block,
                             }
 
                             const std::string not_valid_pred =
-                                "__panoptes_pred1";
+                                "__panoptes_pred_1";
 
                             aux.push_back(make_setp(upointer_type(),
                                 cmp_le, valid_pred, not_valid_pred, limit,
@@ -3678,9 +3678,9 @@ void global_context_memcheck::instrument_block(block_t * block,
                  * 2.  Generic operations are checked for alignment and bounds.
                  */
                 if (statement.space == generic_space) {
-                    const std::string tmpp0 = "__panoptes_pred0";
-                    const std::string tmpp1 = "__panoptes_pred1";
-                    const std::string tmpp2 = "__panoptes_pred2";
+                    const std::string tmpp0 = "__panoptes_pred_0";
+                    const std::string tmpp1 = "__panoptes_pred_1";
+                    const std::string tmpp2 = "__panoptes_pred_2";
 
                     /**
                      * The "good" state of the predicates is true if:
@@ -4810,7 +4810,7 @@ void global_context_memcheck::instrument_block(block_t * block,
                     operand_t::make_identifier("__panoptes_ptr7");
                 const operand_t vidx =
                     operand_t::make_identifier("__panoptes_ptr8");
-                const std::string valid_pred = "__panoptes_pred0";
+                const std::string valid_pred = "__panoptes_pred_0";
                 const size_t chunk_size = 1u << lg_chunk_bytes;
                 const size_t max_chunks =
                     (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
@@ -5419,7 +5419,7 @@ void global_context_memcheck::instrument_block(block_t * block,
         variable_t v;
         v.space = reg_space;
         v.type = pred_type;
-        v.name = "__panoptes_pred";
+        v.name = "__panoptes_pred_";
         v.has_suffix = true;
         v.suffix = tmp_pred;
         scope->variables.push_back(v);
