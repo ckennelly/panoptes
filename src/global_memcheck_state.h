@@ -51,8 +51,8 @@ public:
     void disable_peers(int device, int peer);
     void enable_peers(int device, int peer);
 
-    void register_stream(cudaStream_t stream, unsigned device);
-    bool lookup_stream(cudaStream_t stream, unsigned *device) const;
+    void register_stream(cudaStream_t stream, int device);
+    bool lookup_stream(cudaStream_t stream, int *device) const;
     void unregister_stream(cudaStream_t stream);
 private:
     void disable_peers_impl(int device, int peer);
@@ -74,7 +74,7 @@ private:
     typedef std::map<int, master_data_t> masters_t;
     masters_t masters_;
 
-    typedef boost::unordered_map<cudaStream_t, unsigned> stream_map_t;
+    typedef boost::unordered_map<cudaStream_t, int> stream_map_t;
     stream_map_t streams_;
 
     mutable boost::mutex mx_;

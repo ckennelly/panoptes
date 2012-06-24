@@ -210,13 +210,13 @@ global_memcheck_state::global_memcheck_state() { }
 global_memcheck_state::~global_memcheck_state() { }
 
 void global_memcheck_state::register_stream(cudaStream_t stream,
-        unsigned device) {
+        int device) {
     scoped_lock lock(mx_);
     streams_.insert(stream_map_t::value_type(stream, device));
 }
 
 bool global_memcheck_state::lookup_stream(cudaStream_t stream,
-        unsigned *device) const {
+        int *device) const {
     scoped_lock lock(mx_);
     stream_map_t::const_iterator it = streams_.find(stream);
     if (it == streams_.end()) {

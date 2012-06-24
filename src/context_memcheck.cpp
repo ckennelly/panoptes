@@ -2717,11 +2717,12 @@ cudaError_t cuda_context_memcheck::cudaStreamDestroy(cudaStream_t stream) {
     scoped_lock lock(mx_);
     stream_map_t::iterator it = streams_.find(handle);
     if (it == streams_.end()) {
-        unsigned device;
+        int device;
         if (state_->lookup_stream(stream, &device)) {
             /* The stream belongs to another context. */
-            assert(device != (unsigned) device_);
-            return global()->context(device)->cudaStreamDestroy(stream);
+            assert(device != device_);
+            return global()->context((unsigned) device)->
+                cudaStreamDestroy(stream);
         }
 
         /**
@@ -2748,11 +2749,12 @@ cudaError_t cuda_context_memcheck::cudaStreamQuery(cudaStream_t stream) {
     scoped_lock lock(mx_);
     stream_map_t::iterator it = streams_.find(handle);
     if (it == streams_.end()) {
-        unsigned device;
+        int device;
         if (state_->lookup_stream(stream, &device)) {
             /* The stream belongs to another context. */
-            assert(device != (unsigned) device_);
-            return global()->context(device)->cudaStreamQuery(stream);
+            assert(device != device_);
+            return global()->context((unsigned) device)->
+                cudaStreamQuery(stream);
         }
 
         /**
@@ -2774,11 +2776,12 @@ cudaError_t cuda_context_memcheck::cudaStreamSynchronize(cudaStream_t stream) {
     scoped_lock lock(mx_);
     stream_map_t::iterator it = streams_.find(handle);
     if (it == streams_.end()) {
-        unsigned device;
+        int device;
         if (state_->lookup_stream(stream, &device)) {
             /* The stream belongs to another context. */
-            assert(device != (unsigned) device_);
-            return global()->context(device)->cudaStreamSynchronize(stream);
+            assert(device != device_);
+            return global()->context((unsigned) device)->
+                cudaStreamSynchronize(stream);
         }
 
         /**
@@ -2808,11 +2811,11 @@ cudaError_t cuda_context_memcheck::cudaStreamWaitEvent(cudaStream_t stream,
     cudaStream_t real_stream;
     stream_map_t::iterator sit = streams_.find(shandle);
     if (sit == streams_.end()) {
-        unsigned device;
+        int device;
         if (state_->lookup_stream(stream, &device)) {
             /* The stream belongs to another context. */
-            assert(device != (unsigned) device_);
-            return global()->context(device)->
+            assert(device != device_);
+            return global()->context((unsigned) device)->
                 cudaStreamWaitEvent(stream, event, flags);
         }
 

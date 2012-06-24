@@ -3763,7 +3763,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                         good ? op_align     : local_errors));
 
                     /* Check bounds. */
-                    const intptr_t ialignmask = -(sizeof(void *) - 1);
+                    const intptr_t ialignmask =
+                        -((intptr_t) sizeof(void *) - 1);
                     const operand_t oalignmask =
                         operand_t::make_iconstant(ialignmask);
                     /* Check for local.
@@ -3944,7 +3945,7 @@ void global_context_memcheck::instrument_block(block_t * block,
                         aux.push_back(c);
                         aux.push_back(make_and(ptr_t, ptr1, ptr1,
                             operand_t::make_iconstant(
-                            (chunk_size - 1) & ~(1024 - 1))));
+                            (chunk_size - 1) & ~(1024u - 1u))));
                         aux.push_back(make_shr(ptr_t, ptr1, ptr1,
                             operand_t::make_iconstant(3)));
 
@@ -5539,7 +5540,7 @@ cudaError_t global_context_memcheck::cudaDeviceEnablePeerAccess(int peerDevice_,
         /* Initialize the contexts for the current device and peerDevice. */
         (void) context_impl(current_device());
         (void) context_impl(peerDevice);
-        state_->enable_peers(static_cast<int>(current_device()), peerDevice);
+        state_->enable_peers(static_cast<int>(current_device()), peerDevice_);
     }
 
     return ret;
