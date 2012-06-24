@@ -67,7 +67,7 @@ TEST(MallocHost, FlagRetrieval) {
     ret = cudaGetDeviceProperties(&prop, device);
     ASSERT_EQ(cudaSuccess, ret);
 
-    if (prop.unifiedAddressing) {
+    if (prop.canMapHostMemory) {
         EXPECT_EQ(cudaHostAllocMapped, flags);
     } else {
         EXPECT_EQ(cudaHostAllocDefault, flags);
@@ -75,7 +75,6 @@ TEST(MallocHost, FlagRetrieval) {
 
     ret = cudaFreeHost(ptr);
     EXPECT_EQ(cudaSuccess, ret);
-
 }
 
 /** TODO:  Mismatched */

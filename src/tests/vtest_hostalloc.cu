@@ -74,7 +74,7 @@ TEST(HostAlloc, FlagRetrieval) {
         ASSERT_EQ(cudaSuccess, ret);
 
         const unsigned int expected = flags[i] |
-            (prop.unifiedAddressing ? cudaHostAllocMapped : 0);
+            (prop.canMapHostMemory ? cudaHostAllocMapped : 0);
         EXPECT_EQ(expected, flag);
     }
 
