@@ -1288,7 +1288,7 @@ negatedOperand : TOKEN_NOT {
     parser->operand.negated = true;
 };
 optionalNegatedOperand : /* */ | negatedOperand ;
-optionalCpred : /* */ | TOKEN_COMMA optionalNegatedOperand operand ;
+optionalCpred : /* */ | TOKEN_COMMA optionalNegatedOperand singleOperand ;
 
 setp : OPCODE_SETP cmpOp optionalBoolOp optionalFTZ dataType TOKEN_IDENTIFIER
         optionalQpred TOKEN_COMMA identifierOperand TOKEN_COMMA

@@ -56,6 +56,49 @@ TEST(Regression, SetWithImmediates) {
     EXPECT_EQ(0x0, hout);
 }
 
+__global__ void k_cpred(bool * out) {
+    uint32_t out_;
+
+    asm volatile(
+        "{\n"
+        "  .reg .pred %tmp;\n"
+        "  mov.pred %tmp, 1;\n"
+        "  set.ne.or.u32.u32 %0, 0, 0, %tmp;\n"
+        "}\n" : "=r"(out_));
+
+    *out = out_;
+}
+
+TEST(Regression, cPredicate) {
+    cudaError_t ret;
+
+    bool * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_cpred<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    bool hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_TRUE(hout);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
