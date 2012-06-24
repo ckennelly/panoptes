@@ -80,7 +80,6 @@ private:
     /**
      * Instrumentation information.
      */
-    void * auxillary_handle;
     typedef std::set<std::string> string_set_t;
     string_set_t external_entries_;
     string_set_t nonentries_;
