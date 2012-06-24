@@ -23,13 +23,14 @@
 #include <boost/unordered_set.hpp>
 #include "context.h"
 #include "global_context.h"
+#include "global_memcheck_state.h"
 #include "gpu_stack.h"
 #include "ptx_ir.h"
 
 namespace panoptes {
 
+// Forward declaration
 namespace internal {
-    // Forward declaration
     struct check_t;
     struct event_t;
     struct stream_t;
@@ -37,129 +38,10 @@ namespace internal {
     struct texture_t;
     struct instrumentation_t;
 }
+class global_context_memcheck;
 
 struct error_buffer_t {
     uint32_t data[1024];
-};
-
-/**
- * This class manages a small bit of state related to memory allocations of the
- * various devices.  Since it needs to destruct after global_context_memcheck
- * and the context_memchecks (e.g., after global_context), we keep it in a
- * shared_ptr.
- */
-class global_memcheck_state {
-public:
-    global_memcheck_state();
-    ~global_memcheck_state();
-
-    typedef host_gpu_vector<metadata_chunk *> master_t;
-    void register_master(int device, metadata_chunk * default_chunk,
-        master_t * master);
-    void unregister_master(int device);
-
-    typedef std::pair<size_t, metadata_chunk *> chunk_update_t;
-    typedef std::vector<chunk_update_t> chunk_updates_t;
-    void update_master(int device, bool add, const chunk_updates_t & updates);
-
-    void disable_peers(int device, int peer);
-    void enable_peers(int device, int peer);
-
-    void register_stream(cudaStream_t stream, unsigned device);
-    bool lookup_stream(cudaStream_t stream, unsigned *device) const;
-    void unregister_stream(cudaStream_t stream);
-private:
-    void disable_peers_impl(int device, int peer);
-    void enable_peers_impl(int device, int peer);
-
-    typedef std::set<int> peer_set_t;
-    struct master_data_t {
-        master_data_t(int device);
-
-        metadata_chunk * default_chunk;
-
-        typedef std::vector<int> ownership_t;
-
-        ownership_t      ownership;
-        master_t       * master;
-        peer_set_t       peers;
-    };
-
-    typedef std::map<int, master_data_t> masters_t;
-    masters_t masters_;
-
-    typedef boost::unordered_map<cudaStream_t, unsigned> stream_map_t;
-    stream_map_t streams_;
-
-    mutable boost::mutex mx_;
-};
-
-typedef boost::shared_ptr<global_memcheck_state> state_ptr_t;
-
-class global_context_memcheck : public global_context {
-public:
-    global_context_memcheck();
-    ~global_context_memcheck();
-
-    virtual cuda_context * factory(int device, unsigned int flags) const;
-
-    virtual cudaError_t cudaDeviceDisablePeerAccess(int peerDevice);
-    virtual cudaError_t cudaDeviceEnablePeerAccess(int peerDevice,
-        unsigned int flags);
-    virtual void cudaRegisterVar(void **fatCubinHandle,char *hostVar,
-        char *deviceAddress, const char *deviceName, int ext, int size,
-        int constant, int global);
-
-    state_ptr_t state();
-protected:
-    /**
-     * Instruments the given PTX program in-place for validity and
-     * addressability checks.
-     */
-    virtual void instrument(void **fatCubinHandle, ptx_t * target);
-
-    struct entry_info_t;
-
-    void analyze_entry(function_t * entry);
-    void instrument_entry(function_t * entry);
-    void instrument_block(block_t * block, internal::instrumentation_t * inst,
-        const entry_info_t & e);
-private:
-    friend class cuda_context_memcheck;
-    friend struct internal::check_t;
-
-    state_ptr_t state_;
-
-    typedef std::pair<void **, std::string> variable_handle_t;
-    struct variable_data_t {
-        variable_t ptx;
-        char * hostVar;
-    };
-    typedef boost::unordered_map<variable_handle_t, variable_data_t>
-        variable_definition_map_t;
-    variable_definition_map_t variable_definitions_;
-
-    /**
-     * Instrumentation information.
-     */
-    typedef std::set<std::string> string_set_t;
-    string_set_t external_entries_;
-    string_set_t nonentries_;
-protected:
-    struct entry_info_t {
-        entry_info_t() : function(NULL), inst(NULL),
-            fixed_shared_memory(0), local_memory(0) { }
-
-        function_t * function;
-        internal::instrumentation_t * inst;
-        size_t user_params;
-        size_t user_param_size;
-        size_t fixed_shared_memory;
-        size_t local_memory;
-    };
-private:
-    typedef std::map<std::string, entry_info_t> entry_info_map_t;
-    entry_info_map_t entry_info_;
 };
 
 class cuda_context_memcheck : public cuda_context {

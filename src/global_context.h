@@ -22,6 +22,7 @@
 #include <boost/thread/tss.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/utility.hpp>
+#include <cuda_runtime_api.h>
 #include <vector>
 
 namespace panoptes {

@@ -19,11 +19,13 @@
 #include <__cudaFatFormat.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/thread/locks.hpp>
+#include "callout.h"
+#include "context.h"
 #include "context_internal.h"
-#include "context_memcheck.h"
 #include <cuda.h>
 #include "fat_binary.h"
 #include "global_context.h"
+#include "global_context_memcheck.h"
 #include "logger.h"
 #include "ptx_formatter.h"
 #include "ptx_parser.h"
