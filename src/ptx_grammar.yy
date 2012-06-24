@@ -486,14 +486,18 @@ saturating : TOKEN_SAT {
 optionalSaturating : /* */ | saturating ;
 
 immediateFloat : TOKEN_CONSTANT_FLOAT {
-    operand_t op;
+    operand_t op = parser->operand;
+    parser->operand.reset();
+
     op.op_type = operand_float;
     op.fvalue = $<vsingle>1;
     parser->operands.push_back(op);
 };
 
 immediateFloat : TOKEN_CONSTANT_DOUBLE {
-    operand_t op;
+    operand_t op = parser->operand;
+    parser->operand.reset();
+
     op.op_type = operand_double;
     op.dvalue = $<vdouble>1;
     parser->operands.push_back(op);
@@ -1386,7 +1390,9 @@ stDestination : TOKEN_LBRACKET immediateDecimal TOKEN_RBRACKET {
 };
 
 identifierOperand : TOKEN_IDENTIFIER {
-    operand_t op;
+    operand_t op = parser->operand;
+    parser->operand.reset();
+
     op.op_type = operand_identifier;
     op.identifier.push_back($<text>1);
     op.field.push_back(field_none);
