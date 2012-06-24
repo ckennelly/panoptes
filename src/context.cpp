@@ -38,16 +38,22 @@ typedef global_context global_t;
 
 cuda_context::cuda_context(global_context * ctx, int device,
         unsigned int flags) : info_loaded_(false), device_(device),
-        global_(ctx), error_(cudaSuccess) {
-    CUresult ret = cuCtxCreate(&ctx_, flags, device);
+        modules_(new internal::modules_t()), global_(ctx), error_(cudaSuccess) {
+    cudaError_t rret = callout::cudaSetDevice(device);
+    assert(rret == cudaSuccess);
+    (void) callout::cudaSetDeviceFlags(flags);
+    rret = callout::cudaFree(0);
+    assert(rret == cudaSuccess);
+
+    CUresult ret = cuCtxGetCurrent(&ctx_);
     assert(ret == CUDA_SUCCESS);
-    ctx->load_ptx();
+    ctx->load_ptx(modules_);
 
     /**
      * Load version.
      */
-    cudaError_t vret = callout::cudaRuntimeGetVersion(&runtime_version_);
-    assert(vret == cudaSuccess);
+    rret = callout::cudaRuntimeGetVersion(&runtime_version_);
+    assert(rret == cudaSuccess);
 }
 
 cuda_context::td::~td() {
@@ -59,6 +65,8 @@ cuda_context::td::~td() {
 }
 
 cuda_context::~cuda_context() {
+    delete modules_;
+
     // Ignore this result.  There is little we can do to change
     // things at this point
     (void) cuCtxDestroy(ctx_);
@@ -104,9 +112,10 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
     /**
      * Find the containing module.
      */
+    using internal::modules_t;
     global_t * const g = global();
-    global_t::function_map_t & functions = g->functions_;
-    global_t::function_map_t::const_iterator fit = functions.find(entry);
+    modules_t::function_map_t & functions = modules_->functions;
+    modules_t::function_map_t::const_iterator fit = functions.find(entry);
     if (fit == functions.end()) {
         if (!(entry)) {
             /* Fail fast. */
@@ -116,9 +125,9 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
         /**
          * Try to interpret the entry as an entry name.
          */
-        global_t::function_name_map_t & fnames = g->function_names_;
-        global_t::function_name_map_t::const_iterator nit =
-            fnames.find(entry);
+        typedef global_t::function_name_map_t fn_t;
+        const fn_t & fnames = g->function_names();
+        fn_t::const_iterator nit = fnames.find(entry);
         if (nit == fnames.end()) {
             return setLastError(cudaErrorInvalidDeviceFunction);
         }
@@ -298,9 +307,9 @@ cudaError_t cuda_context::cudaBindTexture(size_t *offset,
         const struct cudaChannelFormatDesc *desc, size_t size) {
     scoped_lock lock(mx_);
 
-    global_t::texture_map_t::const_iterator it =
-        global_->textures_.find(texref);
-    if (it == global_->textures_.end()) {
+    typedef internal::modules_t::texture_map_t tm_t;
+    tm_t::const_iterator it = modules_->textures.find(texref);
+    if (it == modules_->textures.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
     }
@@ -388,9 +397,9 @@ cudaError_t cuda_context::cudaBindTextureToArray(
         const struct cudaChannelFormatDesc *desc) {
     scoped_lock lock(mx_);
 
-    global_t::texture_map_t::const_iterator it =
-        global_->textures_.find(texref);
-    if (it == global_->textures_.end()) {
+    typedef internal::modules_t::texture_map_t tm_t;
+    const tm_t::const_iterator it = modules_->textures.find(texref);
+    if (it == modules_->textures.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
     }
@@ -569,9 +578,9 @@ cudaError_t cuda_context::cudaFuncGetAttributes(
 
     scoped_lock lock(mx_);
 
-    global_t::function_map_t::const_iterator fit =
-        global_->functions_.find(func);
-    if (fit == global_->functions_.end()) {
+    typedef internal::modules_t::function_map_t fm_t;
+    fm_t::const_iterator fit = modules_->functions.find(func);
+    if (fit == modules_->functions.end()) {
         return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
@@ -623,9 +632,9 @@ cudaError_t cuda_context::cudaFuncSetCacheConfig(const char *func,
         enum cudaFuncCache cacheConfig) {
     scoped_lock lock(mx_);
 
-    global_t::function_map_t::const_iterator fit =
-        global_->functions_.find(func);
-    if (fit == global_->functions_.end()) {
+    typedef internal::modules_t::function_map_t fm_t;
+    fm_t::const_iterator fit = modules_->functions.find(func);
+    if (fit == modules_->functions.end()) {
         return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
@@ -699,19 +708,22 @@ cudaError_t cuda_context::cudaGetSymbolAddress(void **devPtr,
     }
 
     scoped_lock lock(mx_);
-    global_t::variable_map_t::const_iterator it =
-        global_->variables_.find(symbol);
-    if (it == global_->variables_.end()) {
-        global_t::variable_name_map_t::const_iterator nit =
-            global_->variable_names_.find(symbol);
-        if (nit == global_->variable_names_.end()) {
+
+    using internal::modules_t;
+    modules_t::variable_map_t::const_iterator it =
+        modules_->variables.find(symbol);
+    if (it == modules_->variables.end()) {
+        typedef global_t::variable_name_map_t vn_t;
+        const vn_t & vn = global_->variable_names();
+        vn_t::const_iterator nit = vn.find(symbol);
+        if (nit == vn.end()) {
             return cudaErrorInvalidSymbol;
         }
 
         /* Try again */
         symbol = static_cast<const char *>(nit->second);
-        it = global_->variables_.find(symbol);
-        if (it == global_->variables_.end()) {
+        it = modules_->variables.find(symbol);
+        if (it == modules_->variables.end()) {
             /* It shouldn't be in our variable names list if it's not
              * actually there. */
             assert(0 && "The impossible happened.");
@@ -733,13 +745,15 @@ cudaError_t cuda_context::cudaGetSymbolSize(size_t *size, const char *symbol) {
     }
 
     scoped_lock lock(mx_);
-    global_t::variable_map_t & variables = global_->variables_;
-    global_t::variable_map_t::const_iterator it = variables.find(symbol);
+
+    using internal::modules_t;
+    modules_t::variable_map_t & variables = modules_->variables;
+    modules_t::variable_map_t::const_iterator it = variables.find(symbol);
 
     if (it == variables.end()) {
-        global_t::variable_name_map_t & vnames = global_->variable_names_;
-        global_t::variable_name_map_t::const_iterator nit =
-            vnames.find(symbol);
+        typedef global_t::variable_name_map_t vn_t;
+        const vn_t & vnames = global_->variable_names();
+        vn_t::const_iterator nit = vnames.find(symbol);
         if (nit == vnames.end()) {
             return cudaErrorInvalidSymbol;
         }
@@ -767,8 +781,9 @@ cudaError_t cuda_context::cudaGetTextureAlignmentOffset(size_t *offset,
         const struct textureReference *texref) {
     scoped_lock lock(mx_);
 
-    global_t::texture_map_t & textures = global_->textures_;
-    global_t::texture_map_t::const_iterator it = textures.find(texref);
+    typedef internal::modules_t::texture_map_t tm_t;
+    const tm_t & textures = modules_->textures;
+    tm_t::const_iterator it = textures.find(texref);
     if (it == textures.end()) {
         return cudaErrorInvalidTexture;
     }
@@ -800,9 +815,9 @@ cudaError_t cuda_context::cudaGetTextureReference(
 
     scoped_lock lock(mx_);
 
-    global_t::texture_name_map_t & texture_names = global_->texture_names_;
-    global_t::texture_name_map_t::const_iterator it =
-        texture_names.find(symbol);
+    typedef global_t::texture_name_map_t tn_t;
+    const tn_t & texture_names = global_->texture_names();
+    tn_t::const_iterator it = texture_names.find(symbol);
     if (it == texture_names.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
@@ -1397,8 +1412,9 @@ cudaError_t cuda_context::cudaUnbindTexture(
         const struct textureReference *texref) {
     scoped_lock lock(mx_);
 
-    global_t::texture_map_t & textures = global_->textures_;
-    global_t::texture_map_t::const_iterator it = textures.find(texref);
+    using internal::modules_t;
+    modules_t::texture_map_t & textures = modules_->textures;
+    modules_t::texture_map_t::const_iterator it = textures.find(texref);
     if (it == textures.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
@@ -1429,8 +1445,9 @@ cudaError_t cuda_context::cudaUnbindTexture(
 
 const char * cuda_context::get_entry_name(const char * entry) const {
     /* Find module. */
-    global_t::function_map_t & functions = global_->functions_;
-    global_t::function_map_t::const_iterator fit = functions.find(entry);
+    using internal::modules_t;
+    modules_t::function_map_t & functions = modules_->functions;
+    modules_t::function_map_t::const_iterator fit = functions.find(entry);
     if (fit == functions.end()) {
         return NULL;
     }

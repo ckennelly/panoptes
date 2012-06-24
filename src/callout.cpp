@@ -39,6 +39,9 @@ typedef cudaError_t (*cudaBindTexture_t)(size_t *,
     const struct textureReference *, const void *,
     const struct cudaChannelFormatDesc *, size_t);
 typedef cudaError_t (*cudaConfigureCall_t)(dim3, dim3, size_t, cudaStream_t);
+typedef cudaError_t (*cudaDeviceCanAccessPeer_t)(int *, int, int);
+typedef cudaError_t (*cudaDeviceDisablePeerAccess_t)(int);
+typedef cudaError_t (*cudaDeviceEnablePeerAccess_t)(int, unsigned int);
 typedef cudaError_t (*cudaDeviceGetCacheConfig_t)(enum cudaFuncCache *);
 typedef cudaError_t (*cudaDeviceReset_t)();
 typedef cudaError_t (*cudaDeviceSetCacheConfig_t)(enum cudaFuncCache);
@@ -92,6 +95,7 @@ typedef cudaError_t (*cudaMemsetAsync_t)(void *, int, size_t, cudaStream_t);
 typedef cudaError_t (*cudaPointerGetAttributes_t)(
     struct cudaPointerAttributes *, void *);
 typedef cudaError_t (*cudaRuntimeGetVersion_t)(int *);
+typedef cudaError_t (*cudaSetDevice_t)(int);
 typedef cudaError_t (*cudaSetDeviceFlags_t)(unsigned int);
 typedef cudaError_t (*cudaSetDoubleForDevice_t)(double *);
 typedef cudaError_t (*cudaSetDoubleForHost_t)(double *);
@@ -123,6 +127,26 @@ cudaError_t callout::cudaConfigureCall(dim3 gridDim, dim3
     cudaConfigureCall_t method = (cudaConfigureCall_t)
         dlsym(callout::instance().libcudart, "cudaConfigureCall");
     return method(gridDim, blockDim, sharedMem, stream);
+}
+
+cudaError_t callout::cudaDeviceCanAccessPeer(int *canAccessPeer, int device,
+        int peerDevice) {
+    cudaDeviceCanAccessPeer_t method = (cudaDeviceCanAccessPeer_t)
+        dlsym(callout::instance().libcudart, "cudaDeviceCanAccessPeer");
+    return method(canAccessPeer, device, peerDevice);
+}
+
+cudaError_t callout::cudaDeviceDisablePeerAccess(int peerDevice) {
+    cudaDeviceDisablePeerAccess_t method = (cudaDeviceDisablePeerAccess_t)
+        dlsym(callout::instance().libcudart, "cudaDeviceDisablePeerAccess");
+    return method(peerDevice);
+}
+
+cudaError_t callout::cudaDeviceEnablePeerAccess(int peerDevice,
+        unsigned int flags) {
+    cudaDeviceEnablePeerAccess_t method = (cudaDeviceEnablePeerAccess_t)
+        dlsym(callout::instance().libcudart, "cudaDeviceEnablePeerAccess");
+    return method(peerDevice, flags);
 }
 
 cudaError_t callout::cudaDeviceGetCacheConfig(enum cudaFuncCache *
@@ -393,6 +417,12 @@ cudaError_t callout::cudaRuntimeGetVersion(int *runtimeVersion) {
     cudaRuntimeGetVersion_t method = (cudaRuntimeGetVersion_t)
         dlsym(callout::instance().libcudart, "cudaRuntimeGetVersion");
     return method(runtimeVersion);
+}
+
+cudaError_t callout::cudaSetDevice(int device) {
+    cudaSetDevice_t method = (cudaSetDevice_t)
+        dlsym(callout::instance().libcudart, "cudaSetDevice");
+    return method(device);
 }
 
 cudaError_t callout::cudaSetDeviceFlags(unsigned int flags) {

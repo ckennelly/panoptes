@@ -71,8 +71,7 @@ struct module_t {
 
         ~texture_t() {
             if (has_texref) {
-                CUresult ret = cuTexRefDestroy(texref);
-                assert(ret == CUDA_SUCCESS);
+                (void) cuTexRefDestroy(texref);
             }
         }
 
@@ -103,6 +102,30 @@ struct module_t {
     texture_map_t textures;
 
     bool handle_owned;
+};
+
+struct modules_t {
+    ~modules_t() {
+        const size_t n = modules.size();
+        for (size_t i = 0; i < n; i++) {
+            delete modules[i];
+        }
+    }
+
+    typedef std::vector<module_t *> module_vt;
+    module_vt modules;
+
+    typedef boost::unordered_map<const char *,
+        internal::module_t *> function_map_t;
+    function_map_t functions;
+
+    typedef boost::unordered_map<const char *, internal::module_t *>
+        variable_map_t;
+    variable_map_t variables;
+
+    typedef boost::unordered_map<const struct textureReference *,
+        internal::module_t *> texture_map_t;
+    texture_map_t textures;
 };
 
 /**

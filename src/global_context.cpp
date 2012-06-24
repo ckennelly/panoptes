@@ -57,7 +57,10 @@ global_context & global_context::instance() {
 cuda_context & global_context::context() {
     const unsigned device = current_device();
     scoped_lock lock(mx_);
+    return context(device);
+}
 
+cuda_context & global_context::context(unsigned device) {
     assert(device < devices_);
     cuda_context * ctx = device_contexts_[device];
     thread_info_t * local = threads_.get();
@@ -78,7 +81,10 @@ cuda_context & global_context::context() {
 const cuda_context & global_context::context() const {
     const unsigned device = current_device();
     scoped_lock lock(mx_);
+    return context(device);
+}
 
+const cuda_context & global_context::context(unsigned device) const {
     assert(device < devices_);
 
     cuda_context * ctx = device_contexts_[device];
@@ -161,24 +167,18 @@ cuda_context * global_context::factory(int device,
     return new cuda_context(const_cast<global_context *>(this), device, flags);
 }
 
-cudaError_t global_context::cudaDeviceCanAccessPeer(int *canAccessPeer, int
-        device, int peerDevice) {
-    (void) canAccessPeer;
-    (void) device;
-    (void) peerDevice;
-    return cudaErrorNotYetImplemented;
+cudaError_t global_context::cudaDeviceCanAccessPeer(int *canAccessPeer,
+        int device, int peerDevice) {
+    return callout::cudaDeviceCanAccessPeer(canAccessPeer, device, peerDevice);
 }
 
 cudaError_t global_context::cudaDeviceDisablePeerAccess(int peerDevice) {
-    (void) peerDevice;
-    return cudaErrorNotYetImplemented;
+    return callout::cudaDeviceDisablePeerAccess(peerDevice);
 }
 
 cudaError_t global_context::cudaDeviceEnablePeerAccess(int peerDevice, unsigned
         int flags) {
-    (void) peerDevice;
-    (void) flags;
-    return cudaErrorNotYetImplemented;
+    return callout::cudaDeviceEnablePeerAccess(peerDevice, flags);
 }
 
 cudaError_t global_context::cudaDeviceGetByPCIBusId(int *device,
@@ -351,18 +351,44 @@ void** global_context::cudaRegisterFatBinary(void *fatCubin) {
     return handle;
 }
 
-void global_context::load_ptx() {
-    /**
-     * TODO:  Do this once.
-     */
+void global_context::load_ptx(internal::modules_t * target) {
+    using internal::module_t;
+    typedef boost::unordered_map<module_t *, module_t *> oldnew_map_t;
+    oldnew_map_t oldnew_map;
 
     for (module_map_t::iterator it = modules_.begin();
             it != modules_.end(); ++it) {
-        using internal::module_t;
+        target->modules.push_back(new module_t());
+        module_t * const module = target->modules.back();
+        /* Module contains a bit of PTX that we can't copy. */
+        module->functions = it->second->functions;
+        module->variables = it->second->variables;
+
+        typedef module_t::texture_map_t tm_t;
+        for (tm_t::const_iterator jit = it->second->textures.begin();
+                jit != it->second->textures.end(); ++jit) {
+            module_t::texture_t * tex = new module_t::texture_t();
+            assert(!(jit->second->has_texref));
+            tex->has_texref     = false;
+            tex->hostVar        = jit->second->hostVar;
+            tex->deviceAddress  = jit->second->deviceAddress;
+            tex->deviceName     = jit->second->deviceName;
+            tex->dim            = jit->second->dim;
+            tex->norm           = jit->second->norm;
+            tex->ext            = jit->second->ext;
+            assert(!(jit->second->bound));
+            tex->bound          = false;
+
+            module->textures.insert(tm_t::value_type(jit->first, tex));
+        }
+
+        module->handle_owned = it->second->handle_owned;
+
+        oldnew_map.insert(oldnew_map_t::value_type(it->second, module));
+
         void ** const fatCubinHandle = it->first;
-        module_t * const module = it->second;
         std::stringstream ss;
-        ss << module->ptx;
+        ss << it->second->ptx;
 
         CUresult ret = cuModuleLoadData(&module->module, ss.str().c_str());
 
@@ -504,6 +530,45 @@ void global_context::load_ptx() {
                 (void) cuTexRefSetFlags(reg->texref, CU_TRSF_SRGB);
             }
         }
+    }
+
+    for (function_map_t::const_iterator it = functions_.begin();
+            it != functions_.end(); ++it) {
+        oldnew_map_t::const_iterator jit = oldnew_map.find(it->second);
+        if (jit == oldnew_map.end()) {
+            assert(0 && "The impossible happened.");
+            continue;
+        }
+
+        using internal::modules_t;
+        target->functions.insert(
+            modules_t::function_map_t::value_type(it->first, jit->second));
+    }
+
+    for (variable_map_t::const_iterator it = variables_.begin();
+            it != variables_.end(); ++it) {
+        oldnew_map_t::const_iterator jit = oldnew_map.find(it->second);
+        if (jit == oldnew_map.end()) {
+            assert(0 && "The impossible happened.");
+            continue;
+        }
+
+        using internal::modules_t;
+        target->variables.insert(
+            modules_t::variable_map_t::value_type(it->first, jit->second));
+    }
+
+    for (texture_map_t::const_iterator it = textures_.begin();
+            it != textures_.end(); ++it) {
+        oldnew_map_t::const_iterator jit = oldnew_map.find(it->second);
+        if (jit == oldnew_map.end()) {
+            assert(0 && "The impossible happened.");
+            continue;
+        }
+
+        using internal::modules_t;
+        target->textures.insert(
+            modules_t::texture_map_t::value_type(it->first, jit->second));
     }
 }
 
@@ -688,6 +753,11 @@ cudaError_t global_context::cudaSetDevice(int device) {
         return cudaErrorInvalidDevice;
     }
 
+    cudaError_t cret = callout::cudaSetDevice(device);
+    if (cret != cudaSuccess) {
+        return cret;
+    }
+
     thread_info_t * local = current();
     local->device = udevice;
 
@@ -718,4 +788,19 @@ void global_context::instrument(void ** fatCubinHandle, ptx_t * target) {
     // Do nothing
     (void) fatCubinHandle;
     (void) target;
+}
+
+const global_context::function_name_map_t &
+        global_context::function_names() const {
+    return function_names_;
+}
+
+const global_context::variable_name_map_t &
+        global_context::variable_names() const {
+    return variable_names_;
+}
+
+const global_context::texture_name_map_t &
+        global_context::texture_names() const {
+    return texture_names_;
 }

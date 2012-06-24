@@ -57,7 +57,7 @@ public:
     static cudaError_t cudaDeviceCanAccessPeer(int *canAccessPeer, int device,
         int peerDevice);
     static cudaError_t cudaDeviceDisablePeerAccess(int peerDevice);
-    static cudaError_t cudaDeviceEnablepeerAccess(int peerDevice,
+    static cudaError_t cudaDeviceEnablePeerAccess(int peerDevice,
         unsigned int flags);
     static cudaError_t cudaDeviceGetByPCIBusId(int *device, char *pciBusId);
     static cudaError_t cudaDeviceGetCacheConfig(

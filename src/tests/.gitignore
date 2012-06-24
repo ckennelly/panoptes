@@ -71,6 +71,7 @@ vtest_k_mov
 vtest_k_mul24
 vtest_k_mulhi
 vtest_k_noop
+vtest_k_peeraccess
 vtest_k_pmevent
 vtest_k_popc
 vtest_k_prefetch
@@ -110,6 +111,7 @@ vtest_memcpytosymbol
 vtest_memgetinfo
 vtest_memset
 vtest_memsetasync
+vtest_peeraccess
 vtest_pointergetattributes
 vtest_registervar
 vtest_runtimegetversion

@@ -60,18 +60,6 @@ currently include:
   Valgrind and onto the device.  Upon a host access, we would have to load the
   validity bits off of the device and place them into Valgrind.
 
-* Peer-to-Peer Support.  Panoptes currently does not implement the peer-to-peer
-  functionality exposed in CUDA 4.
-
-  Implementing this is currently limited by the fact that each device maintains
-  its own master list of chunks in its address space.  Devices that can
-  communicate with peer-to-peer need to share some of those portions of their
-  address space (relatedly, cudaGetDeviceProperties under Panoptes reports that
-  unified addressing is not supported).
-
-  Since this is a common use case for multi-GPU systems, it is expected to be
-  implemented in the near future.
-
 * Instruction support.  Not all parts of the PTX instruction set are supported.
   Further, parts of the PTX instruction set that are supported have largely
   been tested by generating kernels written in C/C++ with nvcc.  It is possible

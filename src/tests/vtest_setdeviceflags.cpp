@@ -57,6 +57,74 @@ TEST(SetDeviceFlags, Simple) {
     EXPECT_EQ(cudaSuccess, ret);
 }
 
+/**
+ * Verify that cudaDeviceEnablePeerAccess initializes the contexts of the two
+ * devices in question.
+ */
+TEST(SetDeviceFlags, PeerToPeer) {
+    cudaError_t ret;
+    int devices;
+
+    ret = cudaGetDeviceCount(&devices);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    if (devices <= 1) {
+        return;
+    }
+
+    for (int i = 0; i < devices; i++) {
+        ret = cudaSetDevice(i);
+        ASSERT_EQ(cudaSuccess, ret);
+
+        ret = cudaDeviceReset();
+        ASSERT_EQ(cudaSuccess, ret);
+    }
+
+    bool found = false;
+    int di, dj;
+
+    for (int i = 0; i < devices && !(found); i++) {
+        for (int j = 0; j < devices; j++) {
+            if (j == i) {
+                continue;
+            }
+
+            int peer;
+            ret = cudaDeviceCanAccessPeer(&peer, i, j);
+            ASSERT_EQ(cudaSuccess, ret);
+
+            if (peer) {
+                ret = cudaSetDevice(i);
+                ASSERT_EQ(cudaSuccess, ret);
+
+                ret = cudaDeviceEnablePeerAccess(j, 0);
+                ASSERT_EQ(cudaSuccess, ret);
+
+                di = i;
+                dj = j;
+                found = true;
+                break;
+            }
+        }
+    }
+
+    if (!(found)) {
+        return;
+    }
+
+    ret = cudaSetDevice(dj);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaSetDeviceFlags(cudaDeviceScheduleSpin);
+    EXPECT_EQ(cudaErrorSetOnActiveProcess, ret);
+
+    ret = cudaSetDevice(di);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaDeviceDisablePeerAccess(dj);
+    EXPECT_EQ(cudaSuccess, ret);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

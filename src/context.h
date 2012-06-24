@@ -32,6 +32,7 @@ namespace panoptes {
 
 namespace internal {
     // Forward declaration
+    struct modules_t;
     struct module_t;
     struct arg_t;
     struct call_t;
@@ -321,6 +322,8 @@ protected:
 
     global_context * global() { return global_; }
     const global_context * global() const { return global_; }
+
+    internal::modules_t * modules_;
 private:
     global_context * const global_;
     mutable cudaError_t error_;

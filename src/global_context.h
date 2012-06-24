@@ -29,6 +29,7 @@ namespace panoptes {
  * Forward declaration.
  */
 namespace internal {
+    struct modules_t;
     struct module_t;
 }
 
@@ -49,7 +50,13 @@ public:
      */
     cuda_context & context();
     const cuda_context & context() const;
-
+protected:
+    /**
+     * Accessors for particular device contexts.  No locks are held.
+     */
+    cuda_context & context(unsigned device);
+    const cuda_context & context(unsigned device) const;
+public:
     static global_context & instance();
 
     /**
@@ -60,10 +67,11 @@ public:
     /**
      * CUDA methods.
      */
-    cudaError_t cudaDeviceCanAccessPeer(int *canAccessPeer, int device, int
-        peerDevice);
-    cudaError_t cudaDeviceDisablePeerAccess(int peerDevice);
-    cudaError_t cudaDeviceEnablePeerAccess(int peerDevice, unsigned int flags);
+    virtual cudaError_t cudaDeviceCanAccessPeer(int *canAccessPeer, int device,
+        int peerDevice);
+    virtual cudaError_t cudaDeviceDisablePeerAccess(int peerDevice);
+    virtual cudaError_t cudaDeviceEnablePeerAccess(int peerDevice,
+        unsigned int flags);
     cudaError_t cudaDeviceGetByPCIBusId(int *device, char *pciBusId);
     cudaError_t cudaDeviceGetPCIBusId(char *pciBusId, int len, int device);
     cudaError_t cudaDeviceReset();
@@ -90,13 +98,12 @@ protected:
      * Constructor.
      */
     global_context();
-
+public:
     /**
      * Actually loads the registered PTX code with CUDA.
      */
-    void load_ptx();
-
-    friend class cuda_context;
+    void load_ptx(internal::modules_t * target);
+protected:
     virtual void instrument(void **fatCubinHandle, ptx_t * target);
     virtual cuda_context * factory(int device, unsigned int flags) const;
 
@@ -124,8 +131,11 @@ protected:
     typedef boost::unordered_map<const char *,
         internal::module_t *> function_map_t;
     function_map_t functions_;
-
+public:
     typedef boost::unordered_map<std::string, const char *> function_name_map_t;
+
+    const function_name_map_t & function_names() const;
+protected:
     function_name_map_t function_names_;
 
     /**
@@ -134,8 +144,11 @@ protected:
     typedef boost::unordered_map<const char *, internal::module_t *>
         variable_map_t;
     variable_map_t variables_;
-
+public:
     typedef boost::unordered_map<std::string, const void *> variable_name_map_t;
+
+    const variable_name_map_t & variable_names() const;
+protected:
     variable_name_map_t variable_names_;
 
     /**
@@ -144,9 +157,12 @@ protected:
     typedef boost::unordered_map<const struct textureReference *,
         internal::module_t *> texture_map_t;
     texture_map_t textures_;
-
+public:
     typedef boost::unordered_map<std::string, const struct textureReference *>
         texture_name_map_t;
+
+    const texture_name_map_t & texture_names() const;
+protected:
     texture_name_map_t texture_names_;
 
     /**

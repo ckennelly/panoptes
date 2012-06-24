@@ -19,6 +19,7 @@
 #ifndef __PANOPTES__CONTEXT_MEMCHECK_H__
 #define __PANOPTES__CONTEXT_MEMCHECK_H__
 
+#include <boost/shared_ptr.hpp>
 #include <boost/unordered_set.hpp>
 #include "context.h"
 #include "global_context.h"
@@ -41,6 +42,53 @@ struct error_buffer_t {
     uint32_t data[1024];
 };
 
+/**
+ * This class manages a small bit of state related to memory allocations of the
+ * various devices.  Since it needs to destruct after global_context_memcheck
+ * and the context_memchecks (e.g., after global_context), we keep it in a
+ * shared_ptr.
+ */
+class global_memcheck_state {
+public:
+    global_memcheck_state();
+    ~global_memcheck_state();
+
+    typedef host_gpu_vector<metadata_chunk *> master_t;
+    void register_master(int device, metadata_chunk * default_chunk,
+        master_t * master);
+    void unregister_master(int device);
+
+    typedef std::pair<size_t, metadata_chunk *> chunk_update_t;
+    typedef std::vector<chunk_update_t> chunk_updates_t;
+    void update_master(int device, bool add, const chunk_updates_t & updates);
+
+    void disable_peers(int device, int peer);
+    void enable_peers(int device, int peer);
+private:
+    void disable_peers_impl(int device, int peer);
+    void enable_peers_impl(int device, int peer);
+
+    typedef std::set<int> peer_set_t;
+    struct master_data_t {
+        master_data_t(int device);
+
+        metadata_chunk * default_chunk;
+
+        typedef std::vector<int> ownership_t;
+
+        ownership_t      ownership;
+        master_t       * master;
+        peer_set_t       peers;
+    };
+
+    typedef std::map<int, master_data_t> masters_t;
+    masters_t masters_;
+
+    boost::mutex mx_;
+};
+
+typedef boost::shared_ptr<global_memcheck_state> state_ptr_t;
+
 class global_context_memcheck : public global_context {
 public:
     global_context_memcheck();
@@ -48,9 +96,14 @@ public:
 
     virtual cuda_context * factory(int device, unsigned int flags) const;
 
+    virtual cudaError_t cudaDeviceDisablePeerAccess(int peerDevice);
+    virtual cudaError_t cudaDeviceEnablePeerAccess(int peerDevice,
+        unsigned int flags);
     virtual void cudaRegisterVar(void **fatCubinHandle,char *hostVar,
         char *deviceAddress, const char *deviceName, int ext, int size,
         int constant, int global);
+
+    state_ptr_t state();
 protected:
     /**
      * Instruments the given PTX program in-place for validity and
@@ -67,6 +120,8 @@ protected:
 private:
     friend class cuda_context_memcheck;
     friend struct internal::check_t;
+
+    state_ptr_t state_;
 
     typedef std::pair<void **, std::string> variable_handle_t;
     struct variable_data_t {
@@ -359,6 +414,7 @@ private:
      */
     host_gpu_vector<metadata_chunk *> master_;
     std::vector<pool_t::handle_t   *> chunks_;
+    state_ptr_t                       state_;
 
     /* Storage for auxillary chunk info (host-based) */
     struct chunk_aux_t {
