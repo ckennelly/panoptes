@@ -2265,7 +2265,11 @@ void global_context_memcheck::instrument_block(block_t * block,
                 const operand_t vd = make_validity_operand(d);
                 statement_t copy = statement;
                 copy.op = op_mov;
-                copy.type = bitwise_type(copy.type);
+                if (copy.type == pred_type) {
+                    copy.type = u16_type;
+                } else {
+                    copy.type = bitwise_type(copy.type);
+                }
 
                 copy.operands.clear();
                 copy.operands.push_back(vd);

@@ -131,6 +131,50 @@ TEST(MovTest, Zip64) {
  * TODO: Test unzip.
  */
 
+/**
+ * Validate that Panoptes supports moving predicate values.
+ */
+__global__ void k_mov_pred(uint32_t * out, uint32_t in) {
+    uint32_t out_;
+    asm volatile("{\n"
+        " .reg .pred %tmp;\n"
+        " mov.pred %tmp, 0;\n"
+        " selp.u32 %0, 0, %1, %tmp;\n"
+        "}\n" : "=r"(out_) : "r"(in));
+    *out = out_;
+}
+
+TEST(Regression, MovePredicate) {
+    cudaError_t ret;
+
+    uint32_t * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    const uint32_t expected = 0xDEADBEEF;
+
+    k_mov_pred<<<1, 1, 0, stream>>>(out, expected);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint32_t hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(expected, hout);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
