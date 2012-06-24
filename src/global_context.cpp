@@ -54,13 +54,22 @@ global_context & global_context::instance() {
  * this codepath always holds a lock (hoping for a fast underlying
  * implementation).
  */
-cuda_context & global_context::context() {
+cuda_context * global_context::context() {
     const unsigned device = current_device();
     scoped_lock lock(mx_);
-    return context(device);
+    return context_impl(device);
 }
 
-cuda_context & global_context::context(unsigned device) {
+cuda_context * global_context::context(unsigned device) {
+    if (device >= devices_) {
+        return NULL;
+    }
+
+    scoped_lock lock(mx_);
+    return context_impl(device);
+}
+
+cuda_context * global_context::context_impl(unsigned device) {
     assert(device < devices_);
     cuda_context * ctx = device_contexts_[device];
     thread_info_t * local = threads_.get();
@@ -75,16 +84,25 @@ cuda_context & global_context::context(unsigned device) {
         local->set_on_thread = true;
     }
 
-    return *ctx;
+    return ctx;
 }
 
-const cuda_context & global_context::context() const {
+const cuda_context * global_context::context() const {
     const unsigned device = current_device();
     scoped_lock lock(mx_);
     return context(device);
 }
 
-const cuda_context & global_context::context(unsigned device) const {
+const cuda_context * global_context::context(unsigned device) const {
+    if (device >= devices_) {
+        return NULL;
+    }
+
+    scoped_lock lock(mx_);
+    return context(device);
+}
+
+const cuda_context * global_context::context_impl(unsigned device) const {
     assert(device < devices_);
 
     cuda_context * ctx = device_contexts_[device];
@@ -100,7 +118,7 @@ const cuda_context & global_context::context(unsigned device) const {
         local->set_on_thread = true;
     }
 
-    return *ctx;
+    return ctx;
 }
 
 global_context::~global_context() {
@@ -803,4 +821,8 @@ const global_context::variable_name_map_t &
 const global_context::texture_name_map_t &
         global_context::texture_names() const {
     return texture_names_;
+}
+
+unsigned global_context::devices() const {
+    return devices_;
 }

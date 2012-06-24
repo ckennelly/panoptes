@@ -89,6 +89,10 @@ typedef cudaError_t (*cudaMemcpyFromSymbol_t)(void *, const char *,
     size_t, size_t, enum cudaMemcpyKind);
 typedef cudaError_t (*cudaMemcpyFromSymbolAsync_t)(void *, const char *,
     size_t, size_t, enum cudaMemcpyKind, cudaStream_t);
+typedef cudaError_t (*cudaMemcpyPeer_t)(void *, int, const void *, int,
+    size_t);
+typedef cudaError_t (*cudaMemcpyPeerAsync_t)(void *, int, const void *, int,
+    size_t, cudaStream_t);
 typedef cudaError_t (*cudaMemGetInfo_t)(size_t *, size_t *);
 typedef cudaError_t (*cudaMemset_t)(void *, int, size_t);
 typedef cudaError_t (*cudaMemsetAsync_t)(void *, int, size_t, cudaStream_t);
@@ -385,6 +389,20 @@ cudaError_t callout::cudaMemcpyFromSymbolAsync(void *dst, const char *symbol,
     cudaMemcpyFromSymbolAsync_t method = (cudaMemcpyFromSymbolAsync_t)
         dlsym(callout::instance().libcudart, "cudaMemcpyFromSymbolAsync");
     return method(dst, symbol, count, offset, kind, stream);
+}
+
+cudaError_t callout::cudaMemcpyPeer(void *dst, int dstDevice, const void *src,
+        int srcDevice, size_t count) {
+    cudaMemcpyPeer_t method = (cudaMemcpyPeer_t)
+        dlsym(callout::instance().libcudart, "cudaMemcpyPeer");
+    return method(dst, dstDevice, src, srcDevice, count);
+}
+
+cudaError_t callout::cudaMemcpyPeerAsync(void *dst, int dstDevice,
+        const void *src, int srcDevice, size_t count, cudaStream_t stream) {
+    cudaMemcpyPeerAsync_t method = (cudaMemcpyPeerAsync_t)
+        dlsym(callout::instance().libcudart, "cudaMemcpyPeerAsync");
+    return method(dst, dstDevice, src, srcDevice, count, stream);
 }
 
 cudaError_t callout::cudaMemGetInfo(size_t *free, size_t *total) {

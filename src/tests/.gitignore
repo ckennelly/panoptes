@@ -107,6 +107,8 @@ vtest_mallocpitch
 vtest_memcpy
 vtest_memcpyasync
 vtest_memcpyfromsymbol
+vtest_memcpypeer
+vtest_memcpypeerasync
 vtest_memcpytosymbol
 vtest_memgetinfo
 vtest_memset

@@ -841,7 +841,7 @@ cuda_context * global_context_memcheck::factory(int device,
 }
 
 bool cuda_context_memcheck::check_access_device(const void * ptr,
-        size_t len) const {
+        size_t len, bool signal) const {
     /**
      * Scan through device allocations in the address range [ptr, ptr + len)
      * to check for addressability.
@@ -896,8 +896,6 @@ bool cuda_context_memcheck::check_access_device(const void * ptr,
             // sizeof(msg) is small, so the cast is safe.
             assert(ret < (int) sizeof(msg) - 1);
             logger::instance().print(msg);
-
-            raise(SIGSEGV);
         } else {
             // Invalid read starts at usrc + offset
             //
@@ -911,7 +909,9 @@ bool cuda_context_memcheck::check_access_device(const void * ptr,
             // sizeof(msg) is small, so the cast is safe.
             assert(ret < (int) sizeof(msg) - 1);
             logger::instance().print(msg);
+        }
 
+        if (signal) {
             raise(SIGSEGV);
         }
 
@@ -7918,8 +7918,8 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
 
     switch (kind) {
     case cudaMemcpyDeviceToDevice:
-        if (check_access_device(dst, size) &&
-                check_access_device(src, size)) {
+        if (check_access_device(dst, size, true) &&
+                check_access_device(src, size, true)) {
             cudaError_t ret;
             if (cs) {
                 ret = callout::cudaMemcpyAsync(dst, src, size, kind,
@@ -7945,7 +7945,7 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
             return cudaErrorInvalidValue;
         }
     case cudaMemcpyDeviceToHost: {
-        check_access_device(src, size);
+        check_access_device(src, size, true);
 
         if (!(check_access_host(dst, size))) {
             /* Valgrind is running and it found an error */
@@ -7991,7 +7991,7 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
         return cudaErrorInvalidValue;
     }
     case cudaMemcpyHostToDevice:
-        check_access_device(dst, size);
+        check_access_device(dst, size, true);
 
         if (!(check_access_host(src, size))) {
             /* Valgrind is running and it found an error */
@@ -8062,7 +8062,7 @@ cudaError_t cuda_context_memcheck::cudaMemset(void *devPtr, int value,
     if (count == 0) {
         // No-op
         return setLastError(cudaSuccess);
-    } else if (!(check_access_device(devPtr, count))) {
+    } else if (!(check_access_device(devPtr, count, true))) {
         return setLastError(cudaErrorInvalidValue);
     }
 
@@ -8080,7 +8080,7 @@ cudaError_t cuda_context_memcheck::cudaMemsetAsync(void *devPtr, int value,
     if (count == 0) {
         // No-op
         return setLastError(cudaSuccess);
-    } else if (!(check_access_device(devPtr, count))) {
+    } else if (!(check_access_device(devPtr, count, true))) {
         return setLastError(cudaErrorInvalidValue);
     }
 
@@ -8145,8 +8145,8 @@ cudaError_t global_context_memcheck::cudaDeviceEnablePeerAccess(int peerDevice_,
         global_context::cudaDeviceEnablePeerAccess(peerDevice_, flags);
     if (ret == cudaSuccess) {
         /* Initialize the contexts for the current device and peerDevice. */
-        (void) context(current_device());
-        (void) context(peerDevice);
+        (void) context_impl(current_device());
+        (void) context_impl(peerDevice);
         state_->enable_peers(static_cast<int>(current_device()), peerDevice);
     }
 
@@ -8191,7 +8191,10 @@ cudaError_t cuda_context_memcheck::cudaStreamCreate(cudaStream_t *pStream) {
     scoped_lock lock(mx_);
     streams_.insert(stream_map_t::value_type(handle, stream_metadata));
 
-    *pStream = reinterpret_cast<cudaStream_t>(handle);
+    cudaStream_t stream = reinterpret_cast<cudaStream_t>(handle);
+
+    state_->register_stream(stream, device_);
+    *pStream = stream;
     return ret;
 }
 
@@ -8201,6 +8204,13 @@ cudaError_t cuda_context_memcheck::cudaStreamDestroy(cudaStream_t stream) {
     scoped_lock lock(mx_);
     stream_map_t::iterator it = streams_.find(handle);
     if (it == streams_.end()) {
+        unsigned device;
+        if (state_->lookup_stream(stream, &device)) {
+            /* The stream belongs to another context. */
+            assert(device != (unsigned) device_);
+            return global()->context(device)->cudaStreamDestroy(stream);
+        }
+
         /**
          * CUDA segfaults here.
          */
@@ -8210,6 +8220,7 @@ cudaError_t cuda_context_memcheck::cudaStreamDestroy(cudaStream_t stream) {
 
     internal::stream_t * stream_metadata = it->second;
     streams_.erase(it);
+    state_->unregister_stream(stream);
 
     free_handle(handle);
 
@@ -8224,6 +8235,13 @@ cudaError_t cuda_context_memcheck::cudaStreamQuery(cudaStream_t stream) {
     scoped_lock lock(mx_);
     stream_map_t::iterator it = streams_.find(handle);
     if (it == streams_.end()) {
+        unsigned device;
+        if (state_->lookup_stream(stream, &device)) {
+            /* The stream belongs to another context. */
+            assert(device != (unsigned) device_);
+            return global()->context(device)->cudaStreamQuery(stream);
+        }
+
         /**
          * CUDA segfaults here.
          */
@@ -8243,6 +8261,13 @@ cudaError_t cuda_context_memcheck::cudaStreamSynchronize(cudaStream_t stream) {
     scoped_lock lock(mx_);
     stream_map_t::iterator it = streams_.find(handle);
     if (it == streams_.end()) {
+        unsigned device;
+        if (state_->lookup_stream(stream, &device)) {
+            /* The stream belongs to another context. */
+            assert(device != (unsigned) device_);
+            return global()->context(device)->cudaStreamSynchronize(stream);
+        }
+
         /**
          * CUDA segfaults here.
          */
@@ -8270,6 +8295,14 @@ cudaError_t cuda_context_memcheck::cudaStreamWaitEvent(cudaStream_t stream,
     cudaStream_t real_stream;
     stream_map_t::iterator sit = streams_.find(shandle);
     if (sit == streams_.end()) {
+        unsigned device;
+        if (state_->lookup_stream(stream, &device)) {
+            /* The stream belongs to another context. */
+            assert(device != (unsigned) device_);
+            return global()->context(device)->
+                cudaStreamWaitEvent(stream, event, flags);
+        }
+
         real_stream = NULL;
     } else {
         real_stream = sit->second->stream;
@@ -8456,6 +8489,120 @@ bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
             callout::cudaMemcpyAsync(chunks_[nxtidx]->gpu()->v_data,
                 vsrc + sstart + dstrem, srcrem - dstrem,
                 cudaMemcpyDeviceToDevice, cs);
+        }
+
+        voffset += srcrem;
+    }
+
+    if (!(stream)) {
+        cudaError_t cs_ret;
+
+        cs_ret = callout::cudaStreamSynchronize(cs);
+        if (cs_ret != cudaSuccess) {
+            return false;
+        }
+
+        cs_ret = callout::cudaStreamDestroy(cs);
+        if (cs_ret != cudaSuccess) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool cuda_context_memcheck::validity_copy(void * dst,
+        cuda_context_memcheck * dstCtx, const void * src,
+        const cuda_context_memcheck * srcCtx, size_t count,
+        internal::stream_t * stream) {
+    if (!(valgrind_)) {
+        // No-op.
+        return true;
+    }
+
+    cudaStream_t cs;
+    if (stream) {
+        cs = stream->stream;
+    } else {
+        /**
+         * TODO:  Have a pool for streams.
+         */
+
+        cudaError_t cs_ret = callout::cudaStreamCreate(&cs);
+        if (cs_ret != cudaSuccess) {
+            return false;
+        }
+    }
+
+    const size_t chunk_bytes = 1 << lg_chunk_bytes;
+
+    const uintptr_t upsrc    = reinterpret_cast<uintptr_t>(src);
+    const size_t first_chunk =  upsrc          >> lg_chunk_bytes;
+    const size_t last_chunk  = (upsrc + count) >> lg_chunk_bytes;
+
+    const int dstDevice = static_cast<int>(dstCtx->device_);
+    const int srcDevice = static_cast<int>(srcCtx->device_);
+
+    for (size_t srcidx = first_chunk, voffset = 0; srcidx <= last_chunk;
+            srcidx++) {
+        /* Since we got this far, no chunk should point at the
+         * default chunk */
+        const pool_t::handle_t * const srcChunk = srcCtx->chunks_[srcidx];
+        assert(srcChunk != srcCtx->default_chunk_);
+
+        const uintptr_t chunk_start = srcidx * chunk_bytes;
+        const uintptr_t chunk_mask  = chunk_bytes - 1;
+
+        uintptr_t sstart = std::max(upsrc,          chunk_start) & chunk_mask;
+        uintptr_t send   = std::min(upsrc + count - chunk_start, chunk_bytes);
+        assert(send >= sstart);
+        uintptr_t srcrem = send - sstart;
+        if (srcrem == 0) {
+            break;
+        }
+
+        /**
+         * Look up chunk indexes for destination.
+         */
+        const uintptr_t updst  = reinterpret_cast<uintptr_t>(dst) + voffset;
+        const size_t    dstidx = updst >> lg_chunk_bytes;
+
+        pool_t::handle_t * const dstChunk = dstCtx->chunks_[dstidx];
+        assert(dstChunk != dstCtx->default_chunk_);
+        const uintptr_t dstoff = updst & (chunk_bytes - 1);
+        /* dstrem: number of bytes remaining in this chunk (dstidx) */
+        const uintptr_t dstrem = chunk_bytes - dstoff;
+
+        if (dstrem >= srcrem) {
+            /* Single copy. */
+            uint8_t * vdst =
+                reinterpret_cast<uint8_t *>(dstChunk->gpu()->v_data);
+            const uint8_t * vsrc =
+                reinterpret_cast<const uint8_t *>(srcChunk->gpu()->v_data);
+
+            callout::cudaMemcpyPeerAsync(vdst + dstoff, dstDevice,
+                vsrc + sstart, srcDevice, srcrem, cs);
+        } else {
+            /* First copy (remainder of first destination chunk) */
+            uint8_t * vdst =
+                reinterpret_cast<uint8_t *>(dstChunk->gpu()->v_data);
+            const uint8_t * vsrc =
+                reinterpret_cast<const uint8_t *>(srcChunk->gpu()->v_data);
+
+            callout::cudaMemcpyPeerAsync(vdst + dstoff, dstDevice,
+                vsrc + sstart, srcDevice, dstrem, cs);
+            /*
+             * Second copy (second destination chunk).  Writing starts at the
+             * very beginning of the destination chunk (so the offset is 0).
+             * Reading ends no later than the end of the source chunk, so no
+             * concern has to be given for moving on to the next source chunk
+             * right here.
+             */
+            const size_t nxtidx = dstidx + 1;
+            pool_t::handle_t * const nxtChunk = dstCtx->chunks_[nxtidx];
+            assert(nxtChunk != dstCtx->default_chunk_);
+            callout::cudaMemcpyPeerAsync(nxtChunk->gpu()->v_data, dstDevice,
+                vsrc + sstart + dstrem, srcDevice, srcrem - dstrem, cs);
         }
 
         voffset += srcrem;
@@ -9309,3 +9456,138 @@ state_ptr_t global_context_memcheck::state() {
 global_memcheck_state::global_memcheck_state() { }
 
 global_memcheck_state::~global_memcheck_state() { }
+
+cudaError_t cuda_context_memcheck::cudaMemcpyPeer(void *dst, int dstDevice,
+        const void *src, int srcDevice, size_t count) {
+    return cudaMemcpyPeerImplementation(dst, dstDevice, src, srcDevice, count,
+        NULL);
+}
+
+cudaError_t cuda_context_memcheck::cudaMemcpyPeerAsync(void *dst,
+        int dstDevice, const void *src, int srcDevice, size_t count,
+        cudaStream_t stream) {
+    return cudaMemcpyPeerImplementation(dst, dstDevice, src, srcDevice, count,
+        &stream);
+}
+
+namespace {
+    /**
+     * Locks the three given locks.  If duplicates are specified, they are
+     * ignored.
+     */
+    template<typename Lockable>
+    class trilock {
+    public:
+        trilock(Lockable & m1, Lockable & m2, Lockable & m3) :
+                n_locks_(0) {
+            typedef std::set<Lockable *> lock_set_t;
+            lock_set_t m;
+            m.insert(&m1);
+            m.insert(&m2);
+            m.insert(&m3);
+
+            for (typename lock_set_t::iterator it = m.begin();
+                    it != m.end(); ++it) {
+                mx_[n_locks_] = *it;
+                mx_[n_locks_]->lock();
+
+                n_locks_++;
+            }
+        }
+
+        ~trilock() {
+            for (size_t i = 0; i < n_locks_; i++) {
+                assert(mx_[i]);
+                mx_[i]->unlock();
+            }
+        }
+    private:
+        size_t     n_locks_;
+        Lockable * mx_[3];
+    };
+}
+
+cudaError_t cuda_context_memcheck::cudaMemcpyPeerImplementation(void *dst,
+        int dstDevice_, const void *src, int srcDevice_, size_t count,
+        cudaStream_t *stream) {
+    if (count == 0) {
+        return cudaSuccess;
+    }
+
+    const unsigned devices = global()->devices();
+    if (dstDevice_ < 0 || srcDevice_ < 0) {
+        return cudaErrorInvalidDevice;
+    }
+
+    const unsigned dstDevice = static_cast<unsigned>(dstDevice_);
+    const unsigned srcDevice = static_cast<unsigned>(srcDevice_);
+    if (dstDevice >= devices || srcDevice >= devices) {
+        return cudaErrorInvalidDevice;
+    }
+
+    void ** handle = stream ? reinterpret_cast<void **>(*stream) : NULL;
+
+    cuda_context_memcheck * ctxd =
+        static_cast<cuda_context_memcheck *>(global()->context(dstDevice));
+    cuda_context_memcheck * ctxs =
+        static_cast<cuda_context_memcheck *>(global()->context(srcDevice));
+
+    trilock<boost::mutex>(mx_, ctxd->mx_, ctxs->mx_);
+
+    stream_map_t::iterator it = streams_.find(handle);
+    internal::stream_t * const cs =
+        (!(stream) || it == streams_.end()) ? NULL : it->second;
+
+    if (!(ctxd->check_access_device(dst, count, false))) {
+        return cudaErrorInvalidValue;
+    }
+
+    if (!(ctxs->check_access_device(src, count, false))) {
+        return cudaErrorInvalidValue;
+    }
+
+    cudaError_t ret;
+    if (cs) {
+        ret = callout::cudaMemcpyPeerAsync(dst, dstDevice_, src, srcDevice_,
+            count, cs->stream);
+    } else {
+        ret = callout::cudaMemcpyPeer(dst, dstDevice_, src, srcDevice_, count); 
+    }
+
+    if (ret == cudaSuccess) {
+        validity_copy(dst, ctxd, src, ctxs, count, cs);
+    } else {
+        /* Simply mark the region as invalid */
+        ctxd->validity_clear(dst, count, cs);
+    }
+
+    if (cs) {
+        new internal::event_t(panoptes_created,
+            cudaEventDefault, cs, NULL);
+    }
+
+    return ret;
+}
+
+void global_memcheck_state::register_stream(cudaStream_t stream,
+        unsigned device) {
+    scoped_lock lock(mx_);
+    streams_.insert(stream_map_t::value_type(stream, device));
+}
+
+bool global_memcheck_state::lookup_stream(cudaStream_t stream,
+        unsigned *device) const {
+    scoped_lock lock(mx_);
+    stream_map_t::const_iterator it = streams_.find(stream);
+    if (it == streams_.end()) {
+        return false;
+    }
+
+    *device = it->second;
+    return true;
+}
+
+void global_memcheck_state::unregister_stream(cudaStream_t stream) {
+    scoped_lock lock(mx_);
+    streams_.erase(stream);
+}

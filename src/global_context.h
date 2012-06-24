@@ -48,14 +48,17 @@ public:
     /**
      * Accessors for this thread's current context.
      */
-    cuda_context & context();
-    const cuda_context & context() const;
+    cuda_context * context();
+    const cuda_context * context() const;
+
+    cuda_context * context(unsigned device);
+    const cuda_context * context(unsigned device) const;
 protected:
     /**
      * Accessors for particular device contexts.  No locks are held.
      */
-    cuda_context & context(unsigned device);
-    const cuda_context & context(unsigned device) const;
+    cuda_context * context_impl(unsigned device);
+    const cuda_context * context_impl(unsigned device) const;
 public:
     static global_context & instance();
 
@@ -186,6 +189,8 @@ protected:
     unsigned current_device() const;
 
     unsigned devices_;
+public:
+    unsigned devices() const;
 }; // end class global_context
 
 } // end namespace panoptes

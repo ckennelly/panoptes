@@ -64,6 +64,10 @@ public:
 
     void disable_peers(int device, int peer);
     void enable_peers(int device, int peer);
+
+    void register_stream(cudaStream_t stream, unsigned device);
+    bool lookup_stream(cudaStream_t stream, unsigned *device) const;
+    void unregister_stream(cudaStream_t stream);
 private:
     void disable_peers_impl(int device, int peer);
     void enable_peers_impl(int device, int peer);
@@ -84,7 +88,10 @@ private:
     typedef std::map<int, master_data_t> masters_t;
     masters_t masters_;
 
-    boost::mutex mx_;
+    typedef boost::unordered_map<cudaStream_t, unsigned> stream_map_t;
+    stream_map_t streams_;
+
+    mutable boost::mutex mx_;
 };
 
 typedef boost::shared_ptr<global_memcheck_state> state_ptr_t;
@@ -275,11 +282,11 @@ public:
         size_t count, enum cudaMemcpyKind kind);
     virtual cudaError_t cudaMemcpyFromArrayAsync(void *dst,
         const struct cudaArray *src, size_t wOffset, size_t hOffset,
-        size_t count, enum cudaMemcpyKind kind, cudaStream_t stream);
+        size_t count, enum cudaMemcpyKind kind, cudaStream_t stream); */
     virtual cudaError_t cudaMemcpyPeer(void *dst, int dstDevice,
         const void *src, int srcDevice, size_t count);
     virtual cudaError_t cudaMemcpyPeerAsync(void *dst, int dstDevice,
-        const void *src, int srcDevice, size_t count, cudaStream_t stream);
+        const void *src, int srcDevice, size_t count, cudaStream_t stream); /*
     virtual cudaError_t cudaMemcpyToArray(struct cudaArray *dst, size_t wOffset,
         size_t hOffset, const void *src, size_t count,
         enum cudaMemcpyKind kind);
@@ -316,10 +323,14 @@ protected:
     cudaError_t cudaMemcpyImplementation(void *dst, const void *src,
         size_t count, enum cudaMemcpyKind kind, cudaStream_t *stream);
 
+    cudaError_t cudaMemcpyPeerImplementation(void *dst, int dstDevice,
+        const void *src, int srcDevice, size_t count, cudaStream_t *stream);
+
     /**
      * Checks whether a device access is valid.  Returns true if it is.
+     * SIGSEGV is raised if signal is true.
      */
-    bool check_access_device(const void * ptr, size_t len) const;
+    bool check_access_device(const void * ptr, size_t len, bool signal) const;
 
     /**
      * Checks whether a host access is valid.  Returns true if it is.
@@ -368,6 +379,10 @@ protected:
      * Copy the validity bits on the device.
      */
     bool validity_copy(void * dst, const void * gpu, size_t len,
+        internal::stream_t * stream);
+
+    bool validity_copy(void * dst, cuda_context_memcheck * dstCtx,
+        const void * src, const cuda_context_memcheck * srcCtx, size_t count,
         internal::stream_t * stream);
 
     /**
