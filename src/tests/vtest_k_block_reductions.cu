@@ -139,7 +139,7 @@ TEST(kSyncThreads, CountEvens) {
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaMalloc((void **) &out, sizeof(*out) * N /
-        (sizeof(int) * CHAR_BIT));
+        (sizeof(*out) * CHAR_BIT));
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaStreamCreate(&stream);

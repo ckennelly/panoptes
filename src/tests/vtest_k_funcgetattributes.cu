@@ -19,9 +19,7 @@
 #include <cuda.h>
 #include <gtest/gtest.h>
 
-extern "C" __global__ void k_noop() {
-
-}
+extern "C" __global__ void k_noop() { }
 
 TEST(kNOOP, FuncGetAttributes) {
     struct cudaFuncAttributes attr;
@@ -31,9 +29,7 @@ TEST(kNOOP, FuncGetAttributes) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
-static void not_a_device_function() {
-
-}
+static void not_a_device_function() { }
 
 TEST(FuncGetAttributes, HostFunction) {
     struct cudaFuncAttributes attr;

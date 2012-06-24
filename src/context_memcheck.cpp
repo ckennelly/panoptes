@@ -333,14 +333,12 @@ namespace {
 
 namespace panoptes {
 namespace internal {
-
 struct check_t;
-
 }
 }
 
 struct internal::array_t : boost::noncopyable {
-    array_t(struct cudaChannelFormatDesc);
+    explicit array_t(struct cudaChannelFormatDesc);
     array_t(struct cudaChannelFormatDesc, struct cudaExtent);
     ~array_t();
 
@@ -1227,7 +1225,6 @@ static void analyze_block(size_t * fixed_shared_memory,
         case block_invalid:
             /* Do nothing */
             break;
-
     }
 }
 
@@ -4690,7 +4687,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                         /**
                          * chunk ** ptr = *ptr;
                          */
-                        aux.push_back(make_ld(uptr_t, const_space, ptr, master));
+                        aux.push_back(
+                            make_ld(uptr_t, const_space, ptr, master));
 
                         aux.back().has_predicate = true;
                         aux.back().is_negated    = true;
@@ -5804,7 +5802,8 @@ void global_context_memcheck::instrument_block(block_t * block,
                                 aux.push_back(new_store);
 
                                 const operand_t vdst =
-                                    operand_t::make_identifier("__panoptes_ptr1");
+                                    operand_t::make_identifier(
+                                    "__panoptes_ptr1");
 
                                 aux.push_back(make_add(upointer_type(),
                                     vdst, original_ptr, limit));
@@ -7246,7 +7245,7 @@ void cuda_context_memcheck::clear() {
         return;
     }
 
-    for(amap_t::const_iterator it = device_allocations_.begin();
+    for (amap_t::const_iterator it = device_allocations_.begin();
             it != device_allocations_.end(); ++it) {
         if (it->second.must_free) {
             /* Remove Valgrind registration. */
@@ -7893,11 +7892,11 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
         const bool ddst = is_device_pointer(dst, NULL, NULL);
         const bool dsrc = is_device_pointer(src, NULL, NULL);
 
-               if ( ddst &&  dsrc) {
+               if (ddst && dsrc) {
             kind = cudaMemcpyDeviceToDevice;
-        } else if (!ddst &&  dsrc) {
+        } else if (!ddst && dsrc) {
             kind = cudaMemcpyDeviceToHost;
-        } else if ( ddst && !dsrc) {
+        } else if (ddst && !dsrc) {
             kind = cudaMemcpyHostToDevice;
         } else if (!ddst && !dsrc) {
             kind = cudaMemcpyHostToHost;
@@ -8477,7 +8476,6 @@ bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
     }
 
     return true;
-
 }
 
 bool cuda_context_memcheck::validity_download(void * host, const void *
@@ -9175,7 +9173,7 @@ void global_memcheck_state::disable_peers_impl(int device, int peer) {
     for (size_t i = 0; i < N; i++) {
         if (data.ownership[i] == peer) {
             data.ownership[i] = device;
-            host          [i] = data_default;
+            host[i] = data_default;
             dirty = true;
         }
     }

@@ -19,25 +19,18 @@
 #include <cassert>
 #include "ptx_parser_state.h"
 #include <stdint.h>
+#include <string>
 #include "ptx_grammar.tab.hh"
 
 using namespace panoptes;
 
-ptx_parser_statement::ptx_parser_statement() {
+ptx_parser_statement::ptx_parser_statement() { }
 
-}
+ptx_parser_statement::~ptx_parser_statement() { }
 
-ptx_parser_statement::~ptx_parser_statement() {
+ptx_parser_instruction::ptx_parser_instruction() { }
 
-}
-
-ptx_parser_instruction::ptx_parser_instruction() {
-
-}
-
-ptx_parser_instruction::~ptx_parser_instruction() {
-
-}
+ptx_parser_instruction::~ptx_parser_instruction() { }
 
 void ptx_parser_instruction::to_ir(block_t * block) const {
     assert(block->block_type == block_invalid);
@@ -46,13 +39,9 @@ void ptx_parser_instruction::to_ir(block_t * block) const {
     block->statement = new statement_t(ir);
 }
 
-ptx_parser_label::ptx_parser_label() {
+ptx_parser_label::ptx_parser_label() { }
 
-}
-
-ptx_parser_label::~ptx_parser_label() {
-
-}
+ptx_parser_label::~ptx_parser_label() { }
 
 void ptx_parser_label::to_ir(block_t * block) const {
     assert(block->block_type == block_invalid);
@@ -63,8 +52,7 @@ void ptx_parser_label::to_ir(block_t * block) const {
 }
 
 ptx_parser_block::ptx_parser_block() :
-        label(new ptx_parser_label()) {
-}
+        label(new ptx_parser_label()) { }
 
 ptx_parser_block::~ptx_parser_block() {
     for (statements_t::iterator it = statements.begin();
@@ -215,7 +203,8 @@ void ptx_parser_state::set_target(int token) {
         case TOKEN_SM21:  sm = SM21; break;
         case TOKEN_DEBUG: sm = DEBUG; break;
         case TOKEN_MAP_F64_TO_F32:
-            map_f64_to_f32 = true; break;
+            map_f64_to_f32 = true;
+            break;
         default:
             assert(0 && "Unknown SM token.");
             break;
@@ -262,23 +251,57 @@ void ptx_parser_state::to_ir(ptx_t * program) const {
 
 void ptx_parser_state::set_type(int token) {
     switch (token) {
-        case TOKEN_U64:     type  = u64_type;    return;
-        case TOKEN_U32:     type  = u32_type;    return;
-        case TOKEN_U16:     type  = u16_type;    return;
-        case TOKEN_U8:      type  = u8_type;     return;
-        case TOKEN_S64:     type  = s64_type;    return;
-        case TOKEN_S32:     type  = s32_type;    return;
-        case TOKEN_S16:     type  = s16_type;    return;
-        case TOKEN_S8:      type  = s8_type;     return;
-        case TOKEN_B64:     type  = b64_type;    return;
-        case TOKEN_B32:     type  = b32_type;    return;
-        case TOKEN_B16:     type  = b16_type;    return;
-        case TOKEN_B8:      type  = b8_type;     return;
-        case TOKEN_F64:     type  = f64_type;    return;
-        case TOKEN_F32:     type  = f32_type;    return;
-        case TOKEN_F16:     type  = f16_type;    return;
-        case TOKEN_PRED:    type  = pred_type;   return;
-        case TOKEN_TEXREF:  type  = texref_type; return;
+        case TOKEN_U64:
+            type  = u64_type;
+            return;
+        case TOKEN_U32:
+            type  = u32_type;
+            return;
+        case TOKEN_U16:
+            type  = u16_type;
+            return;
+        case TOKEN_U8:
+            type  = u8_type;
+            return;
+        case TOKEN_S64:
+            type  = s64_type;
+            return;
+        case TOKEN_S32:
+            type  = s32_type;
+            return;
+        case TOKEN_S16:
+            type  = s16_type;
+            return;
+        case TOKEN_S8:
+            type  = s8_type;
+            return;
+        case TOKEN_B64:
+            type  = b64_type;
+            return;
+        case TOKEN_B32:
+            type  = b32_type;
+            return;
+        case TOKEN_B16:
+            type  = b16_type;
+            return;
+        case TOKEN_B8:
+            type  = b8_type;
+            return;
+        case TOKEN_F64:
+            type  = f64_type;
+            return;
+        case TOKEN_F32:
+            type  = f32_type;
+            return;
+        case TOKEN_F16:
+            type  = f16_type;
+            return;
+        case TOKEN_PRED:
+            type  = pred_type;
+            return;
+        case TOKEN_TEXREF:
+            type  = texref_type;
+            return;
         default:
             assert(0 && "Unknown type token.");
             break;

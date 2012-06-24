@@ -657,7 +657,7 @@ void global_context::cudaRegisterTexture(void **fatCubinHandle,
         texture_name_map_t::value_type(deviceName, hostVar));
 }
 
-void global_context::cudaRegisterVar(void **fatCubinHandle,char *hostVar,
+void global_context::cudaRegisterVar(void **fatCubinHandle, char *hostVar,
         char *deviceAddress, const char *deviceName, int ext, int size,
         int constant, int global) {
     (void) deviceAddress;
@@ -728,7 +728,7 @@ void** global_context::cudaUnregisterFatBinary(void **fatCubinHandle) {
     fatbin_map_t::iterator it = fatbins_.find(fatCubin);
     assert(it != fatbins_.end());
 
-     fatbins_.erase( it);
+    fatbins_.erase(it);
     ifatbins_.erase(iit);
 
     module_map_t::iterator mit = modules_.find(fatCubinHandle);

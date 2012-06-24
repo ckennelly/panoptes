@@ -75,7 +75,7 @@ TEST(IsSpacePTest, Single) {
     ret = cudaMemcpy(&hd, d, sizeof(hd), cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
-    EXPECT_TRUE (hd[0]);
+    EXPECT_TRUE(hd[0]);
     EXPECT_FALSE(hd[1]);
     EXPECT_FALSE(hd[2]);
 

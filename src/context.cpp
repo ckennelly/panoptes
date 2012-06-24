@@ -456,7 +456,11 @@ cudaError_t cuda_context::cudaChooseDevice(int *device,
 cudaChannelFormatDesc cuda_context::cudaCreateChannelDesc(int x, int y, int z,
         int w, enum cudaChannelFormatKind f) {
     cudaChannelFormatDesc ret;
-    ret.x = x; ret.y = y; ret.z = z; ret.w = w; ret.f = f;
+    ret.x = x;
+    ret.y = y;
+    ret.z = z;
+    ret.w = w;
+    ret.f = f;
     return ret;
 }
 
@@ -489,9 +493,10 @@ cudaError_t cuda_context::cudaDriverGetVersion(int *driverVersion) {
     cudaError_t ret = callout::cudaDriverGetVersion(driverVersion);
     if (ret == cudaSuccess) {
         (void) VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(
-            driverVersion, sizeof(int));
+            driverVersion, sizeof(*driverVersion));
     } else {
-        (void) VALGRIND_MAKE_MEM_UNDEFINED(driverVersion, sizeof(int));
+        (void) VALGRIND_MAKE_MEM_UNDEFINED(driverVersion,
+            sizeof(*driverVersion));
     }
 
     return ret;
@@ -1322,9 +1327,11 @@ cudaError_t cuda_context::cudaPointerGetAttributes(struct
 
     switch (type) {
         case CU_MEMORYTYPE_HOST:
-            attr.memoryType = cudaMemoryTypeHost; break;
+            attr.memoryType = cudaMemoryTypeHost;
+            break;
         case CU_MEMORYTYPE_DEVICE:
-            attr.memoryType = cudaMemoryTypeDevice; break;
+            attr.memoryType = cudaMemoryTypeDevice;
+            break;
         case CU_MEMORYTYPE_ARRAY:
             return cudaErrorNotYetImplemented;
         case CU_MEMORYTYPE_UNIFIED:
@@ -1341,9 +1348,11 @@ cudaError_t cuda_context::cudaPointerGetAttributes(struct
             CU_POINTER_ATTRIBUTE_HOST_POINTER, (CUdeviceptr) ptr);
         switch (ret) {
             case CUDA_ERROR_INVALID_VALUE:
-                attr.hostPointer = NULL; break;
+                attr.hostPointer = NULL;
+                break;
             case CUDA_SUCCESS:
-                attr.hostPointer = host_ptr; break;
+                attr.hostPointer = host_ptr;
+                break;
             default:
                 return cudaErrorNotYetImplemented;
         }
@@ -1355,9 +1364,11 @@ cudaError_t cuda_context::cudaPointerGetAttributes(struct
                 /** TODO **/
                 return cudaErrorNotYetImplemented;
             case CUDA_ERROR_INVALID_VALUE:
-                attr.devicePointer = NULL; break;
+                attr.devicePointer = NULL;
+                break;
             case CUDA_SUCCESS:
-                attr.devicePointer = (void *) device_ptr; break;
+                attr.devicePointer = (void *) device_ptr;
+                break;
             default:
                 return cudaErrorNotYetImplemented;
         }
@@ -1365,7 +1376,6 @@ cudaError_t cuda_context::cudaPointerGetAttributes(struct
         attr.hostPointer = NULL;
     }
 
-    //return callout::cudaPointerGetAttributes(attributes, ptr);
     *attributes = attr;
     return cudaSuccess;
 }

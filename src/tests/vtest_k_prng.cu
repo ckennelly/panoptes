@@ -39,7 +39,9 @@ extern "C" __global__ void k_xor128(uint32_t * out, int32_t n) {
             i < n; i += blockDim.x * gridDim.x) {
         uint32_t t;
         t = (x ^ (x << 11));
-        x = y; y = z; z = w;
+        x = y;
+        y = z;
+        z = w;
         out[i] = w = (w ^ (w >> 19)) ^ (t ^ (t >> 8));
     }
 }

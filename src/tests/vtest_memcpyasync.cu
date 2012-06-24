@@ -78,16 +78,16 @@ TEST(MemcpyAsync, CheckDefaultDirection) {
     ret = cudaMalloc((void**) &b, sizeof(*b));
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync(&a1,   &a2,  sizeof(a1), cudaMemcpyDefault, stream);
+    ret = cudaMemcpyAsync(&a1, &a2, sizeof(a1), cudaMemcpyDefault, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync(&a1,    b,   sizeof(a1), cudaMemcpyDefault, stream);
+    ret = cudaMemcpyAsync(&a1, b, sizeof(a1), cudaMemcpyDefault, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync( b,    &a1,  sizeof(a1), cudaMemcpyDefault, stream);
+    ret = cudaMemcpyAsync(b, &a1, sizeof(a1), cudaMemcpyDefault, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync( b,    b,    sizeof(a1), cudaMemcpyDefault, stream);
+    ret = cudaMemcpyAsync(b, b, sizeof(a1), cudaMemcpyDefault, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
     ret = cudaStreamSynchronize(stream);
@@ -117,31 +117,31 @@ TEST(MemcpyAsync, AllDirections) {
     ret = cudaMalloc((void**) &b, sizeof(*b) * 2);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync(&a1,    &a2,    sizeof(a1),
+    ret = cudaMemcpyAsync(&a1, &a2, sizeof(a1),
         cudaMemcpyHostToHost, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync(&a1,     b + 0, sizeof(a1),
+    ret = cudaMemcpyAsync(&a1, b + 0, sizeof(a1),
         cudaMemcpyDeviceToHost, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync(&a1,     b + 1, sizeof(a1),
+    ret = cudaMemcpyAsync(&a1, b + 1, sizeof(a1),
         cudaMemcpyDeviceToHost, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync( b + 0, &a1,    sizeof(a1),
+    ret = cudaMemcpyAsync(b + 0, &a1, sizeof(a1),
         cudaMemcpyHostToDevice, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync( b + 1, &a1,    sizeof(a1),
+    ret = cudaMemcpyAsync(b + 1, &a1, sizeof(a1),
         cudaMemcpyHostToDevice, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync( b + 0,  b + 0, sizeof(a1),
+    ret = cudaMemcpyAsync(b + 0, b + 0, sizeof(a1),
         cudaMemcpyDeviceToDevice, stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyAsync( b + 1,  b + 1, sizeof(a1),
+    ret = cudaMemcpyAsync(b + 1, b + 1, sizeof(a1),
         cudaMemcpyDeviceToDevice, stream);
     EXPECT_EQ(cudaSuccess, ret);
 

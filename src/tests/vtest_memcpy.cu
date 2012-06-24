@@ -44,18 +44,26 @@ TEST(Memcpy, CheckDefaultDirection) {
     int a1 = 0;
     int a2 = 0;
     int * b;
-    ASSERT_EQ(cudaSuccess, cudaMalloc((void**) &b, sizeof(*b)));
 
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy(&a1,   &a2,  sizeof(a1), cudaMemcpyDefault));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy(&a1,    b,   sizeof(a1), cudaMemcpyDefault));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy( b,    &a1,  sizeof(a1), cudaMemcpyDefault));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy( b,    b,    sizeof(a1), cudaMemcpyDefault));
+    cudaError_t ret;
 
-    ASSERT_EQ(cudaSuccess, cudaFree(b));
+    ret = cudaMalloc((void**) &b, sizeof(*b));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(&a1, &a2, sizeof(a1), cudaMemcpyDefault);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(&a1, b, sizeof(a1), cudaMemcpyDefault);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(b, &a1, sizeof(a1), cudaMemcpyDefault);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(b, b, sizeof(a1), cudaMemcpyDefault);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(b);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 /**
@@ -66,24 +74,34 @@ TEST(Memcpy, AllDirections) {
     int a1 = 0;
     int a2 = 0;
     int * b;
-    ASSERT_EQ(cudaSuccess, cudaMalloc((void**) &b, sizeof(*b) * 2));
 
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy(&a1,    &a2,    sizeof(a1), cudaMemcpyHostToHost));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy(&a1,     b + 0, sizeof(a1), cudaMemcpyDeviceToHost));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy(&a1,     b + 1, sizeof(a1), cudaMemcpyDeviceToHost));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy( b + 0, &a1,    sizeof(a1), cudaMemcpyHostToDevice));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy( b + 1, &a1,    sizeof(a1), cudaMemcpyHostToDevice));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy( b + 0,  b + 0, sizeof(a1), cudaMemcpyDeviceToDevice));
-    EXPECT_EQ(cudaSuccess,
-        cudaMemcpy( b + 1,  b + 1, sizeof(a1), cudaMemcpyDeviceToDevice));
+    cudaError_t ret;
+    ret = cudaMalloc((void**) &b, sizeof(*b) * 2);
+    ASSERT_EQ(cudaSuccess, ret);
 
-    ASSERT_EQ(cudaSuccess, cudaFree(b));
+    ret = cudaMemcpy(&a1, &a2, sizeof(a1), cudaMemcpyHostToHost);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(&a1, b + 0, sizeof(a1), cudaMemcpyDeviceToHost);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(&a1, b + 1, sizeof(a1), cudaMemcpyDeviceToHost);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(b + 0, &a1, sizeof(a1), cudaMemcpyHostToDevice);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(b + 1, &a1, sizeof(a1), cudaMemcpyHostToDevice);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(b + 0, b + 0, sizeof(a1), cudaMemcpyDeviceToDevice);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(b + 1, b + 1, sizeof(a1), cudaMemcpyDeviceToDevice);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(b);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 int main(int argc, char **argv) {

@@ -189,7 +189,6 @@ TEST(MemcpyToSymbol, NonSymbol) {
 
     ret = cudaFree(device_ptr);
     ASSERT_EQ(cudaSuccess, ret);
-
 }
 
 TEST(MemcpyToSymbol, OutOfBounds) {

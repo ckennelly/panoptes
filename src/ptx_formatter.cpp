@@ -452,11 +452,14 @@ ostream & operator<<(ostream & o, const statement_t & s) {
                 case f64_type:
                     switch (s.approximation) {
                         case approximate:
-                            o << ".approx"; break;
+                            o << ".approx";
+                            break;
                         case default_approximation:
-                            o << s.rounding; break;
+                            o << s.rounding;
+                            break;
                         case full_approximation:
-                            o << ".full"; break;
+                            o << ".full";
+                            break;
                     }
 
                     if (s.ftz) {

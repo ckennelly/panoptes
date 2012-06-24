@@ -24,10 +24,17 @@ using namespace panoptes;
 
 block_t::~block_t() {
     switch (block_type) {
-        case block_scope:     delete scope;     return;
-        case block_statement: delete statement; return;
-        case block_label:     delete label;     return;
-        case block_invalid:                     return;
+        case block_scope:
+            delete scope;
+            return;
+        case block_statement:
+            delete statement;
+            return;
+        case block_label:
+            delete label;
+            return;
+        case block_invalid:
+            return;
     }
 }
 
@@ -225,10 +232,18 @@ void operand_t::reset() {
 
 void operand_t::push_field(int token) {
     switch (token) {
-        case TOKEN_X: field.push_back(field_x); return;
-        case TOKEN_Y: field.push_back(field_y); return;
-        case TOKEN_Z: field.push_back(field_z); return;
-        case TOKEN_W: field.push_back(field_w); return;
+        case TOKEN_X:
+            field.push_back(field_x);
+            return;
+        case TOKEN_Y:
+            field.push_back(field_y);
+            return;
+        case TOKEN_Z:
+            field.push_back(field_z);
+            return;
+        case TOKEN_W:
+            field.push_back(field_w);
+                return;
         default:
             assert(0 && "Unknown field accessor token.");
             break;
@@ -237,16 +252,36 @@ void operand_t::push_field(int token) {
 
 void statement_t::set_atomic_op(int token) {
     switch (token) {
-        case TOKEN_AND:     atomic_op = atom_and;   return;
-        case TOKEN_OR:      atomic_op = atom_or;    return;
-        case TOKEN_XOR:     atomic_op = atom_xor;   return;
-        case TOKEN_CAS:     atomic_op = atom_cas;   return;
-        case TOKEN_EXCH:    atomic_op = atom_exch;  return;
-        case TOKEN_ADD:     atomic_op = atom_add;   return;
-        case TOKEN_INC:     atomic_op = atom_inc;   return;
-        case TOKEN_DEC:     atomic_op = atom_dec;   return;
-        case TOKEN_MIN:     atomic_op = atom_min;   return;
-        case TOKEN_MAX:     atomic_op = atom_max;   return;
+        case TOKEN_AND:
+            atomic_op = atom_and;
+            return;
+        case TOKEN_OR:
+            atomic_op = atom_or;
+            return;
+        case TOKEN_XOR:
+            atomic_op = atom_xor;
+            return;
+        case TOKEN_CAS:
+            atomic_op = atom_cas;
+            return;
+        case TOKEN_EXCH:
+            atomic_op = atom_exch;
+            return;
+        case TOKEN_ADD:
+            atomic_op = atom_add;
+            return;
+        case TOKEN_INC:
+            atomic_op = atom_inc;
+            return;
+        case TOKEN_DEC:
+            atomic_op = atom_dec;
+            return;
+        case TOKEN_MIN:
+            atomic_op = atom_min;
+            return;
+        case TOKEN_MAX:
+            atomic_op = atom_max;
+            return;
     }
 
     assert(0 && "Unknown atomic operation token.");
@@ -254,13 +289,27 @@ void statement_t::set_atomic_op(int token) {
 
 void statement_t::set_geometry(int token) {
     switch (token) {
-        case TOKEN_1D:      geometry = geom_1d;     return;
-        case TOKEN_2D:      geometry = geom_2d;     return;
-        case TOKEN_3D:      geometry = geom_3d;     return;
-        case TOKEN_A1D:     geometry = geom_a1d;    return;
-        case TOKEN_A2D:     geometry = geom_a2d;    return;
-        case TOKEN_CUBE:    geometry = geom_cube;   return;
-        case TOKEN_ACUBE:   geometry = geom_acube;  return;
+        case TOKEN_1D:
+            geometry = geom_1d;
+            return;
+        case TOKEN_2D:
+            geometry = geom_2d;
+            return;
+        case TOKEN_3D:
+            geometry = geom_3d;
+            return;
+        case TOKEN_A1D:
+            geometry = geom_a1d;
+            return;
+        case TOKEN_A2D:
+            geometry = geom_a2d;
+            return;
+        case TOKEN_CUBE:
+            geometry = geom_cube;
+            return;
+        case TOKEN_ACUBE:
+            geometry = geom_acube;
+            return;
     }
 
     assert(0 && "Unknown geometry token.");
@@ -268,156 +317,453 @@ void statement_t::set_geometry(int token) {
 
 void statement_t::set_token(int token) {
     switch (token) {
-        case OPCODE_ABS:        op = op_abs;        break;
-        case OPCODE_ADD:        op = op_add;        break;
-        case OPCODE_ADDC:       op = op_addc;       break;
-        case OPCODE_AND:        op = op_and;        break;
-        case OPCODE_ATOM:       op = op_atom;       break;
-        case OPCODE_BAR:        op = op_bar;        break;
-        case OPCODE_BFE:        op = op_bfe;        break;
-        case OPCODE_BFI:        op = op_bfi;        break;
-        case OPCODE_BFIND:      op = op_bfind;      break;
-        case OPCODE_BRA:        op = op_bra;        break;
-        case OPCODE_BREV:       op = op_brev;       break;
-        case OPCODE_BRKPT:      op = op_brkpt;      break;
-        case OPCODE_CALL:       op = op_call;       break;
-        case OPCODE_CLZ:        op = op_clz;        break;
-        case OPCODE_CNOT:       op = op_cnot;       break;
-        case OPCODE_COPYSIGN:   op = op_copysign;   break;
-        case OPCODE_COS:        op = op_cos;        break;
-        case OPCODE_CVT:        op = op_cvt;        break;
-        case OPCODE_CVTA:       op = op_cvta;       break;
-        case OPCODE_DIV:        op = op_div;        break;
-        case OPCODE_EX2:        op = op_ex2;        break;
-        case OPCODE_EXIT:       op = op_exit;       break;
-        case OPCODE_FMA:        op = op_fma;        break;
-        case OPCODE_ISSPACEP:   op = op_isspacep;   break;
-        case OPCODE_LD:         op = op_ld;         break;
-        case OPCODE_LDU:        op = op_ldu;        break;
-        case OPCODE_LG2:        op = op_lg2;        break;
-        case OPCODE_MAD:        op = op_mad;        break;
-        case OPCODE_MAD24:      op = op_mad24;      break;
-        case OPCODE_MADC:       op = op_madc;       break;
-        case OPCODE_MAX:        op = op_max;        break;
-        case OPCODE_MEMBAR:     op = op_membar;     break;
-        case OPCODE_MIN:        op = op_min;        break;
-        case OPCODE_MOV:        op = op_mov;        break;
-        case OPCODE_MUL:        op = op_mul;        break;
-        case OPCODE_MUL24:      op = op_mul24;      break;
-        case OPCODE_NEG:        op = op_neg;        break;
-        case OPCODE_NOT:        op = op_not;        break;
-        case OPCODE_OR:         op = op_or;         break;
-        case OPCODE_PMEVENT:    op = op_pmevent;    break;
-        case OPCODE_POPC:       op = op_popc;       break;
-        case OPCODE_PREFETCH:   op = op_prefetch;   break;
-        case OPCODE_PREFETCHU:  op = op_prefetchu;  break;
-        case OPCODE_PRMT:       op = op_prmt;       break;
-        case OPCODE_RCP:        op = op_rcp;        break;
-        case OPCODE_RED:        op = op_red;        break;
-        case OPCODE_REM:        op = op_rem;        break;
-        case OPCODE_RET:        op = op_ret;        break;
-        case OPCODE_RSQRT:      op = op_rsqrt;      break;
-        case OPCODE_SAD:        op = op_sad;        break;
-        case OPCODE_SELP:       op = op_selp;       break;
-        case OPCODE_SET:        op = op_set;        break;
-        case OPCODE_SETP:       op = op_setp;       break;
-        case OPCODE_SHL:        op = op_shl;        break;
-        case OPCODE_SHR:        op = op_shr;        break;
-        case OPCODE_SIN:        op = op_sin;        break;
-        case OPCODE_SLCT:       op = op_slct;       break;
-        case OPCODE_SQRT:       op = op_sqrt;       break;
-        case OPCODE_ST:         op = op_st;         break;
-        case OPCODE_SUB:        op = op_sub;        break;
-        case OPCODE_SUBC:       op = op_subc;       break;
-        case OPCODE_SULD:       op = op_suld;       break;
-        case OPCODE_SUQ:        op = op_suq;        break;
-        case OPCODE_SURED:      op = op_sured;      break;
-        case OPCODE_SUST:       op = op_sust;       break;
-        case OPCODE_TESTP:      op = op_testp;      break;
-        case OPCODE_TEX:        op = op_tex;        break;
-        case OPCODE_TLD4:       op = op_tld4;       break;
-        case OPCODE_TRAP:       op = op_trap;       break;
-        case OPCODE_TXQ:        op = op_txq;        break;
-        case OPCODE_VABSDIFF:   op = op_vabsdiff;   break;
-        case OPCODE_VADD:       op = op_vadd;       break;
-        case OPCODE_VMAD:       op = op_vmad;       break;
-        case OPCODE_VMAX:       op = op_vmax;       break;
-        case OPCODE_VMIN:       op = op_vmin;       break;
-        case OPCODE_VOTE:       op = op_vote;       break;
-        case OPCODE_VSET:       op = op_vset;       break;
-        case OPCODE_VSHL:       op = op_vshl;       break;
-        case OPCODE_VSHR:       op = op_vshr;       break;
-        case OPCODE_VSUB:       op = op_vsub;       break;
-        case OPCODE_XOR:        op = op_xor;        break;
-
-        case TOKEN_CONST:  space = const_space; break;
-        case TOKEN_GLOBAL: space = global_space; break;
-        case TOKEN_LOCAL:  space = local_space; break;
-        case TOKEN_PARAM:  space = param_space; break;
-        case TOKEN_SHARED: space = shared_space; break;
-        case TOKEN_GENERIC: space = generic_space; break;
-        case TOKEN_CA:     cache = cache_ca; break;
-        case TOKEN_CG:     cache = cache_cg; break;
-        case TOKEN_CS:     cache = cache_cs; break;
-        case TOKEN_CV:     cache = cache_cv; break;
-        case TOKEN_LU:     cache = cache_lu; break;
-        case TOKEN_V2:     vector = v2; break;
-        case TOKEN_V4:     vector = v4; break;
-        case TOKEN_EQ:  cmp = cmp_eq; return;
-        case TOKEN_NE:  cmp = cmp_ne; return;
-        case TOKEN_LT:  cmp = cmp_lt; return;
-        case TOKEN_LE:  cmp = cmp_le; return;
-        case TOKEN_GT:  cmp = cmp_gt; return;
-        case TOKEN_GE:  cmp = cmp_ge; return;
-        case TOKEN_LO:  cmp = cmp_lo; return;
-        case TOKEN_LS:  cmp = cmp_ls; return;
-        case TOKEN_HI:  cmp = cmp_hi; return;
-        case TOKEN_HS:  cmp = cmp_hs; return;
-        case TOKEN_EQU: cmp = cmp_equ; return;
-        case TOKEN_NEU: cmp = cmp_neu; return;
-        case TOKEN_LTU: cmp = cmp_ltu; return;
-        case TOKEN_GTU: cmp = cmp_gtu; return;
-        case TOKEN_GEU: cmp = cmp_geu; return;
-        case TOKEN_NUM: cmp = cmp_num; return;
-        case TOKEN_NAN: cmp = cmp_nan; return;
-        case TOKEN_AND: bool_op = bool_and; return;
-        case TOKEN_OR:  bool_op = bool_or;  return;
-        case TOKEN_XOR: bool_op = bool_xor; return;
-        case TOKEN_POPC:    bool_op = bool_popc;                return;
-        case TOKEN_RNI: rounding = rounding_rni; return;
-        case TOKEN_RZI: rounding = rounding_rzi; return;
-        case TOKEN_RMI: rounding = rounding_rmi; return;
-        case TOKEN_RPI: rounding = rounding_rpi; return;
-        case TOKEN_RN:  rounding = rounding_rn; return;
-        case TOKEN_RZ:  rounding = rounding_rz; return;
-        case TOKEN_RM:  rounding = rounding_rm; return;
-        case TOKEN_RP:  rounding = rounding_rp; return;
-        case TOKEN_SYNC:   barrier = barrier_sync; return;
-        case TOKEN_ARRIVE: barrier = barrier_arrive; return;
-        case TOKEN_RED:    barrier = barrier_reduce; return;
-        case TOKEN_FULL:    approximation = full_approximation; return;
-        case TOKEN_APPROX:  approximation = approximate;        return;
-        case TOKEN_MCTA:    barrier_scope = barrier_cta;        return;
-        case TOKEN_MGL:     barrier_scope = barrier_gl;         return;
-        case TOKEN_MSYS:    barrier_scope = barrier_sys;        return;
-        case TOKEN_ALL:     vote_mode       = vote_all;         return;
-        case TOKEN_ANY:     vote_mode       = vote_any;         return;
-        case TOKEN_BALLOT:  vote_mode       = vote_ballot;      return;
-        case TOKEN_UNI:     vote_mode       = vote_uniform;     return;
-        case TOKEN_FINITE:      testp_op = testp_finite;        return;
-        case TOKEN_INFINITE:    testp_op = testp_infinite;      return;
-        case TOKEN_NUMBER:      testp_op = testp_number;        return;
-        case TOKEN_NOTANUMBER:  testp_op = testp_nan;           return;
-        case TOKEN_NORMAL:      testp_op = testp_normal;        return;
-        case TOKEN_SUBNORMAL:   testp_op = testp_subnormal;     return;
-        case TOKEN_F4E:         prmt_mode = prmt_f4e;           return;
-        case TOKEN_B4E:         prmt_mode = prmt_b4e;           return;
-        case TOKEN_RC8:         prmt_mode = prmt_rc8;           return;
-        case TOKEN_ECL:         prmt_mode = prmt_ecl;           return;
-        case TOKEN_ECR:         prmt_mode = prmt_ecr;           return;
-        case TOKEN_RC16:        prmt_mode = prmt_rc16;          return;
-        case TOKEN_L1:          prefetch_cache = cache_L1;      return;
-        case TOKEN_L2:          prefetch_cache = cache_L2;      return;
+        case OPCODE_ABS:
+            op = op_abs;
+            return;
+        case OPCODE_ADD:
+            op = op_add;
+            return;
+        case OPCODE_ADDC:
+            op = op_addc;
+            return;
+        case OPCODE_AND:
+            op = op_and;
+            return;
+        case OPCODE_ATOM:
+            op = op_atom;
+            return;
+        case OPCODE_BAR:
+            op = op_bar;
+            return;
+        case OPCODE_BFE:
+            op = op_bfe;
+            return;
+        case OPCODE_BFI:
+            op = op_bfi;
+            return;
+        case OPCODE_BFIND:
+            op = op_bfind;
+            return;
+        case OPCODE_BRA:
+            op = op_bra;
+            return;
+        case OPCODE_BREV:
+            op = op_brev;
+            return;
+        case OPCODE_BRKPT:
+            op = op_brkpt;
+            return;
+        case OPCODE_CALL:
+            op = op_call;
+            return;
+        case OPCODE_CLZ:
+            op = op_clz;
+            return;
+        case OPCODE_CNOT:
+            op = op_cnot;
+            return;
+        case OPCODE_COPYSIGN:
+            op = op_copysign;
+            return;
+        case OPCODE_COS:
+            op = op_cos;
+            return;
+        case OPCODE_CVT:
+            op = op_cvt;
+            return;
+        case OPCODE_CVTA:
+            op = op_cvta;
+            return;
+        case OPCODE_DIV:
+            op = op_div;
+            return;
+        case OPCODE_EX2:
+            op = op_ex2;
+            return;
+        case OPCODE_EXIT:
+            op = op_exit;
+            return;
+        case OPCODE_FMA:
+            op = op_fma;
+            return;
+        case OPCODE_ISSPACEP:
+            op = op_isspacep;
+            return;
+        case OPCODE_LD:
+            op = op_ld;
+            return;
+        case OPCODE_LDU:
+            op = op_ldu;
+            return;
+        case OPCODE_LG2:
+            op = op_lg2;
+            return;
+        case OPCODE_MAD:
+            op = op_mad;
+            return;
+        case OPCODE_MAD24:
+            op = op_mad24;
+            return;
+        case OPCODE_MADC:
+            op = op_madc;
+            return;
+        case OPCODE_MAX:
+            op = op_max;
+            return;
+        case OPCODE_MEMBAR:
+            op = op_membar;
+            return;
+        case OPCODE_MIN:
+            op = op_min;
+            return;
+        case OPCODE_MOV:
+            op = op_mov;
+            return;
+        case OPCODE_MUL:
+            op = op_mul;
+            return;
+        case OPCODE_MUL24:
+            op = op_mul24;
+            return;
+        case OPCODE_NEG:
+            op = op_neg;
+            return;
+        case OPCODE_NOT:
+            op = op_not;
+            return;
+        case OPCODE_OR:
+            op = op_or;
+            return;
+        case OPCODE_PMEVENT:
+            op = op_pmevent;
+            return;
+        case OPCODE_POPC:
+            op = op_popc;
+            return;
+        case OPCODE_PREFETCH:
+            op = op_prefetch;
+            return;
+        case OPCODE_PREFETCHU:
+            op = op_prefetchu;
+            return;
+        case OPCODE_PRMT:
+            op = op_prmt;
+            return;
+        case OPCODE_RCP:
+            op = op_rcp;
+            return;
+        case OPCODE_RED:
+            op = op_red;
+            return;
+        case OPCODE_REM:
+            op = op_rem;
+            return;
+        case OPCODE_RET:
+            op = op_ret;
+            return;
+        case OPCODE_RSQRT:
+            op = op_rsqrt;
+            return;
+        case OPCODE_SAD:
+            op = op_sad;
+            return;
+        case OPCODE_SELP:
+            op = op_selp;
+            return;
+        case OPCODE_SET:
+            op = op_set;
+            return;
+        case OPCODE_SETP:
+            op = op_setp;
+            return;
+        case OPCODE_SHL:
+            op = op_shl;
+            return;
+        case OPCODE_SHR:
+            op = op_shr;
+            return;
+        case OPCODE_SIN:
+            op = op_sin;
+            return;
+        case OPCODE_SLCT:
+            op = op_slct;
+            return;
+        case OPCODE_SQRT:
+            op = op_sqrt;
+            return;
+        case OPCODE_ST:
+            op = op_st;
+            return;
+        case OPCODE_SUB:
+            op = op_sub;
+            return;
+        case OPCODE_SUBC:
+            op = op_subc;
+            return;
+        case OPCODE_SULD:
+            op = op_suld;
+            return;
+        case OPCODE_SUQ:
+            op = op_suq;
+            return;
+        case OPCODE_SURED:
+            op = op_sured;
+            return;
+        case OPCODE_SUST:
+            op = op_sust;
+            return;
+        case OPCODE_TESTP:
+            op = op_testp;
+            return;
+        case OPCODE_TEX:
+            op = op_tex;
+            return;
+        case OPCODE_TLD4:
+            op = op_tld4;
+            return;
+        case OPCODE_TRAP:
+            op = op_trap;
+            return;
+        case OPCODE_TXQ:
+            op = op_txq;
+            return;
+        case OPCODE_VABSDIFF:
+            op = op_vabsdiff;
+            return;
+        case OPCODE_VADD:
+            op = op_vadd;
+            return;
+        case OPCODE_VMAD:
+            op = op_vmad;
+            return;
+        case OPCODE_VMAX:
+            op = op_vmax;
+            return;
+        case OPCODE_VMIN:
+            op = op_vmin;
+            return;
+        case OPCODE_VOTE:
+            op = op_vote;
+            return;
+        case OPCODE_VSET:
+            op = op_vset;
+            return;
+        case OPCODE_VSHL:
+            op = op_vshl;
+            return;
+        case OPCODE_VSHR:
+            op = op_vshr;
+            return;
+        case OPCODE_VSUB:
+            op = op_vsub;
+            return;
+        case OPCODE_XOR:
+            op = op_xor;
+            return;
+        case TOKEN_CONST:
+            space = const_space;
+            return;
+        case TOKEN_GLOBAL:
+            space = global_space;
+            return;
+        case TOKEN_LOCAL:
+            space = local_space;
+            return;
+        case TOKEN_PARAM:
+            space = param_space;
+            return;
+        case TOKEN_SHARED:
+            space = shared_space;
+            return;
+        case TOKEN_GENERIC:
+            space = generic_space;
+            return;
+        case TOKEN_CA:
+            cache = cache_ca;
+            return;
+        case TOKEN_CG:
+            cache = cache_cg;
+            return;
+        case TOKEN_CS:
+            cache = cache_cs;
+            return;
+        case TOKEN_CV:
+            cache = cache_cv;
+            return;
+        case TOKEN_LU:
+            cache = cache_lu;
+            return;
+        case TOKEN_V2:
+            vector = v2;
+            return;
+        case TOKEN_V4:
+            vector = v4;
+            return;
+        case TOKEN_EQ:
+            cmp = cmp_eq;
+            return;
+        case TOKEN_NE:
+            cmp = cmp_ne;
+            return;
+        case TOKEN_LT:
+            cmp = cmp_lt;
+            return;
+        case TOKEN_LE:
+            cmp = cmp_le;
+            return;
+        case TOKEN_GT:
+            cmp = cmp_gt;
+            return;
+        case TOKEN_GE:
+            cmp = cmp_ge;
+            return;
+        case TOKEN_LO:
+            cmp = cmp_lo;
+            return;
+        case TOKEN_LS:
+            cmp = cmp_ls;
+            return;
+        case TOKEN_HI:
+            cmp = cmp_hi;
+            return;
+        case TOKEN_HS:
+            cmp = cmp_hs;
+            return;
+        case TOKEN_EQU:
+            cmp = cmp_equ;
+            return;
+        case TOKEN_NEU:
+            cmp = cmp_neu;
+            return;
+        case TOKEN_LTU:
+            cmp = cmp_ltu;
+            return;
+        case TOKEN_GTU:
+            cmp = cmp_gtu;
+            return;
+        case TOKEN_GEU:
+            cmp = cmp_geu;
+            return;
+        case TOKEN_NUM:
+            cmp = cmp_num;
+            return;
+        case TOKEN_NAN:
+            cmp = cmp_nan;
+            return;
+        case TOKEN_AND:
+            bool_op = bool_and;
+            return;
+        case TOKEN_OR:
+            bool_op = bool_or;
+            return;
+        case TOKEN_XOR:
+            bool_op = bool_xor;
+            return;
+        case TOKEN_POPC:
+            bool_op = bool_popc;
+            return;
+        case TOKEN_RNI:
+            rounding = rounding_rni;
+            return;
+        case TOKEN_RZI:
+            rounding = rounding_rzi;
+            return;
+        case TOKEN_RMI:
+            rounding = rounding_rmi;
+            return;
+        case TOKEN_RPI:
+            rounding = rounding_rpi;
+            return;
+        case TOKEN_RN:
+            rounding = rounding_rn;
+            return;
+        case TOKEN_RZ:
+            rounding = rounding_rz;
+            return;
+        case TOKEN_RM:
+            rounding = rounding_rm;
+            return;
+        case TOKEN_RP:
+            rounding = rounding_rp;
+            return;
+        case TOKEN_SYNC:
+            barrier = barrier_sync;
+            return;
+        case TOKEN_ARRIVE:
+            barrier = barrier_arrive;
+            return;
+        case TOKEN_RED:
+            barrier = barrier_reduce;
+            return;
+        case TOKEN_FULL:
+            approximation = full_approximation;
+            return;
+        case TOKEN_APPROX:
+            approximation = approximate;
+            return;
+        case TOKEN_MCTA:
+            barrier_scope = barrier_cta;
+            return;
+        case TOKEN_MGL:
+            barrier_scope = barrier_gl;
+            return;
+        case TOKEN_MSYS:
+            barrier_scope = barrier_sys;
+            return;
+        case TOKEN_ALL:
+            vote_mode       = vote_all;
+            return;
+        case TOKEN_ANY:
+            vote_mode       = vote_any;
+            return;
+        case TOKEN_BALLOT:
+            vote_mode       = vote_ballot;
+            return;
+        case TOKEN_UNI:
+            vote_mode       = vote_uniform;
+            return;
+        case TOKEN_FINITE:
+            testp_op = testp_finite;
+            return;
+        case TOKEN_INFINITE:
+            testp_op = testp_infinite;
+            return;
+        case TOKEN_NUMBER:
+            testp_op = testp_number;
+            return;
+        case TOKEN_NOTANUMBER:
+            testp_op = testp_nan;
+            return;
+        case TOKEN_NORMAL:
+            testp_op = testp_normal;
+            return;
+        case TOKEN_SUBNORMAL:
+            testp_op = testp_subnormal;
+            return;
+        case TOKEN_F4E:
+            prmt_mode = prmt_f4e;
+            return;
+        case TOKEN_B4E:
+            prmt_mode = prmt_b4e;
+            return;
+        case TOKEN_RC8:
+            prmt_mode = prmt_rc8;
+            return;
+        case TOKEN_ECL:
+            prmt_mode = prmt_ecl;
+            return;
+        case TOKEN_ECR:
+            prmt_mode = prmt_ecr;
+            return;
+        case TOKEN_RC16:
+            prmt_mode = prmt_rc16;
+            return;
+        case TOKEN_L1:
+            prefetch_cache = cache_L1;
+            return;
+        case TOKEN_L2:
+            prefetch_cache = cache_L2;
+            return;
         default:
             assert(0 && "Unknown token.");
             return;
@@ -426,9 +772,15 @@ void statement_t::set_token(int token) {
 
 void statement_t::set_width(int token) {
     switch (token) {
-        case TOKEN_LO:   width    = width_lo;       return;
-        case TOKEN_HI:   width    = width_hi;       return;
-        case TOKEN_WIDE: width    = width_wide;     return;
+        case TOKEN_LO:
+            width    = width_lo;
+            return;
+        case TOKEN_HI:
+            width    = width_hi;
+            return;
+        case TOKEN_WIDE:
+            width    = width_wide;
+            return;
         default:
             assert(0 && "Unknown token.");
             return;
@@ -483,13 +835,17 @@ size_t variable_t::size() const {
 
     switch (vector_size) {
         case v1:
-            base_size *= 1u; break;
+            base_size *= 1u;
+            break;
         case v2:
-            base_size *= 2u; break;
+            base_size *= 2u;
+            break;
         case v3:
-            base_size *= 3u; break;
+            base_size *= 3u;
+            break;
         case v4:
-            base_size *= 4u; break;
+            base_size *= 4u;
+            break;
     }
 
     size_t scale = 1u;

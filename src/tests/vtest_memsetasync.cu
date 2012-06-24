@@ -113,7 +113,7 @@ TEST_P(MemsetAsyncValidity, Aligned) {
 
     // Download data
     ret = cudaMemcpy(data, ptr, alloc, cudaMemcpyDeviceToHost);
-    ASSERT_EQ(cudaSuccess, ret);;
+    ASSERT_EQ(cudaSuccess, ret);
 
     // Copy out validity bits
     int valgrind = VALGRIND_GET_VBITS(data, vdata, alloc);

@@ -31,9 +31,7 @@ using namespace std;
 using namespace panoptes;
 
 namespace panoptes {
-
 extern int yyparse(ptx_lexer * lexer, ptx_parser_state * state);
-
 }
 
 ptx_parser::ptx_parser() { }

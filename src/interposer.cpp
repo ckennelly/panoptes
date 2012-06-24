@@ -32,19 +32,14 @@
 using namespace panoptes;
 
 #ifdef __CPLUSPLUS
- {
+extern "C" {
 #endif
 
-extern "C"
 void** __cudaRegisterFatBinary(void *fatCubin) {
     backtrace_t::instance().refresh();
     return global_context::instance().cudaRegisterFatBinary(fatCubin);
 }
 
-typedef std::map<const char *, std::string> func_map_t;
-func_map_t func_to_name;
-
-extern "C"
 void __cudaRegisterFunction(void **fatCubinHandle, const char *hostFun,
         char *deviceFun, const char *deviceName, int thread_limit, uint3 *tid,
         uint3 *bid, dim3 *bDim, dim3 *gDim, int *wSize) {
@@ -54,7 +49,6 @@ void __cudaRegisterFunction(void **fatCubinHandle, const char *hostFun,
         bid, bDim, gDim, wSize);
 }
 
-extern "C"
 void __cudaRegisterTexture(void **fatCubinHandle,
         const struct textureReference *hostVar, const void **deviceAddress,
         const char *deviceName, int dim, int norm, int ext) {
@@ -64,8 +58,7 @@ void __cudaRegisterTexture(void **fatCubinHandle,
         dim, norm, ext);
 }
 
-extern "C"
-void __cudaRegisterVar(void **fatCubinHandle,char *hostVar,
+void __cudaRegisterVar(void **fatCubinHandle, char *hostVar,
         char *deviceAddress, const char *deviceName, int ext, int size,
         int constant, int global) {
     backtrace_t::instance().refresh();
@@ -73,7 +66,6 @@ void __cudaRegisterVar(void **fatCubinHandle,char *hostVar,
         deviceAddress, deviceName, ext, size, constant, global);
 }
 
-extern "C"
 void __cudaUnregisterFatBinary(void **fatCubinHandle) {
     backtrace_t::instance().refresh();
     global_context::instance().cudaUnregisterFatBinary(fatCubinHandle);

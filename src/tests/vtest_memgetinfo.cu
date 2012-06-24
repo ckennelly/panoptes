@@ -70,7 +70,7 @@ TEST(MemGetInfo, Efficiency) {
 
         bool success = false;
         size_t trial = roundup(free);
-        while (trial > 0){
+        while (trial > 0) {
             void * ptr;
             ret = cudaMalloc(&ptr, trial);
             if (ret == cudaSuccess) {

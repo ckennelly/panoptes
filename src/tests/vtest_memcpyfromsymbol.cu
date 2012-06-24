@@ -64,7 +64,7 @@ TEST(MemcpyFromSymbol, Basic) {
         sizeof(symbol_t), 0, cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaMemcpyFromSymbol( &target, device_symbol,
+    ret = cudaMemcpyFromSymbol(&target, device_symbol,
         sizeof(symbol_t), 0, cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 

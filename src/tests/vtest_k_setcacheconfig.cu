@@ -19,9 +19,7 @@
 #include <cuda.h>
 #include <gtest/gtest.h>
 
-extern "C" __global__ void k_noop() {
-
-}
+extern "C" __global__ void k_noop() { }
 
 TEST(kNOOP, SetCacheConfig) {
     cudaError_t ret;

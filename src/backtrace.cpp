@@ -89,13 +89,13 @@ void backtrace_t::print() const {
             for (char * c = bt_syms[i]; *c; c++) {
                       if (!(mangled_start) && *c == '(') {
                     mangled_start = c;
-               } else if (  mangled_start  && *c == '+') {
+               } else if (mangled_start  && *c == '+') {
                     offset_mark   = c;
-               } else if (  mangled_start  && *c == ')') {
+               } else if (mangled_start  && *c == ')') {
                     mangled_end   = c;
-               } else if (  mangled_end    && *c == '[') {
+               } else if (mangled_end    && *c == '[') {
                     address_start = c;
-               } else if (  address_start  && *c == ']') {
+               } else if (address_start  && *c == ']') {
                     address_end   = c;
                }
             }
@@ -106,7 +106,7 @@ void backtrace_t::print() const {
                 /* The others except possibly offset_mark being non-NULL
                  * follows from this. */
                 const char * filename = bt_syms[i];
-                *mangled_start = '\0'; // Chop all characters starting at the (
+                *mangled_start = '\0';  // Chop all characters starting at the (
 
                 const char * name     = mangled_start + 1;
                 const char * offset;
@@ -120,7 +120,7 @@ void backtrace_t::print() const {
                    offset             = mangled_end;
                 }
 
-                *mangled_end   = '\0'; // Chop all characters starting at the )
+                *mangled_end = '\0';  // Chop all characters starting at the )
 
                 /* Check up on the address as a way of validating our parsing.
                  *
@@ -128,7 +128,7 @@ void backtrace_t::print() const {
                  */
                 #ifndef NDEBUG
                 const char * address  = address_start + 1;
-                *address_end   = '\0'; // Chop the ]
+                *address_end = '\0';  // Chop the ]
 
                 char tmp[sizeof(bt_[i]) * 4];
                 const int tmp_ret = snprintf(tmp, sizeof(tmp), "%p", bt_[i]);

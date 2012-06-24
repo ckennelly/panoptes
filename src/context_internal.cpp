@@ -28,14 +28,13 @@ namespace internal {
  */
 void** create_handle() {
     void** ret = new void*();
-    (void) VALGRIND_MAKE_MEM_NOACCESS(ret, sizeof(void*));
+    (void) VALGRIND_MAKE_MEM_NOACCESS(ret, sizeof(ret));
     return ret;
 }
 
 void free_handle(void ** handle) {
-    (void) VALGRIND_MAKE_MEM_UNDEFINED(handle, sizeof(void**));
+    (void) VALGRIND_MAKE_MEM_UNDEFINED(handle, sizeof(handle));
     delete handle;
 }
-
 }
 }

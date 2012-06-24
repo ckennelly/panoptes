@@ -64,7 +64,7 @@ TEST(MemcpyDeathTest, AllDirections) {
         cudaMemcpy( b,   &a,   sizeof(a), cudaMemcpyDeviceToHost)); */
     cudaGetLastError();
     EXPECT_EXIT(
-        cudaMemcpy( b,   &a,   sizeof(a), cudaMemcpyHostToHost),
+        cudaMemcpy(b, &a, sizeof(a), cudaMemcpyHostToHost),
         ::testing::KilledBySignal(SIGSEGV), "");
     cudaGetLastError();
 
@@ -83,7 +83,7 @@ TEST(MemcpyDeathTest, AllDirections) {
             cudaMemcpyHostToHost));
     } else {
         EXPECT_EXIT(
-            cudaMemcpy( b,    b,   sizeof(a), cudaMemcpyHostToHost),
+            cudaMemcpy(b, b, sizeof(a), cudaMemcpyHostToHost),
             ::testing::KilledBySignal(SIGSEGV), "");
     }
     cudaGetLastError();
@@ -130,7 +130,7 @@ TEST(MemcpyDeathTest, AllDirections) {
     EXPECT_EQ(cudaErrorInvalidValue,
         cudaMemcpy( b,   NULL, sizeof(a), cudaMemcpyDeviceToHost)); */
     EXPECT_EXIT(
-        cudaMemcpy( b,   NULL, sizeof(a), cudaMemcpyHostToHost),
+        cudaMemcpy(b, NULL, sizeof(a), cudaMemcpyHostToHost),
         ::testing::KilledBySignal(SIGSEGV), "");
     cudaGetLastError();
 

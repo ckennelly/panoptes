@@ -59,7 +59,7 @@ TEST(DeviceSynchronize, MemcpyAsync) {
 
     BOOST_STATIC_ASSERT(sizeof(*host_ptr) == sizeof(*device_ptr));
     ret = cudaMemcpyAsync(host_ptr, device_ptr, bytes,
-        cudaMemcpyDeviceToHost,stream);
+        cudaMemcpyDeviceToHost, stream);
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaDeviceSynchronize();

@@ -365,9 +365,7 @@ TEST(SetupArgument, Simple) {
     EXPECT_EQ(in, out);
 }
 
-static void __global__ k_consume(uint8_t data[]) {
-
-}
+static void __global__ k_consume(uint8_t data[]) { }
 
 TEST(SetupArgument, LargeArguments) {
     dim3 grid, block;

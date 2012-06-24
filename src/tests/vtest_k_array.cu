@@ -36,10 +36,10 @@ TEST(kArray, Copy) {
 
     uint8_t  expected[32 * 5];
     uint8_t vexpected[32 * 5];
-    memset( expected, 0x0,  sizeof( expected));
+    memset(expected, 0x0, sizeof(expected));
     memset(vexpected, 0xFF, sizeof(vexpected));
     for (size_t i = 0; (1u << i) < 32; i++) {
-        memset( expected + 32 * i, 0xFF, 1u << i);
+        memset(expected + 32 * i, 0xFF, 1u << i);
         memset(vexpected + 32 * i, 0x0,  1u << i);
     }
 

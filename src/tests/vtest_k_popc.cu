@@ -23,19 +23,28 @@
 #include <stdint.h>
 #include <valgrind/memcheck.h>
 
-extern "C" __global__ void k_popc(const unsigned * data, const int N,
+template<typename T>
+static __device__ int popc(const T & t) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+    return 0;
+}
+
+template<>
+static __device__ int popc<uint32_t>(const uint32_t & t) {
+    return __popc(t);
+}
+
+template<>
+static __device__ int popc<uint64_t>(const uint64_t & t) {
+    return __popcll(t);
+}
+
+template<typename T>
+__global__ void k_popc(const T * data, const int N,
         int * popc_values) {
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
             idx < N; idx += blockDim.x * gridDim.x) {
-        popc_values[idx] = __popc(data[idx]);
-    }
-}
-
-extern "C" __global__ void k_popcll(const unsigned long long * data,
-        const int N, int * popc_values) {
-    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
-            idx < N; idx += blockDim.x * gridDim.x) {
-        popc_values[idx] = __popc(data[idx]);
+        popc_values[idx] = popc(data[idx]);
     }
 }
 
@@ -46,7 +55,7 @@ TEST(kPOPC, POPC) {
     const int N = 1 << 20;
     const int n_blocks = 32;
 
-    unsigned * data;
+    uint32_t * data;
     int * popc_values;
 
     ret = cudaMalloc((void **) &data, sizeof(*data) * N);
@@ -80,7 +89,7 @@ TEST(kPOPC, POPCLL) {
     const int N = 1 << 20;
     const int n_blocks = 32;
 
-    unsigned long long * data;
+    uint64_t * data;
     int * popc_values;
 
     ret = cudaMalloc((void **) &data, sizeof(*data) * N);
@@ -92,7 +101,7 @@ TEST(kPOPC, POPCLL) {
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
-    k_popcll<<<256, n_blocks, 0, stream>>>(data, N, popc_values);
+    k_popc<<<256, n_blocks, 0, stream>>>(data, N, popc_values);
 
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);
@@ -105,22 +114,6 @@ TEST(kPOPC, POPCLL) {
 
     ret = cudaFree(popc_values);
     ASSERT_EQ(cudaSuccess, ret);
-}
-
-template<typename T>
-static __device__ int popc(const T & t) {
-    BOOST_STATIC_ASSERT(sizeof(T) == 0);
-    return 0;
-}
-
-template<>
-static __device__ int popc<uint32_t>(const uint32_t & t) {
-    return __popc(t);
-}
-
-template<>
-static __device__ int popc<uint64_t>(const uint64_t & t) {
-    return __popcll(t);
 }
 
 template<typename T>
