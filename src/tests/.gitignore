@@ -98,6 +98,7 @@ vtest_k_threadfence
 vtest_k_trap
 vtest_k_uniform
 vtest_k_validity
+vtest_k_vote
 vtest_launch
 vtest_malloc
 vtest_malloc3d

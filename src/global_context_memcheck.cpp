@@ -5261,6 +5261,79 @@ void global_context_memcheck::instrument_block(block_t * block,
 
                 break; }
             case op_trap: /* noop */ break;
+            case op_vote: {
+                assert(statement.operands.size() == 2u);
+                const operand_t & d = statement.operands[0];
+                const operand_t & a = statement.operands[1];
+
+                const operand_t vd = make_validity_operand(d);
+                const operand_t va = make_validity_operand(a);
+
+                switch (statement.vote_mode) {
+                    case invalid_vote_mode:
+                        assert(0 && "Invalid vote mode.");
+                        break;
+                    case vote_all:
+                    case vote_any:
+                    case vote_uniform:
+                        /**
+                         * Panoptes adopts a slightly less precise approach:
+                         * If any inputs are invalid, the result is invalid.
+                         * (In principle, it is possible for say, vote.any, to
+                         * be valid if at least one true input is valid.)
+                         */
+                        if (va.is_constant()) {
+                            aux.push_back(make_mov(b16_type, vd, 0));
+                        } else {
+                            tmp_pred = std::max(tmp_pred, 1);
+                            const operand_t tmpp =
+                                make_temp_operand(pred_type, 0);
+
+                            aux.push_back(make_setp(b16_type, cmp_ne,
+                                "__panoptes_pred_0", va,
+                                operand_t::make_iconstant(0)));
+
+                            statement_t v;
+                            v.op = op_vote;
+                            v.type = pred_type;
+                            v.vote_mode = vote_any;
+                            v.operands.push_back(tmpp);
+                            v.operands.push_back(tmpp);
+                            aux.push_back(v);
+
+                            aux.push_back(make_selp(b16_type,
+                                "__panoptes_pred_0", vd,
+                                operand_t::make_iconstant(0xFFFF),
+                                operand_t::make_iconstant(0)));
+                        }
+
+                        break;
+                    case vote_ballot:
+                        if (va.is_constant()) {
+                            aux.push_back(make_mov(b16_type, vd, 0));
+                        } else {
+                            tmp_pred = std::max(tmp_pred, 1);
+                            const operand_t tmpp =
+                                make_temp_operand(pred_type, 0);
+
+                            aux.push_back(make_setp(b16_type, cmp_ne,
+                                "__panoptes_pred_0", va,
+                                operand_t::make_iconstant(0)));
+
+                            statement_t v;
+                            v.op = op_vote;
+                            v.type = b32_type;
+                            v.vote_mode = vote_ballot;
+                            v.operands.push_back(vd);
+                            v.operands.push_back(tmpp);
+                            aux.push_back(v);
+                        }
+
+                        break;
+                }
+
+                break;
+                }
             case op_or:
             case op_xor: {
                 assert(statement.operands.size() == 3u);

@@ -122,6 +122,9 @@ vtest_k_tex1d_sm20.o: vtest_k_tex1d_sm20.cu Makefile
 vtest_k_uniform.o: vtest_k_uniform.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
+vtest_k_vote.o: vtest_k_vote.cu Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
+
 vtest_threads: vtest_threads.o Makefile
 	nvcc $(LDFLAGS) -lboost_thread -o $@ $<
 
