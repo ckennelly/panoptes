@@ -1242,7 +1242,7 @@ selp : OPCODE_SELP dataType identifierOperand TOKEN_COMMA immedOrVarOperand
 };
 
 set : OPCODE_SET cmpOp optionalBoolOp optionalFTZ dataType dataType
-        identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA
+        identifierOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
         immedOrVarOperand optionalCpred {
     parser->set_type($<vsigned>5);
     parser->function->top->instruction.type = parser->get_type();
