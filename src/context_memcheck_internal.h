@@ -57,6 +57,71 @@ struct instrumentation_t {
     sset_t unchecked;
 };
 
+/* Forward declaration. */
+class auxillary_t;
+
+class temp_operand : boost::noncopyable {
+public:
+    temp_operand(auxillary_t & parent, type_t type);
+    ~temp_operand();
+
+    operator const std::string &() const;
+    operator const operand_t &() const;
+
+    bool operator!=(const operand_t & rhs) const;
+private:
+    auxillary_t & parent_;
+    type_t        type_;
+    unsigned      id_;
+
+    const std::string identifier_;
+    const operand_t   operand_;
+};
+
+class temp_ptr : boost::noncopyable {
+public:
+    temp_ptr(auxillary_t & parent);
+    ~temp_ptr();
+
+    operator const std::string &() const;
+    operator const operand_t &() const;
+
+    bool operator!=(const operand_t & rhs) const;
+private:
+    auxillary_t & parent_;
+    unsigned      id_;
+
+    const std::string identifier_;
+    const operand_t   operand_;
+};
+
+class auxillary_t {
+public:
+    auxillary_t();
+
+    unsigned allocate(type_t type);
+    unsigned allocate_ptr();
+    void deallocate(type_t type, unsigned id);
+    void deallocate_ptr(unsigned id);
+
+    /* These are high water marks. */
+    unsigned b[4];
+    unsigned s[4];
+    unsigned u[4];
+    unsigned pred;
+    unsigned ptr;
+
+    instrumentation_t * inst;
+    block_t * block;
+private:
+    /* These are the number in actual use. */
+    unsigned b_[4];
+    unsigned s_[4];
+    unsigned u_[4];
+    unsigned pred_;
+    unsigned ptr_;
+};
+
 }
 }
 

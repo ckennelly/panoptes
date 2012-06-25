@@ -27,6 +27,7 @@ namespace panoptes {
 
 /* Forward declarations. */
 namespace internal {
+    class auxillary_t;
     struct check_t;
     struct instrumentation_t;
 }
@@ -60,6 +61,108 @@ protected:
     void instrument_block(block_t * block, internal::instrumentation_t * inst,
         const entry_info_t & e);
 private:
+    typedef std::vector<statement_t> statement_vt;
+
+    void instrument_abs(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_add(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_and(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_bar(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_bfe(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_bfi(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_bit1(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_brev(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_cnot(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_copysign(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_cvt(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_fp1(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_fp3(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_isspacep(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_ld(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_mad(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_math2(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_mov(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_neg(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_not(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_or(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_ret(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_prefetch(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_prmt(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_sad(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_selp(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_set(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_setp(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_shift(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_slct(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_st(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_testp(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+    void instrument_vote(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
+
     friend class cuda_context_memcheck;
     friend struct internal::check_t;
 
