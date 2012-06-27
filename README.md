@@ -66,9 +66,6 @@ currently include:
   that there are untested edge cases that would only be exposed by use of
   inline PTX.
 
-  * Atomic operations:  These currently are not checked for addressability nor
-                        are validity bits considered.
-
   * Textures/Surfaces:  Texture/surface support is currently being tested, but
                         is not released.
 

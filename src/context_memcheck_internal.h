@@ -36,7 +36,9 @@ struct instrumentation_t {
         wild_prefetch,
         misaligned_prefetch,
         outofbounds_prefetch_global,
-        outofbounds_prefetch_local
+        outofbounds_prefetch_local,
+        outofbounds_atomic_shared,
+        outofbounds_atomic_global
     };
 
     struct error_desc_t {

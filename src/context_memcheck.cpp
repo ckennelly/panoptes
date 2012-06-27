@@ -308,6 +308,24 @@ cudaError_t internal::check_t::check(cudaError_t r) {
 
                     ret = cudaErrorLaunchFailure;
                     break;
+                case instrumentation_t::outofbounds_atomic_shared:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds shared atomic at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
+                case instrumentation_t::outofbounds_atomic_global:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds global atomic at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
             }
         }
 

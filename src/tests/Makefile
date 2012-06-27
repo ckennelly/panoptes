@@ -56,6 +56,25 @@ test: $(patsubst %.cu,run_%,$(wildcard test_*.cu)) $(patsubst %.cu,vrun_%,$(wild
 test_k_assert.o: test_k_assert.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
+k_atomic_kernels.o: k_atomic_kernels.cu vtest_k_atomic.h Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_12
+
+k_atomic_kernels_generic.o: k_atomic_kernels_generic.cu vtest_k_atomic.h vtest_k_atomic_generic.h Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
+
+vtest_k_atomic_generic.o: vtest_k_atomic.h vtest_k_atomic_generic.h
+vtest_k_atomic_global.o: vtest_k_atomic.h
+vtest_k_atomic_shared.o: vtest_k_atomic.h
+
+vtest_k_atomic_generic: vtest_k_atomic_generic.o k_atomic_kernels_generic.o
+	nvcc -o vtest_k_atomic_generic $^ $(LDFLAGS)
+
+vtest_k_atomic_global: vtest_k_atomic_global.o k_atomic_kernels.o
+	nvcc -o vtest_k_atomic_global $^ $(LDFLAGS)
+
+vtest_k_atomic_shared: vtest_k_atomic_shared.o k_atomic_kernels.o
+	nvcc -o vtest_k_atomic_shared $^ $(LDFLAGS)
+
 vtest_k_ballot.o: vtest_k_ballot.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 

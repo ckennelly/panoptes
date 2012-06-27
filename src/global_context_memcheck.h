@@ -72,6 +72,9 @@ private:
     void instrument_and(const statement_t & statement,
         statement_vt * instrumentation, bool * keep,
         internal::auxillary_t * auxillary);
+    void instrument_atom(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
     void instrument_bar(const statement_t & statement,
         statement_vt * instrumentation, bool * keep,
         internal::auxillary_t * auxillary);

@@ -1377,6 +1377,751 @@ void global_context_memcheck::instrument_and(const statement_t & statement,
     *keep = true;
 }
 
+void global_context_memcheck::instrument_atom(const statement_t & statement,
+        statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
+    assert((statement.op == op_atom && (statement.operands.size() >= 3u ||
+                                        statement.operands.size() <= 4u)) ||
+           (statement.op == op_red  && (statement.operands.size() >= 2u ||
+                                        statement.operands.size() <= 3u)));
+
+    const bool reduce = statement.op == op_red;
+    const bool cas    = statement.atomic_op == atom_cas;
+    /**
+     * TODO:  Examine validity bits of addr.
+     */
+    const operand_t & addr = statement.operands[!reduce];
+    assert(addr.identifier.size() == 1u);
+
+    const operand_t & b    = statement.operands[1 + !reduce];
+    const operand_t & c    = statement.operands[1 + !reduce + cas];
+
+    const operand_t vb     = make_validity_operand(b);
+    const operand_t vc     = make_validity_operand(c);
+
+    const operand_t vd     = reduce ? operand_t() :
+        make_validity_operand(statement.operands[0]);
+
+    /**
+     * Atomics do not support vectors.
+     */
+    assert(statement.vector == v1);
+    const size_t width = sizeof_type(statement.type);
+
+    operand_t new_addr, new_vaddr;
+
+    /**
+     * Compute the vbits that we are mixing in.
+     */
+    const type_t btype = bitwise_type(statement.type);
+    const type_t stype = signed_type(statement.type);
+    const type_t ptr_t = pointer_type();
+    const type_t uptr_t = upointer_type();
+    const temp_operand mix_in(*auxillary, btype);
+
+    const operand_t local_errors =
+        operand_t::make_identifier(__errors_register);
+
+    switch(statement.atomic_op) {
+        case atom_and:
+        case atom_or:
+        case atom_xor:
+        case atom_exch:
+            /**
+             * Invalid bits do not spread.
+             */
+            assert(b == c);
+            aux->push_back(make_mov(btype, mix_in, vb));
+            break;
+        case atom_inc:
+        case atom_dec:
+        case atom_add:
+        case atom_min:
+        case atom_max:
+            /**
+             * Invalid bits spread.
+             */
+            assert(b == c);
+            if (vb.is_constant()) {
+                aux->push_back(make_mov(btype, mix_in, vb));
+            } else {
+                aux->push_back(make_cnot(btype, mix_in, vb));
+                aux->push_back(make_sub(stype, mix_in, mix_in,
+                    operand_t::make_iconstant(1)));
+            }
+            break;
+        case atom_cas:
+            /**
+             * Invalid bits of b spread, invalid bits of c do not.
+             */
+            assert(b != c);
+
+            if (vb.is_constant()) {
+                if (vc.is_constant()) {
+                    aux->push_back(make_mov(btype, mix_in, vb));
+                } else {
+                    aux->push_back(make_mov(btype, mix_in, vc));
+                }
+            } else {
+                aux->push_back(make_cnot(btype, mix_in, vb));
+                aux->push_back(make_sub(stype, mix_in, mix_in,
+                    operand_t::make_iconstant(1)));
+
+                if (!(vc.is_constant())) {
+                    aux->push_back(make_or(btype, mix_in, mix_in, vc));
+                }
+            }
+            break;
+        case atom_invalid:
+            assert(0 && "Invalid atomic operation.");
+            return;
+    }
+
+    /**
+     * TODO:  Check alignment.
+     */
+
+    /**
+     * TODO:  Handle predicated atomics.
+     */
+    assert(!(statement.has_predicate));
+
+    /* Align address. */
+    const intptr_t ialignmask = -((intptr_t) width - 1);
+    const operand_t oalignmask = operand_t::make_iconstant(ialignmask);
+
+    /* Constants for global bounds. */
+    const size_t chunk_size = 1u << lg_chunk_bytes;
+    const size_t chunk_mask = (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
+
+    /**
+     * chunk *** ptr = __master;
+     */
+    const operand_t master = operand_t::make_identifier(__master_symbol);
+
+    typedef internal::instrumentation_t inst_t;
+    if (statement.space == shared_space) {
+        assert(addr.identifier.size() == 1u);
+        const std::string & id = addr.identifier[0];
+
+        /* Walk up scopes for identifiers. */
+        const block_t * block = auxillary->block;
+        const function_t * f = NULL;
+
+        bool found = false;
+        bool flexible = false;
+        size_t size;
+
+        while (block && !(found)) {
+            assert(!(block->parent) || !(block->fparent));
+            assert(block->block_type == block_scope);
+            const scope_t * s = block->scope;
+
+            const size_t vn = s->variables.size();
+            for (size_t vi = 0; vi < vn; vi++) {
+                const variable_t & v = s->variables[vi];
+                if (id == v.name && !(v.has_suffix) &&
+                        v.space != reg_space) {
+                    found = true;
+                    size = v.size();
+                    break;
+                }
+            }
+
+            /* Move up. */
+            f     = block->fparent;
+            block = block->parent;
+        }
+
+        if (!(found)) {
+            assert(f);
+
+            const ptx_t * p = f->parent;
+            const size_t vn = p->variables.size();
+            for (size_t vi = 0; vi < vn; vi++) {
+                const variable_t & v = p->variables[vi];
+                if (id == v.name && !(v.has_suffix) &&
+                        v.space != reg_space) {
+                    found = true;
+                    flexible = v.array_flexible;
+                    if (!(flexible)) {
+                        size = v.size();
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (found && !(flexible)) {
+            /* We found a fixed symbol, verify we do not statically overrun
+             * it. */
+            const size_t end = width + (size_t) addr.offset;
+            if (end > size) {
+                std::stringstream ss;
+                ss << statement;
+
+                char msg[256];
+                int ret = snprintf(msg, sizeof(msg),
+                    "Shared atomic of %zu bytes at offset "
+                    "%ld will overrun buffer:\n"
+                    "Disassembly: %s\n", width,
+                    addr.offset, ss.str().c_str());
+
+                assert(ret < (int) sizeof(msg) - 1);
+                logger::instance().print(msg);
+
+                /* Cast off bits into the ether. */
+                return;
+            } else {
+                /* Map it to the validity symbol, preserving offset. */
+                *keep = true;
+
+                new_vaddr   = addr;
+                new_vaddr.identifier.clear();
+                new_vaddr.identifier.push_back(
+                    make_validity_symbol(id));
+                new_vaddr.field.clear();
+                new_vaddr.field.push_back(field_none);
+
+                statement_t vatomic;
+                vatomic.op              = statement.op;
+                vatomic.space           = shared_space;
+                vatomic.atomic_op       = atom_or;
+                vatomic.type            = btype;
+                if (!(reduce)) {
+                    vatomic.operands.push_back(vd);
+                }
+                vatomic.operands.push_back(new_vaddr);
+                vatomic.operands.push_back(mix_in);
+                aux->push_back(vatomic);
+            }
+        } else {
+            /**
+             * Verify address against the shared size parameter.  In practice,
+             * CUDA can permit a bit of slack in the size of variables.  For
+             * the sake of precision (and protecting validity bits), Panoptes
+             * is exact.
+             */
+            const operand_t limit =
+                operand_t::make_identifier(__shared_reg);
+            const temp_ptr original_ptr(*auxillary);
+
+            assert(addr.identifier.size() == 1u);
+            aux->push_back(make_mov(ptr_t, original_ptr,
+                operand_t::make_identifier(addr.identifier[0])));
+            if (addr.op_type == operand_addressable &&
+                    addr.offset != 0) {
+                aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
+                    operand_t::make_iconstant(addr.offset)));
+            }
+
+            const temp_operand valid_pred(*auxillary, pred_type);
+
+            /* Check underflow. */
+            aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred,
+                original_ptr, operand_t::make_iconstant(0)));
+
+            /* Check overflow. */
+            {
+                const temp_ptr tmp_ptr(*auxillary);
+
+                aux->push_back(make_add(uptr_t, tmp_ptr, original_ptr,
+                    operand_t::make_iconstant((int64_t) width)));
+
+                statement_t s;
+                s.op    = op_setp;
+                s.type  = uptr_t;
+                s.cmp = cmp_le;
+                s.bool_op = bool_and;
+                s.has_ppredicate = true;
+                s.ppredicate = valid_pred;
+                s.operands.push_back(tmp_ptr);
+                s.operands.push_back(limit);
+                s.operands.push_back(valid_pred);
+                aux->push_back(s);
+            }
+
+            statement_t new_atomic = statement;
+            new_atomic.has_predicate = true;
+            new_atomic.predicate     = valid_pred;
+            aux->push_back(new_atomic);
+
+            /**
+             * vbits lie limit ahead of the actual address.
+             */
+            const temp_ptr vbits(*auxillary);
+            aux->push_back(make_add(uptr_t, vbits, original_ptr, limit));
+
+            statement_t vatomic;
+            vatomic.has_predicate   = true;
+            vatomic.predicate       = valid_pred;
+            vatomic.op              = statement.op;
+            vatomic.space           = shared_space;
+            vatomic.atomic_op       = atom_or;
+            vatomic.type            = btype;
+            if (!(reduce)) {
+                vatomic.operands.push_back(vd);
+            }
+            vatomic.operands.push_back(vbits);
+            vatomic.operands.push_back(mix_in);
+            aux->push_back(vatomic);
+
+            if (!(reduce)) {
+                /* If !(valid_pred), invalidate the destination. */
+                aux->push_back(make_mov(btype, vd,
+                    operand_t::make_iconstant(-1)));
+                aux->back().has_predicate   = true;
+                aux->back().is_negated      = true;
+                aux->back().predicate       = valid_pred;
+            }
+
+            inst_t::error_desc_t desc_oob;
+            desc_oob.type = inst_t::outofbounds_atomic_shared;
+            desc_oob.orig = statement;
+            auxillary->inst->errors.push_back(desc_oob);
+            const size_t error_oob = auxillary->inst->errors.size();
+            const operand_t op_oob =
+                operand_t::make_iconstant((int64_t) error_oob);
+
+            aux->push_back(make_selp(u32_type, valid_pred, local_errors,
+                local_errors, op_oob));
+
+            *keep = false;
+        }
+
+        return;
+    } else if (statement.space == global_space) {
+        /**
+         * chunk ** ptr0 = *ptr0;
+         */
+        const temp_ptr ptr0(*auxillary);
+        aux->push_back(make_ld(uptr_t, const_space, ptr0, master));
+
+        /**
+         * uintptr_t ptr1 = addr >> lg_chunk_bytes;
+         * ptr1 &= max_chunks;
+         */
+        const temp_ptr ptr1(*auxillary);
+        aux->push_back(make_shr(ptr_t, ptr1, addr,
+            operand_t::make_iconstant(lg_chunk_bytes)));
+        aux->push_back(make_and(ptr_t, ptr1, ptr1,
+            operand_t::make_iconstant(chunk_mask)));
+
+        /**
+         * ptr1 *= sizeof(void *);
+         */
+        if (sizeof(void *) == 8) {
+            aux->push_back(make_shl(ptr_t, ptr1, ptr1,
+                operand_t::make_iconstant(3)));
+        } else {
+            aux->push_back(make_shl(ptr_t, ptr1, ptr1,
+                operand_t::make_iconstant(2)));
+        }
+
+        /**
+         * ptr0 += ptr1;
+         */
+        aux->push_back(make_add(uptr_t, ptr0, ptr0, ptr1));
+
+        /**
+         * chunk * ptr0 = *ptr0;
+         */
+        aux->push_back(make_ld(uptr_t, global_space, ptr0, ptr0));
+
+        /*
+         * Align:
+         * ptr1 = addr & ~(sizeof(void *) - 1)
+         *             & ~(chunk_size - 1);
+         *
+         * ptr2 = ptr0 + offset(vbits) + ptr1
+         *
+         * Ignore lower bits.
+         * ptr1  >>= 3;
+         */
+        assert(chunk_size >= sizeof(void *));
+        aux->push_back(make_and(ptr_t, ptr1, addr,
+            operand_t::make_iconstant((int64_t) chunk_size - 1)));
+
+        const temp_ptr ptr2(*auxillary);
+        aux->push_back(make_add(uptr_t, ptr2, ptr0, ptr1));
+        aux->push_back(make_add(uptr_t, ptr2, ptr2,
+            operand_t::make_iconstant((int64_t)
+            offsetof(metadata_chunk, v_data))));
+
+        aux->push_back(make_shr(ptr_t, ptr1, ptr1,
+            operand_t::make_iconstant(3)));
+
+        /**
+         * uint8_t * ptr0 += ptr1;
+         */
+        aux->push_back(make_add(uptr_t, ptr0, ptr0, ptr1));
+
+        /**
+         * shift_ptr = ptr0 & 0x1;
+         */
+        const temp_ptr shift_ptr(*auxillary);
+        aux->push_back(make_and(ptr_t, shift_ptr, ptr0,
+            operand_t::make_iconstant(0x1)));
+
+        /**
+         * uint32_t shift_ptr32 = shift_ptr;
+         */
+        const operand_t shift_ptr32 =
+            (sizeof(void *) == 4) ? shift_ptr :
+            (operand_t) temp_operand(*auxillary, u32_type);
+        if (sizeof(void *) == 8) {
+            /* Convert. */
+            assert(shift_ptr32 != shift_ptr);
+            aux->push_back(make_cvt(u32_type, uptr_t, shift_ptr32,
+                shift_ptr, false));
+        }
+
+        /**
+         * shift_ptr32 *= width
+         */
+        {
+            statement_t mul;
+            mul.op = op_mul;
+            mul.type = u32_type;
+            mul.width = width_lo;
+            mul.operands.push_back(shift_ptr32);
+            mul.operands.push_back(shift_ptr32);
+            mul.operands.push_back(operand_t::make_iconstant((int64_t) width));
+            aux->push_back(mul);
+        }
+
+        /**
+         * ptr0 &= ~0x1;
+         */
+        aux->push_back(make_and(ptr_t, shift_ptr, ptr0,
+            operand_t::make_iconstant(~((int64_t) 1))));
+
+        /**
+         * uint16_t tmp = *ptr;
+         */
+        const temp_operand tmp(*auxillary, u16_type);
+        aux->push_back(make_ld(u16_type, global_space, tmp, ptr0));
+
+        /**
+         * Shift tmp accordingly, then mask.
+         */
+        aux->push_back(make_shr(u16_type, tmp, tmp, shift_ptr32));
+        aux->push_back(make_and(b16_type, tmp, tmp,
+            operand_t::make_iconstant((1 << width) - 1)));
+
+        const temp_operand valid_atomic(*auxillary, pred_type);
+
+        aux->push_back(make_setp(u16_type, cmp_eq, valid_atomic, tmp,
+            operand_t::make_iconstant((1 << width) - 1)));
+
+        /**
+         * If !(valid_atomic), warn.
+         */
+        inst_t::error_desc_t desc_oob;
+        desc_oob.type = inst_t::outofbounds_atomic_global;
+        desc_oob.orig = statement;
+        auxillary->inst->errors.push_back(desc_oob);
+        const size_t error_oob = auxillary->inst->errors.size();
+        const operand_t op_oob =
+            operand_t::make_iconstant((int64_t) error_oob);
+
+        aux->push_back(make_selp(u32_type, valid_atomic, local_errors,
+            local_errors, op_oob));
+
+        /* Apply atomic operation to global_wo if invalid */
+        const operand_t global_wo =
+            operand_t::make_identifier(__global_wo);
+        aux->push_back(make_mov(ptr_t, ptr0, global_wo));
+        aux->push_back(make_selp(ptr_t, valid_atomic, ptr0, addr, ptr0));
+
+        *keep = false;
+        statement_t new_atomic       = statement;
+        new_atomic.operands[!reduce] = ptr0;
+        aux->push_back(new_atomic);
+
+        /**
+         * Apply operation against validity bits.
+         */
+        statement_t vatomic;
+        vatomic.op              = statement.op;
+        vatomic.space           = global_space;
+        vatomic.atomic_op       = atom_or;
+        vatomic.type            = btype;
+        if (!(reduce)) {
+            vatomic.operands.push_back(vd);
+        }
+        vatomic.operands.push_back(ptr2);
+        vatomic.operands.push_back(mix_in);
+        aux->push_back(vatomic);
+    } else {
+        // Generic addressing
+        *keep = false;
+        const temp_operand is_good(*auxillary, pred_type);
+        aux->push_back(make_mov(pred_type, is_good, 1));
+        const temp_ptr vbits(*auxillary);
+
+        const temp_operand is_shared(*auxillary, pred_type);
+        aux->push_back(make_isspacep(shared_space, is_shared, addr));
+
+        {
+            const operand_t limit =
+                operand_t::make_identifier(__shared_reg);
+            const temp_ptr shared_ptr(*auxillary);
+
+            {
+                statement_t cvta;
+                cvta.has_predicate  = true;
+                cvta.predicate      = is_shared;
+                cvta.op             = op_cvta;
+                cvta.is_to          = true;
+                cvta.space          = shared_space;
+                cvta.type           = uptr_t;
+                cvta.operands.push_back(shared_ptr);
+                cvta.operands.push_back(addr);
+                aux->push_back(cvta);
+            }
+
+            const temp_operand shared_invalid(*auxillary, pred_type);
+
+            /* Check underflow. */
+            {
+                statement_t s;
+                s.op             = op_setp;
+                s.type           = uptr_t;
+                s.cmp            = cmp_gt;
+                s.bool_op        = bool_and;
+                s.has_ppredicate = true;
+                s.ppredicate     = shared_invalid;
+                s.operands.push_back(shared_ptr);
+                s.operands.push_back(operand_t::make_iconstant(0));
+                s.operands.push_back(shared_invalid);
+                aux->push_back(s);
+            }
+
+            /* Check overflow. */
+            {
+                const temp_ptr tmp_ptr(*auxillary);
+
+                aux->push_back(make_add(uptr_t, tmp_ptr, addr,
+                    operand_t::make_iconstant((int64_t) width)));
+
+                statement_t s;
+                s.op                = op_setp;
+                s.type              = uptr_t;
+                s.cmp               = cmp_le;
+                s.bool_op           = bool_or;
+                s.has_ppredicate    = true;
+                s.ppredicate        = shared_invalid;
+                s.operands.push_back(tmp_ptr);
+                s.operands.push_back(limit);
+                s.operands.push_back(shared_invalid);
+                aux->push_back(s);
+            }
+
+            /* Merge */
+            {
+                statement_t s;
+                s.has_predicate = true;
+                s.predicate     = is_shared;
+                s.op            = op_mov;
+                s.type          = pred_type;
+                s.operands.push_back(is_good);
+                s.operands.push_back(shared_invalid);
+                aux->push_back(s);
+            }
+
+            /* Initialize, possibly to throw away vbits. */
+            aux->push_back(make_add(uptr_t, vbits, addr, limit));
+
+            /* Mix in error. */
+            {
+                inst_t::error_desc_t desc_oob;
+                desc_oob.type = inst_t::outofbounds_atomic_shared;
+                desc_oob.orig = statement;
+                auxillary->inst->errors.push_back(desc_oob);
+                const size_t error_oob = auxillary->inst->errors.size();
+                const operand_t op_oob =
+                    operand_t::make_iconstant((int64_t) error_oob);
+
+                aux->push_back(make_and(pred_type, shared_invalid,
+                    shared_invalid, is_shared));
+                aux->push_back(make_selp(u32_type, shared_invalid, local_errors,
+                    op_oob, local_errors));
+            }
+        }
+
+        /* Check global. */
+        {
+            /**
+             * chunk ** ptr0 = *ptr0;
+             */
+            const temp_ptr ptr0(*auxillary);
+            aux->push_back(make_ld(uptr_t, const_space, ptr0, master));
+            aux->back().has_predicate = true;
+            aux->back().is_negated    = true;
+            aux->back().predicate     = is_shared;
+
+            /**
+             * uintptr_t ptr1 = addr >> lg_chunk_bytes;
+             * ptr1 &= max_chunks;
+             */
+            const temp_ptr ptr1(*auxillary);
+            aux->push_back(make_shr(ptr_t, ptr1, addr,
+                operand_t::make_iconstant(lg_chunk_bytes)));
+            aux->push_back(make_and(ptr_t, ptr1, ptr1,
+                operand_t::make_iconstant(chunk_mask)));
+
+            /**
+             * ptr1 *= sizeof(void *);
+             */
+            if (sizeof(void *) == 8) {
+                aux->push_back(make_shl(ptr_t, ptr1, ptr1,
+                    operand_t::make_iconstant(3)));
+            } else {
+                aux->push_back(make_shl(ptr_t, ptr1, ptr1,
+                    operand_t::make_iconstant(2)));
+            }
+
+            /**
+             * ptr0 += ptr1;
+             */
+            aux->push_back(make_add(uptr_t, ptr0, ptr0, ptr1));
+
+            /**
+             * chunk * ptr0 = *ptr0;
+             */
+            aux->push_back(make_ld(uptr_t, global_space, ptr0, ptr0));
+            aux->back().has_predicate = true;
+            aux->back().is_negated    = true;
+            aux->back().predicate     = is_shared;
+
+            /*
+             * Align:
+             * ptr1 = addr & ~(sizeof(void *) - 1)
+             *             & ~(chunk_size - 1);
+             *
+             * ptr2 = ptr0 + offset(vbits) + ptr1
+             *
+             * Ignore lower bits.
+             * ptr1  >>= 3;
+             */
+            assert(chunk_size >= sizeof(void *));
+            aux->push_back(make_and(ptr_t, ptr1, addr,
+                operand_t::make_iconstant((int64_t) chunk_size - 1)));
+
+            const temp_ptr ptr2(*auxillary);
+            aux->push_back(make_add(uptr_t, ptr2, ptr0, ptr1));
+            aux->push_back(make_add(uptr_t, ptr2, ptr2,
+                operand_t::make_iconstant((int64_t)
+                offsetof(metadata_chunk, v_data))));
+
+            const temp_ptr shift_ptr(*auxillary);
+            if (sizeof(void *) == 8) {
+                aux->push_back(make_and(ptr_t, shift_ptr, ptr1,
+                    operand_t::make_iconstant(7)));
+                aux->push_back(make_shr(ptr_t, ptr1, ptr1,
+                    operand_t::make_iconstant(3)));
+            } else {
+                aux->push_back(make_and(ptr_t, shift_ptr, ptr1,
+                    operand_t::make_iconstant(3)));
+                aux->push_back(make_shr(ptr_t, ptr1, ptr1,
+                    operand_t::make_iconstant(2)));
+            }
+
+            const temp_operand shift_ptr32(*auxillary, u32_type);
+            aux->push_back(make_cvt(u32_type, uptr_t, shift_ptr32, shift_ptr,
+                false));
+
+            /**
+             * uint8_t * ptr0 += ptr1;
+             */
+            aux->push_back(make_add(uptr_t, ptr0, ptr0, ptr1));
+
+            /**
+             * uint16_t tmp = *ptr;
+             */
+            const temp_operand tmp(*auxillary, u16_type);
+            aux->push_back(make_ld(u8_type, global_space, tmp, ptr0));
+            aux->back().has_predicate = true;
+            aux->back().is_negated    = true;
+            aux->back().predicate     = is_shared;
+
+            /**
+             * Shift and mask tmp accordingly.
+             */
+            aux->push_back(make_shr(b16_type, tmp, tmp, shift_ptr32));
+            aux->push_back(make_and(b16_type, tmp, tmp,
+                operand_t::make_iconstant((1 << width) - 1)));
+
+            const temp_operand global_valid(*auxillary, pred_type);
+
+            aux->push_back(make_setp(u16_type, cmp_eq, global_valid, tmp,
+                operand_t::make_iconstant((1 << width) - 1)));
+
+            /**
+             * If !(global_valid || is_shared), warn.
+             */
+            {
+                inst_t::error_desc_t desc_oob;
+                desc_oob.type = inst_t::outofbounds_atomic_global;
+                desc_oob.orig = statement;
+                auxillary->inst->errors.push_back(desc_oob);
+                const size_t error_oob = auxillary->inst->errors.size();
+                const operand_t op_oob =
+                    operand_t::make_iconstant((int64_t) error_oob);
+
+                aux->push_back(make_or(pred_type, global_valid,
+                    global_valid, is_shared));
+                aux->push_back(make_selp(u32_type, global_valid, local_errors,
+                    local_errors, op_oob));
+            }
+
+            /**
+             * Mix-in global_valid into is_good.
+             */
+            aux->push_back(make_and(pred_type, is_good, is_good,
+                global_valid));
+
+            /**
+             * Mix-in vbits for global
+             */
+            aux->push_back(make_selp(ptr_t, is_shared, vbits, vbits, ptr2));
+        }
+
+        /**
+         * Apply atomic operation.
+         */
+        statement_t new_atomic      = statement;
+        new_atomic.has_predicate    = true;
+        new_atomic.predicate        = is_good;
+        aux->push_back(new_atomic);
+
+        /**
+         * Apply operation against validity bits.
+         */
+        statement_t vatomic;
+        vatomic.has_predicate   = true;
+        vatomic.predicate       = is_good;
+        vatomic.op              = statement.op;
+        vatomic.space           = generic_space;
+        vatomic.atomic_op       = atom_or;
+        vatomic.type            = btype;
+        if (!(reduce)) {
+            vatomic.operands.push_back(vd);
+        }
+        vatomic.operands.push_back(vbits);
+        vatomic.operands.push_back(mix_in);
+        aux->push_back(vatomic);
+
+        if (!(reduce)) {
+            /* If !(is_good), invalidate the destination. */
+            aux->push_back(make_mov(btype, vd, operand_t::make_iconstant(-1)));
+            aux->back().has_predicate   = true;
+            aux->back().is_negated      = true;
+            aux->back().predicate       = is_good;
+        }
+    }
+}
+
 void global_context_memcheck::instrument_bar(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     (void) aux;
@@ -5008,6 +5753,10 @@ void global_context_memcheck::instrument_block(block_t * block,
                 break;
             case op_and:
                 instrument_and(statement, &aux, &keep, &temps);
+                break;
+            case op_atom:
+            case op_red:
+                instrument_atom(statement, &aux, &keep, &temps);
                 break;
             case op_bar:
                 instrument_bar(statement, &aux, &keep, &temps);
