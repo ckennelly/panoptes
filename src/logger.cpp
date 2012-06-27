@@ -53,13 +53,13 @@ void logger::print(const char * msg, const backtrace_t & bt) {
 
         if (next == NULL) {
             // Print remainder of string
-            fprintf(stderr, "==%d== %s\n==%d==\n", tid,         cur, tid);
+            fprintf(stderr, "==%d== %s\n==%d==\n", tid, cur, tid);
             break;
         } else {
             int length = static_cast<int>(next - cur);
             assert(length >= 0);
 
-            printf("==%d== %.*s\n",                tid, length, cur);
+            fprintf(stderr, "==%d== %.*s\n",       tid, length, cur);
 
             cur = next + 1;
         }
