@@ -915,8 +915,7 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
             b->block_type   = block_statement;
             b->parent       = &entry->scope;
             b->statement    = new statement_t(
-                make_mov(uptr, local_reg, operand_t::make_iconstant(
-                    (int) it->second.local_memory)));
+                make_mov(uptr, local_reg, (int) it->second.local_memory));
             scope.blocks.push_front(b);
         }
 
@@ -937,8 +936,7 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
             block_t * b = new block_t();
             b->block_type   = block_statement;
             b->parent       = &entry->scope;
-            b->statement    = new statement_t(
-                make_mov(u32_type, vc_reg, operand_t::make_iconstant(0)));
+            b->statement    = new statement_t(make_mov(u32_type, vc_reg, 0));
             scope.blocks.push_front(b);
         }
     }
@@ -1203,8 +1201,7 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
 
             const size_t vsize = vin.size();
             if (vsize == 0) {
-                aux->push_back(make_mov(btype, vd,
-                    operand_t::make_iconstant(0)));
+                aux->push_back(make_mov(btype, vd, 0));
                 constant = true;
             } else if (vsize == 1 && carry_in) {
                 /* Copy validity bits of carry flag. */
@@ -1256,8 +1253,7 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
 
                 if (constant) {
                     /* Carry-out is wholly valid. */
-                    aux->push_back(make_mov(btype, vc,
-                        operand_t::make_iconstant(0)));
+                    aux->push_back(make_mov(btype, vc, 0));
                 } else {
                     aux->push_back(make_shr(stype, vc, vd,
                         operand_t::make_iconstant(31)));
@@ -1667,8 +1663,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
 
             if (!(reduce)) {
                 /* If !(valid_pred), invalidate the destination. */
-                aux->push_back(make_mov(btype, vd,
-                    operand_t::make_iconstant(-1)));
+                aux->push_back(make_mov(btype, vd, -1));
                 aux->back().has_predicate   = true;
                 aux->back().is_negated      = true;
                 aux->back().predicate       = valid_pred;
@@ -2114,7 +2109,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
 
         if (!(reduce)) {
             /* If !(is_good), invalidate the destination. */
-            aux->push_back(make_mov(btype, vd, operand_t::make_iconstant(-1)));
+            aux->push_back(make_mov(btype, vd, -1));
             aux->back().has_predicate   = true;
             aux->back().is_negated      = true;
             aux->back().predicate       = is_good;
@@ -2808,7 +2803,7 @@ void global_context_memcheck::instrument_fp3(const statement_t & statement,
     const size_t vargs = source_validity.size();
     if (vargs == 0) {
         /* No nonconstant arguments, so result is valid. */
-        aux->push_back(make_mov(btype, vd, zero));
+        aux->push_back(make_mov(btype, vd, 0));
     } else {
         /* One or more nonconstant arguments, fold into a
          * temporary variable, then spread invalid bits. */
@@ -2848,7 +2843,7 @@ void global_context_memcheck::instrument_isspacep(
     const operand_t one  = operand_t::make_iconstant(1);
 
     if (va.is_constant()) {
-        aux->push_back(make_mov(b16_type, vp, zero));
+        aux->push_back(make_mov(b16_type, vp, 0));
     } else {
         const temp_ptr tmpptr(*auxillary);
         const temp_operand tmp(*auxillary, b16_type);
@@ -3310,10 +3305,8 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 }
             }
 
-            aux->push_back(make_mov(uptr_t, global_ro_reg,
-                global_ro));
-            aux->push_back(make_mov(ptr_t, original_ptr,
-                chidx));
+            aux->push_back(make_mov(uptr_t, global_ro_reg, global_ro));
+            aux->push_back(make_mov(ptr_t, original_ptr, chidx));
             aux->push_back(make_mov(ptr_t, inidx, chidx));
 
             aux->push_back(make_shr(ptr_t, chidx, chidx,
@@ -3358,8 +3351,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                         uptr_t, a_data32, vidx, false));
                     break;
                     case 4u:
-                    aux->push_back(make_mov(u32_type,
-                        a_data32, vidx));
+                    aux->push_back(make_mov(u32_type, a_data32, vidx));
                     break;
                 }
                 aux->push_back(make_and(b32_type,
@@ -3435,8 +3427,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         for (size_t i = 0; i < ni; i++) {
             aux->push_back(make_mov(btype,
                 operand_t::make_identifier(
-                    make_validity_symbol(dst.identifier[i])),
-                negone));
+                    make_validity_symbol(dst.identifier[i])), -1));
         }
     } else if (validate) {
         const operand_t & dst = statement.operands[0];
@@ -3446,8 +3437,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         for (size_t i = 0; i < ni; i++) {
             aux->push_back(make_mov(btype,
                 operand_t::make_identifier(
-                    make_validity_symbol(dst.identifier[i])),
-                zero));
+                    make_validity_symbol(dst.identifier[i])), 0));
         }
     }
 
@@ -3520,11 +3510,11 @@ void global_context_memcheck::instrument_mad(const statement_t & statement,
              * nothing. */
         } else {
             /* No nonconstant arguments, so result is valid. */
-            aux->push_back(make_mov(btype, vd, zero));
+            aux->push_back(make_mov(btype, vd, 0));
 
             /* Clear carry out. */
             if (statement.carry_out) {
-                aux->push_back(make_mov(btype, vc, zero));
+                aux->push_back(make_mov(btype, vc, 0));
             }
         }
 
@@ -3636,7 +3626,7 @@ void global_context_memcheck::instrument_math2(const statement_t & statement,
             /**
              * No variable arguments, result is defined.
              */
-            aux->push_back(make_mov(btype, vd, zero));
+            aux->push_back(make_mov(btype, vd, 0));
             break;
         case 1: {
             /**
@@ -4945,8 +4935,7 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
     const type_t stype = signed_type(statement.type);
     if (aconstant && bconstant) {
         /* Result is completely valid. */
-        aux->push_back(make_mov(btype, vd,
-            operand_t::make_iconstant(0)));
+        aux->push_back(make_mov(btype, vd, 0));
     } else if (aconstant) {
         /* Result is dependant on the validity bits of b.  b is
          * always a 32-bit value. */
@@ -5559,8 +5548,7 @@ void global_context_memcheck::instrument_testp(const statement_t & statement,
 
     if (va.is_constant()) {
         /* Answer is well defined. */
-        aux->push_back(make_mov(b16_type, vd,
-            operand_t::make_iconstant(0)));
+        aux->push_back(make_mov(b16_type, vd, 0));
     } else {
         /* Any invalid bits mean the result is invalid. */
         const temp_operand tmp(*auxillary, btype);
