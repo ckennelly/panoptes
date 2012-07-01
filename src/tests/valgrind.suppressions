@@ -137,3 +137,14 @@
    fun:pthread_create@@GLIBC_2.2.5
    fun:_ZN5boost6thread12start_threadEv
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   obj:/usr/lib64/libcuda.so.295.53
+   obj:/usr/lib64/libcuda.so.295.53
+   fun:cuCtxEnablePeerAccess
+   obj:/opt/cuda/lib64/libcudart.so.4.1.28
+   fun:cudaDeviceEnablePeerAccess
+}

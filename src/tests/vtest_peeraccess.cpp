@@ -175,6 +175,52 @@ TEST(PeerAccess, EnableDisable) {
     }
 }
 
+TEST(PeerAccess, DeviceReset) {
+    cudaError_t ret;
+
+    int devices;
+    ret = cudaGetDeviceCount(&devices);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    if (devices <= 1) {
+        return;
+    }
+
+    bool found = false;
+    int dj;
+
+    for (int i = 0; i < devices && !(found); i++) {
+        ret = cudaSetDevice(i);
+        ASSERT_EQ(cudaSuccess, ret);
+
+        for (int j = 0; j < devices; j++) {
+            int peer;
+            ret = cudaDeviceCanAccessPeer(&peer, i, j);
+            ASSERT_EQ(cudaSuccess, ret);
+
+            if (peer) {
+                ret = cudaDeviceEnablePeerAccess(j, 0);
+                ASSERT_EQ(cudaSuccess, ret);
+
+                found = true;
+                dj = j;
+                break;
+            }
+        }
+    }
+
+    if (!(found)) {
+        return;
+    }
+
+    /* Perform a device reset. */
+    ret = cudaDeviceReset();
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaDeviceDisablePeerAccess(dj);
+    EXPECT_EQ(cudaErrorPeerAccessNotEnabled, ret);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
