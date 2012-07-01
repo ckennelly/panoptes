@@ -59,6 +59,34 @@ TEST(PeerAccess, CanAccessInvalidDevice) {
     EXPECT_EQ(cudaErrorInvalidDevice, ret);
 }
 
+TEST(PeerAccess, EnableAccessInvalidDevice) {
+    cudaError_t ret;
+
+    int devices;
+    ret = cudaGetDeviceCount(&devices);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaDeviceEnablePeerAccess(devices, 0);
+    EXPECT_EQ(cudaErrorInvalidDevice, ret);
+
+    ret = cudaDeviceEnablePeerAccess(-1, 0);
+    EXPECT_EQ(cudaErrorInvalidDevice, ret);
+}
+
+TEST(PeerAccess, DisableAccessInvalidDevice) {
+    cudaError_t ret;
+
+    int devices;
+    ret = cudaGetDeviceCount(&devices);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaDeviceDisablePeerAccess(devices);
+    EXPECT_EQ(cudaErrorInvalidDevice, ret);
+
+    ret = cudaDeviceDisablePeerAccess(-1);
+    EXPECT_EQ(cudaErrorInvalidDevice, ret);
+}
+
 /**
  * We need to verify that device allocations on separate devices that would
  * be eligible for peer to peer do not appear on the same allocation chunk
