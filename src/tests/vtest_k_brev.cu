@@ -19,6 +19,7 @@
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
+#include <valgrind/memcheck.h>
 
 extern "C" __global__ void k_brev(const int32_t * in, int * out, int n) {
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -100,6 +101,47 @@ TEST(kBREV, Int64) {
 
     ret = cudaFree(out);
     ASSERT_EQ(cudaSuccess, ret);
+}
+
+extern "C" __global__ void k_brev_const(int32_t * out) {
+    int32_t ret;
+    asm volatile("brev.b32 %0, 16909060;\n" : "=r"(ret));
+    *out = ret;
+}
+
+TEST(kBREV, Constant) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    int32_t * out;
+
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_brev_const<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    int32_t hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(0x20C04080, hout);
+    int32_t vout;
+    const int vret = VALGRIND_GET_VBITS(&hout, &vout, sizeof(hout));
+    if (vret == 1) {
+        EXPECT_EQ(0x0, vout);
+    }
 }
 
 int main(int argc, char **argv) {

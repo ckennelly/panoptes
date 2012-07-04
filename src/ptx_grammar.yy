@@ -629,7 +629,7 @@ bra : OPCODE_BRA optionalUni identifierOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
 }
 
-brev : OPCODE_BREV rawDataType identifierOperand TOKEN_COMMA identifierOperand {
+brev : OPCODE_BREV rawDataType identifierOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
