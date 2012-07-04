@@ -50,20 +50,30 @@ __global__ void k_is_shared(bool * out, const void * ptr) {
     *out = ret;
 }
 
+__global__ void k_is_global_const(bool * out) {
+    int ret;
+    asm volatile(
+        "{ .reg .pred %tmp;\n"
+        "isspacep.global %tmp, 0;\n"
+        "selp.s32 %0, 1, 0, %tmp;}\n" : "=r"(ret));
+    *out = ret;
+}
+
 TEST(IsSpacePTest, Single) {
     cudaError_t ret;
     cudaStream_t stream;
 
     bool * d;
-    ret = cudaMalloc((void **) &d, 3 * sizeof(d));
+    ret = cudaMalloc((void **) &d, 4 * sizeof(d));
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
-    k_is_global<<<1, 1, 0, stream>>>(d + 0, d);
-    k_is_local <<<1, 1, 0, stream>>>(d + 1, d);
-    k_is_shared<<<1, 1, 0, stream>>>(d + 2, d);
+    k_is_global      <<<1, 1, 0, stream>>>(d + 0, d);
+    k_is_global_const<<<1, 1, 0, stream>>>(d + 1);
+    k_is_local       <<<1, 1, 0, stream>>>(d + 2, d);
+    k_is_shared      <<<1, 1, 0, stream>>>(d + 3, d);
 
     ret = cudaStreamSynchronize(stream);
     ASSERT_EQ(cudaSuccess, ret);
@@ -71,13 +81,14 @@ TEST(IsSpacePTest, Single) {
     ret = cudaStreamDestroy(stream);
     ASSERT_EQ(cudaSuccess, ret);
 
-    bool hd[3];
+    bool hd[4];
     ret = cudaMemcpy(&hd, d, sizeof(hd), cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
     EXPECT_TRUE(hd[0]);
-    EXPECT_FALSE(hd[1]);
+    EXPECT_TRUE(hd[1]);
     EXPECT_FALSE(hd[2]);
+    EXPECT_FALSE(hd[3]);
 
     ret = cudaFree(d);
     ASSERT_EQ(cudaSuccess, ret);
