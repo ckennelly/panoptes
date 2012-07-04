@@ -353,6 +353,55 @@ TEST(CarryTest, MulInvalidityPropagation) {
     EXPECT_EQ(0xFFFFFFFF, vd.w);
 }
 
+static __global__ void k_const_carryout(int32_t * out) {
+    int32_t ret0, ret1;
+    asm volatile("{\n"
+        ".reg .u32 %tmp;\n"
+        "sub.cc.s32 %tmp, 0, 1;\n"
+        "subc.cc.s32 %0, 0, 0;\n"
+        "add.cc.s32 %tmp, 1, 4294967295;\n"
+        "addc.s32 %1, 0, 0;\n}" : "=r"(ret0), "=r"(ret1));
+    out[0] = ret0;
+    out[1] = ret1;
+}
+
+TEST(CarryTest, ConstCarryOut) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    int32_t * d;
+    ret = cudaMalloc((void **) &d, 2 * sizeof(*d));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_const_carryout<<<1, 1, 0, stream>>>(d);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    int32_t hd[2];
+    ret = cudaMemcpy(&hd, d, sizeof(hd), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(d);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(0xFFFFFFFF, hd[0]);
+    EXPECT_EQ(0x00000001, hd[1]);
+
+    int32_t vd[2];
+    const int vret = VALGRIND_GET_VBITS(&hd, &vd, sizeof(hd));
+    if (vret == 1) {
+        EXPECT_EQ(0x00000000, vd[0]);
+        EXPECT_EQ(0x00000000, vd[1]);
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
