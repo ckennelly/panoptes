@@ -541,6 +541,10 @@ static operand_t make_validity_operand(const operand_t & in) {
                 }
 
                 if (constant) {
+                    if (ni == 1) {
+                        return operand_t::make_iconstant(0);
+                    }
+
                     ret.identifier.push_back("0");
                     ret.field.push_back(field_none);
                 } else {
