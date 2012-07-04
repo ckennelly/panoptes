@@ -677,7 +677,7 @@ cnot : OPCODE_CNOT rawDataType identifierOperand TOKEN_COMMA
 };
 
 copysign : OPCODE_COPYSIGN floatingDataType identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand {
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
