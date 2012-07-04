@@ -669,7 +669,7 @@ clz : OPCODE_CLZ rawDataType identifierOperand TOKEN_COMMA identifierOperand {
 };
 
 cnot : OPCODE_CNOT rawDataType identifierOperand TOKEN_COMMA
-        identifierOperand {
+        immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
