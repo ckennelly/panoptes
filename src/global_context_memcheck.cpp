@@ -271,16 +271,13 @@ static statement_t make_brev(type_t type, const operand_t & dst,
     return ret;
 }
 
-static statement_t make_cvt(type_t type, type_t type2,
-        const operand_t & dst, const operand_t & src, bool saturating) {
+static statement_t make_cvt(type_t type, type_t type2, const operand_t & dst,
+        const operand_t & src) {
     statement_t ret;
     ret.op = op_cvt;
     ret.type = type;
     ret.type2 = type2;
-    ret.saturating = saturating;
-    if (saturating) {
-        assert(sizeof_type(type) > sizeof_type(type2));
-    }
+    ret.saturating = false;
     ret.operands.push_back(dst);
     ret.operands.push_back(src);
     return ret;
@@ -1235,7 +1232,7 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
                      */
                     const type_t swtype  = signed_of(width * 2u);
                     aux->push_back(make_or(btype, tmp, tmp, blended));
-                    aux->push_back(make_cvt(swtype, stype, vd, tmp, false));
+                    aux->push_back(make_cvt(swtype, stype, vd, tmp));
                 } else {
                     aux->push_back(make_or(btype, vd, tmp, blended));
                 }
@@ -1766,8 +1763,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
         if (sizeof(void *) == 8) {
             /* Convert. */
             assert(shift_ptr32 != shift_ptr);
-            aux->push_back(make_cvt(u32_type, uptr_t, shift_ptr32,
-                shift_ptr, false));
+            aux->push_back(make_cvt(u32_type, uptr_t, shift_ptr32, shift_ptr));
         }
 
         /**
@@ -2023,8 +2019,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             }
 
             const temp_operand shift_ptr32(*auxillary, u32_type);
-            aux->push_back(make_cvt(u32_type, uptr_t, shift_ptr32, shift_ptr,
-                false));
+            aux->push_back(make_cvt(u32_type, uptr_t, shift_ptr32, shift_ptr));
 
             /**
              * uint8_t * ptr0 += ptr1;
@@ -2245,8 +2240,7 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
             /**
              * Sign extend.
              */
-            aux->push_back(make_cvt(stype, s32_type, vd, immed,
-                false));
+            aux->push_back(make_cvt(stype, s32_type, vd, immed));
         } else {
             assert(0 && "Unsupported width.");
         }
@@ -2279,8 +2273,7 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
          * Sign extend.
          */
         if (width == 8u) {
-            aux->push_back(make_cvt(s64_type, s32_type, tmp2,
-                immed, false));
+            aux->push_back(make_cvt(s64_type, s32_type, tmp2, immed));
             assert(immed != tmp2);
             immed = tmp2;
         }
@@ -2397,7 +2390,7 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
         if (width == 4u) {
             aux->push_back(make_mov(btype, vd, immed));
         } else if (width == 8u) {
-            aux->push_back(make_cvt(s64_type, s32_type, vd, immed, false));
+            aux->push_back(make_cvt(s64_type, s32_type, vd, immed));
         } else {
             assert(0 && "Unsupported width.");
         }
@@ -2430,7 +2423,7 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
             /* Sign extend immed. */
             assert(tmp2 != immed);
 
-            aux->push_back(make_cvt(s64_type, s32_type, tmp2, immed, false));
+            aux->push_back(make_cvt(s64_type, s32_type, tmp2, immed));
             immed = tmp2;
             aux->push_back(make_or(btype, vd, immed, tmp1));
         } else {
@@ -2502,8 +2495,7 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
      */
     const size_t width = sizeof_type(statement.type);
     if (width == 8u) {
-        aux->push_back(make_cvt(u32_type, u64_type, ntmp, tmp,
-            false));
+        aux->push_back(make_cvt(u32_type, u64_type, ntmp, tmp));
     }
 
     /**
@@ -2722,11 +2714,11 @@ void global_context_memcheck::instrument_cvt(const statement_t & statement,
         assert(!(is_signed_a && is_unsigned_a));
         if (is_signed_d && is_signed_a) {
             /* Sign extend the validity bits. */
-            aux->push_back(make_cvt(dtype, atype, vd, va, false));
+            aux->push_back(make_cvt(dtype, atype, vd, va));
             return;
         } else if (is_unsigned_d && is_unsigned_a) {
             /* Zero extend the validity bits. */
-            aux->push_back(make_cvt(dtype, atype, vd, va, false));
+            aux->push_back(make_cvt(dtype, atype, vd, va));
             return;
         }
     }
@@ -2741,7 +2733,7 @@ void global_context_memcheck::instrument_cvt(const statement_t & statement,
         operand_t::make_iconstant(1)));
     /* Sign extend across target. */
     const type_t dstype = signed_type(dtype);
-    aux->push_back(make_cvt(dstype, astype, vd, tmp, false));
+    aux->push_back(make_cvt(dstype, astype, vd, tmp));
 }
 
 void global_context_memcheck::instrument_fp1(const statement_t & statement,
@@ -2852,8 +2844,7 @@ void global_context_memcheck::instrument_isspacep(
         aux->push_back(make_cnot(pointer_type(), tmpptr, va));
 
         /* Narrow to b16 */
-        aux->push_back(make_cvt(u16_type, upointer_type(), tmp,
-            tmpptr, false));
+        aux->push_back(make_cvt(u16_type, upointer_type(), tmp, tmpptr));
 
         /* Map 0 -> 0, (everything) -> 0xFFFF */
         aux->push_back(make_sub(s16_type, vp, tmp, one));
@@ -3332,8 +3323,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 a_data, a_data_ptr));
             if (width <= 8) {
                 /* We cannot setp on a u8 */
-                aux->push_back(make_cvt(wread_t, read_t,
-                    a_wdata, a_data, false));
+                aux->push_back(make_cvt(wread_t, read_t, a_wdata, a_data));
 
                 /**
                  * Since we load a byte at a time (the address bits
@@ -3347,8 +3337,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 const type_t bwread_t = bitwise_type(wread_t);
                 switch (sizeof(void *)) {
                     case 8u:
-                    aux->push_back(make_cvt(u32_type,
-                        uptr_t, a_data32, vidx, false));
+                    aux->push_back(make_cvt(u32_type, uptr_t, a_data32, vidx));
                     break;
                     case 4u:
                     aux->push_back(make_mov(u32_type, a_data32, vidx));
@@ -4714,7 +4703,7 @@ void global_context_memcheck::instrument_selp(const statement_t & statement,
         immed = vc;
     } else {
         immed = tmp;
-        aux->push_back(make_cvt(stype, s16_type, tmp, vc, false));
+        aux->push_back(make_cvt(stype, s16_type, tmp, vc));
     }
 
     const type_t btype = bitwise_type(statement.type);
@@ -4788,7 +4777,7 @@ void global_context_memcheck::instrument_set(const statement_t & statement,
         aux->push_back(make_cnot(bstype, tmp, immed));
 
         if (swidth != dwidth) {
-            aux->push_back(make_cvt(sdtype, sstype, dest, tmp, false));
+            aux->push_back(make_cvt(sdtype, sstype, dest, tmp));
         }
 
         /* 0 -> 0, (anything) -> -1 */
@@ -4810,8 +4799,7 @@ void global_context_memcheck::instrument_set(const statement_t & statement,
         } else {
             const temp_operand tmp2(*auxillary, bdtype);
 
-            aux->push_back(make_cvt(sdtype, s16_type, tmp2, vc,
-                false));
+            aux->push_back(make_cvt(sdtype, s16_type, tmp2, vc));
             aux->push_back(make_or(bdtype, immed, immed, tmp2));
         }
     }
@@ -4863,8 +4851,7 @@ void global_context_memcheck::instrument_setp(const statement_t & statement,
 
         if (width != 2u) {
             /* Convert to 16 bits */
-            aux->push_back(make_cvt(s16_type, stype, otmp, tmp,
-                false));
+            aux->push_back(make_cvt(s16_type, stype, otmp, tmp));
         }
 
         /* 0 -> 0, (anything) -> 0xFFFF */
@@ -4952,8 +4939,7 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
             /* Compute into temporary, the convert. */
             aux->push_back(make_sub(s32_type, tmp, tmp,
                 operand_t::make_iconstant(1)));
-            aux->push_back(make_cvt(stype, s32_type, vd, tmp,
-                false));
+            aux->push_back(make_cvt(stype, s32_type, vd, tmp));
         }
     } else if (bconstant) {
         /* Shift the validity bits of a according to b. */
@@ -4994,7 +4980,7 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
             aux->push_back(make_cnot(b32_type, tmp32_0, vb));
             aux->push_back(make_sub(s32_type, tmp32_0, tmp32_0,
                 operand_t::make_iconstant(1)));
-            aux->push_back(make_cvt(stype, s32_type, tmp1, tmp32_0, false));
+            aux->push_back(make_cvt(stype, s32_type, tmp1, tmp32_0));
 
             intermediate = tmp1;
         }
@@ -5099,7 +5085,7 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
         /* Our width didn't match.  Convert. */
         assert(immed2 != immed);
         aux->push_back(make_cvt(signed_type(statement.type),
-            s32_type, immed2, immed, true));
+            s32_type, immed2, immed));
     } else {
         assert(immed3 == immed);
         std::swap(immed2, immed3);
@@ -5431,8 +5417,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             aux->push_back(make_ld(read_t, global_space, a_data, a_data_ptr));
             if (width <= 8) {
                 /* We cannot setp on a u8 */
-                aux->push_back(make_cvt(wread_t, read_t,
-                    a_wdata, a_data, false));
+                aux->push_back(make_cvt(wread_t, read_t, a_wdata, a_data));
 
                 /* See explaination under op_ld.
                  *
@@ -5443,8 +5428,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
                 const type_t bwread_t = bitwise_type(wread_t);
                 switch (sizeof(void *)) {
                     case 8u:
-                    aux->push_back(make_cvt(u32_type, uptr_t, a_data32, vidx,
-                        false));
+                    aux->push_back(make_cvt(u32_type, uptr_t, a_data32, vidx));
                     break;
                     case 4u:
                     aux->push_back(make_mov(u32_type, a_data32, vidx));
@@ -5556,7 +5540,7 @@ void global_context_memcheck::instrument_testp(const statement_t & statement,
         aux->push_back(make_cnot(btype, tmp, va));
         aux->push_back(make_sub(stype, tmp, tmp,
             operand_t::make_iconstant(1)));
-        aux->push_back(make_cvt(s16_type, stype, vd, tmp, false));
+        aux->push_back(make_cvt(s16_type, stype, vd, tmp));
     }
 
     *keep = true;
