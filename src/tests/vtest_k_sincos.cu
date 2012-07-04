@@ -169,6 +169,48 @@ TEST(kSINCOS, DoublePrecision) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+static __global__ void k_sincos_const(float * osin, float * ocos) {
+    float _sin, _cos;
+    asm volatile("sin.approx.f32 %0, 0f00000000;\n" : "=f"(_sin));
+    asm volatile("cos.approx.f32 %0, 0f00000000;\n" : "=f"(_cos));
+    *osin = _sin;
+    *ocos = _cos;
+}
+
+TEST(kSINCOS, Constant) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    float * out;
+
+    ret = cudaMalloc((void **) &out, 2 * sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_sincos_const<<<1, 1, 0, stream>>>(out, out + 1);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    struct {
+        float sine;
+        float cosine;
+    } hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(0.f, hout.sine);
+    EXPECT_EQ(1.f, hout.cosine);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

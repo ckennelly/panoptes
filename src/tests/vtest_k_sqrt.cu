@@ -103,6 +103,44 @@ TEST(kSQRT, DoublePrecision) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+static __global__ void k_sqrt_const(float2 * out) {
+    float2 rout;
+    asm volatile("sqrt.approx.f32 %0, 0f00000000;\n" : "=f"(rout.x));
+    asm volatile("sqrt.approx.f32 %0, 0f3f800000;\n" : "=f"(rout.y));
+    *out = rout;
+}
+
+TEST(kSQRT, Constant) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    float2 * out;
+
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_sqrt_const<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    float2 hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(0.f, hout.x);
+    EXPECT_EQ(1.f, hout.y);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

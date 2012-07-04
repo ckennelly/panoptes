@@ -145,6 +145,43 @@ TEST(kRCP, DoublePrecision) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+static __global__ void k_rcp_const(float * out) {
+    float _out;
+    /* 1.f */
+    asm volatile("rcp.approx.f32 %0, 0f3f800000;\n" : "=f"(_out));
+    *out = _out;
+}
+
+TEST(kRCP, Constant) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    float * out;
+
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_rcp_const<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    float hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(1.f, hout);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

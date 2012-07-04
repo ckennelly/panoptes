@@ -685,7 +685,7 @@ copysign : OPCODE_COPYSIGN floatingDataType identifierOperand TOKEN_COMMA
 };
 
 cos : OPCODE_COS optionalApprox optionalFTZ TOKEN_F32 identifierOperand
-        TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.approximation = approximate;
 
@@ -784,7 +784,7 @@ div : OPCODE_DIV fRounding optionalFTZ floatingDataType identifierOperand
 };
 
 ex2 : OPCODE_EX2 optionalApprox optionalFTZ floatingDataType
-        identifierOperand TOKEN_COMMA identifierOperand {
+        identifierOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.approximation = approximate;
     parser->function->top->instruction.type = parser->get_type();
@@ -880,7 +880,7 @@ ldu : OPCODE_LDU optionalSpace optionalVectorType dataType lValue TOKEN_COMMA
 }
 
 lg2 : OPCODE_LG2 optionalApprox optionalFTZ floatingDataType
-        identifierOperand TOKEN_COMMA identifierOperand {
+        identifierOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.approximation = approximate;
     parser->function->top->instruction.type = parser->get_type();
@@ -1183,7 +1183,7 @@ prmt : OPCODE_PRMT dataType prmtMode identifierOperand TOKEN_COMMA
 };
 
 rcp : OPCODE_RCP TOKEN_APPROX optionalFTZ floatingDataType identifierOperand
-        TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.approximation = approximate;
     parser->function->top->instruction.type = parser->get_type();
@@ -1192,7 +1192,7 @@ rcp : OPCODE_RCP TOKEN_APPROX optionalFTZ floatingDataType identifierOperand
 };
 
 rcp : OPCODE_RCP fRounding optionalFTZ floatingDataType identifierOperand
-        TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1220,7 +1220,7 @@ ret : OPCODE_RET optionalUni {
 };
 
 rsqrt : OPCODE_RSQRT optionalApprox optionalFTZ floatingDataType
-        identifierOperand TOKEN_COMMA identifierOperand {
+        identifierOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.approximation = approximate;
     parser->function->top->instruction.type = parser->get_type();
@@ -1326,7 +1326,7 @@ shr : OPCODE_SHR dataType identifierOperand TOKEN_COMMA identifierOperand
 optionalApprox : /* */ | TOKEN_APPROX ;
 
 sin : OPCODE_SIN optionalApprox optionalFTZ TOKEN_F32 identifierOperand
-        TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.approximation = approximate;
 
@@ -1351,7 +1351,7 @@ slct : OPCODE_SLCT optionalFTZ dataType dataType identifierOperand TOKEN_COMMA
 };
 
 sqrt : OPCODE_SQRT TOKEN_APPROX optionalFTZ TOKEN_F32 identifierOperand
-        TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.approximation = approximate;
 
@@ -1362,7 +1362,7 @@ sqrt : OPCODE_SQRT TOKEN_APPROX optionalFTZ TOKEN_F32 identifierOperand
 };
 
 sqrt : OPCODE_SQRT fRounding optionalFTZ TOKEN_F32 identifierOperand
-        TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->set_type(TOKEN_F32);
     parser->function->top->instruction.type = parser->get_type();
@@ -1371,7 +1371,7 @@ sqrt : OPCODE_SQRT fRounding optionalFTZ TOKEN_F32 identifierOperand
 };
 
 sqrt : OPCODE_SQRT fRounding TOKEN_F64 identifierOperand TOKEN_COMMA
-        identifierOperand {
+        immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->set_type(TOKEN_F64);
     parser->function->top->instruction.type = parser->get_type();

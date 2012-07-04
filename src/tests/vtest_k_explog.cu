@@ -225,6 +225,54 @@ TEST(kExpLog, Log) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+static __global__ void k_explog_const(float * oexp, float * olog) {
+    float oexp0, oexp1, olog1;
+    asm volatile("ex2.approx.f32 %0, 0f00000000;\n" : "=f"(oexp0));
+    /* Provides 1.f as an argument. */
+    asm volatile("ex2.approx.f32 %0, 0f3f800000;\n" : "=f"(oexp1));
+    asm volatile("lg2.approx.f32 %0, 0f3f800000;\n" : "=f"(olog1));
+
+    oexp[0] = oexp0;
+    oexp[1] = oexp1;
+    olog[0] = olog1;
+}
+
+TEST(kExpLog, Constant) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    float * out;
+
+    ret = cudaMalloc((void **) &out, 3 * sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_explog_const<<<1, 1, 0, stream>>>(out, out + 2);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    struct {
+        float e[2];
+        float l[1];
+    } hout;
+
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(1.f, hout.e[0]);
+    EXPECT_EQ(2.f, hout.e[1]);
+    EXPECT_EQ(0.f, hout.l[0]);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
