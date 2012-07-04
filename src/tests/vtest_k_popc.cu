@@ -174,6 +174,47 @@ TEST(kPOPC, Validity) {
     EXPECT_EQ(0, hout[1] & 0xFFFFFF80);
 }
 
+static __global__ void k_popc_const(uint4 * out) {
+    uint4 _out;
+    asm volatile(
+        "popc.b32 %0, 0;\npopc.b32 %1, -1;\npopc.b64 %2, 0;\n"
+        "popc.b64 %3, -1;\n" : "=r"(_out.x), "=r"(_out.y), "=r"(_out.z),
+        "=r"(_out.w));
+    *out = _out;
+}
+
+TEST(kPOPC, Constant) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    uint4 * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_popc_const<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint4 hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(0,  hout.x);
+    EXPECT_EQ(32, hout.y);
+    EXPECT_EQ(0,  hout.z);
+    EXPECT_EQ(64, hout.w);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

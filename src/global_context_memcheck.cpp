@@ -2452,7 +2452,7 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
 
     if (constant) {
         /* Result is completely valid. */
-        aux->push_back(make_mov(btype, vd, va));
+        aux->push_back(make_mov(b32_type, vd, va));
         return;
     }
 

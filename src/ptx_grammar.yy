@@ -661,7 +661,7 @@ rawDataType : rawDataTypeToken {
     parser->set_type($<vsigned>1);
 };
 
-clz : OPCODE_CLZ rawDataType identifierOperand TOKEN_COMMA identifierOperand {
+clz : OPCODE_CLZ rawDataType identifierOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1130,7 +1130,7 @@ pmevent : OPCODE_PMEVENT optionalMask immediateDecimal {
     parser->operands.clear();
 };
 
-popc : OPCODE_POPC dataType identifierOperand TOKEN_COMMA identifierOperand {
+popc : OPCODE_POPC dataType identifierOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);

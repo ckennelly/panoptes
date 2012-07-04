@@ -102,6 +102,49 @@ TEST(kCLZ, Int64) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+static __global__ void k_clz_const(uint4 * out) {
+    uint4 _out;
+    asm volatile(
+        "clz.b32 %0, 0;\n"
+        "clz.b32 %1, 1;\n"
+        "clz.b64 %2, 0;\n"
+        "clz.b64 %3, 5;\n" : "=r"(_out.x), "=r"(_out.y),
+                             "=r"(_out.z), "=r"(_out.w));
+    *out = _out;
+}
+
+TEST(kCLZ, Constant) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    uint4 * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_clz_const<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint4 hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(32, hout.x);
+    EXPECT_EQ(31, hout.y);
+    EXPECT_EQ(64, hout.z);
+    EXPECT_EQ(61, hout.w);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
