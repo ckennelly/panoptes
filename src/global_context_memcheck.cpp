@@ -3291,13 +3291,9 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 operand_t::make_identifier(src.identifier[0])));
             if (src.op_type == operand_addressable &&
                     src.offset != 0) {
-                if (src.offset > 0) {
-                    aux->push_back(make_add(uptr_t, chidx, chidx,
-                        operand_t::make_iconstant(src.offset)));
-                } else {
-                    aux->push_back(make_sub(uptr_t, chidx, chidx,
-                        operand_t::make_iconstant(-src.offset)));
-                }
+                const int64_t poffset = llabs(src.offset);
+                aux->push_back(make_add(uptr_t, chidx, chidx,
+                    operand_t::make_iconstant(poffset)));
             }
 
             aux->push_back(make_mov(uptr_t, global_ro_reg, global_ro));
