@@ -102,6 +102,9 @@ vtest_k_clz.o: vtest_k_clz.cu Makefile
 vtest_k_copysign.o: vtest_k_copysign.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
+vtest_k_fma.o: vtest_k_fma.cu Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
+
 vtest_k_global_reductions.o: vtest_k_global_reductions.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 

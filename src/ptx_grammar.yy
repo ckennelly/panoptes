@@ -797,8 +797,8 @@ exit : OPCODE_EXIT {
 };
 
 fma : OPCODE_FMA fRounding optionalFTZ optionalSaturating TOKEN_F32
-        identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand {
+        identifierOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
 
     parser->set_type(TOKEN_F32);
