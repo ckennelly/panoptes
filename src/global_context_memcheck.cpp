@@ -2235,8 +2235,6 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
         /**
          * We've computed all that we need to validity-bitwise
          * in computing immed.
-         *
-         * Mark that we are using the tmp variable.
          */
         if (width == 4u) {
             aux->push_back(make_mov(btype, vd, immed));
