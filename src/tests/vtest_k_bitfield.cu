@@ -248,6 +248,167 @@ TYPED_TEST_P(BitfieldTestFixture, ExtractConstantC) {
 }
 
 template<typename T>
+__global__ void k_bfe_constbc(T * d, const T * a, int N) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+__global__ void k_bfe_constbc(uint32_t * d, const uint32_t * a, int N) {
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        uint32_t _d;
+        uint32_t _a = a[idx];
+        asm volatile("bfe.u32 %0, %1, 1, 5;\n" : "=r"(_d) : "r"(_a));
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_constbc(uint64_t * d, const uint64_t * a, int N) {
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        uint64_t _d;
+        uint64_t _a = a[idx];
+        asm volatile("bfe.u64 %0, %1, 1, 5;\n" : "=l"(_d) : "l"(_a));
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_constbc(int32_t * d, const int32_t * a, int N) {
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        int32_t _d;
+        int32_t _a = a[idx];
+        asm volatile("bfe.s32 %0, %1, 1, 5;\n" : "=r"(_d) : "r"(_a));
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_constbc(int64_t * d, const int64_t * a, int N) {
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        int64_t _d;
+        int64_t _a = a[idx];
+        asm volatile("bfe.s64 %0, %1, 1, 5;\n" : "=l"(_d) : "l"(_a));
+        d[idx] = _d;
+    }
+}
+
+TYPED_TEST_P(BitfieldTestFixture, ExtractConstantBC) {
+    k_bfe_constbc<<<256, 16, 0, this->stream>>>(this->d, this->a, this->n);
+}
+
+template<typename T>
+__global__ void k_bfe_consta(T * d, uint32_t b, uint32_t c, int N) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+__global__ void k_bfe_consta(uint32_t * d, uint32_t b, uint32_t c, int N) {
+    uint32_t _d;
+    asm volatile("bfe.u32 %0, 3735928559, %1, %2;\n" : "=r"(_d) : "r"(b), "r"(c));
+
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_consta(int32_t * d, uint32_t b, uint32_t c, int N) {
+    int32_t _d;
+    asm volatile("bfe.s32 %0, 3735928559, %1, %2;\n" : "=r"(_d) : "r"(b), "r"(c));
+
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_consta(uint64_t * d, uint32_t b, uint32_t c, int N) {
+    uint64_t _d;
+    asm volatile("bfe.u64 %0, 3735928559, %1, %2;\n" : "=l"(_d) : "r"(b), "r"(c));
+
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_consta(int64_t * d, uint32_t b, uint32_t c, int N) {
+    int64_t _d;
+    asm volatile("bfe.s64 %0, 3735928559, %1, %2;\n" : "=l"(_d) : "r"(b), "r"(c));
+
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        d[idx] = _d;
+    }
+}
+
+TYPED_TEST_P(BitfieldTestFixture, ExtractConstantA) {
+    const int b = 1;
+    const int c = 5;
+    k_bfe_consta<<<256, 16, 0, this->stream>>>(this->d, b, c, this->n);
+}
+
+template<typename T>
+__global__ void k_bfe_constabc(T * d, int N) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+__global__ void k_bfe_constabc(uint32_t * d, int N) {
+    uint32_t _d;
+    asm volatile("bfe.u32 %0, 3735928559, 1, 5;\n" : "=r"(_d));
+
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_constabc(int32_t * d, int N) {
+    int32_t _d;
+    asm volatile("bfe.s32 %0, 3735928559, 1, 5;\n" : "=r"(_d));
+
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_constabc(uint64_t * d, int N) {
+    uint64_t _d;
+    asm volatile("bfe.u64 %0, 3735928559, 1, 5;\n" : "=l"(_d));
+
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        d[idx] = _d;
+    }
+}
+
+template<>
+__global__ void k_bfe_constabc(int64_t * d, int N) {
+    int64_t _d;
+    asm volatile("bfe.s64 %0, 3735928559, 1, 5;\n" : "=l"(_d));
+
+    for (int idx = threadIdx.x + blockDim.x * blockIdx.x;
+            idx < N; idx += blockDim.x * gridDim.x) {
+        d[idx] = _d;
+    }
+}
+
+TYPED_TEST_P(BitfieldTestFixture, ExtractConstantABC) {
+    k_bfe_constabc<<<256, 16, 0, this->stream>>>(this->d, this->n);
+}
+
+template<typename T>
 __global__ void k_bfi(T * f, const T * a, const T * b, uint32_t c,
         uint32_t d, int N) {
     BOOST_STATIC_ASSERT(sizeof(T) == 0);
@@ -554,7 +715,8 @@ TYPED_TEST_P(BitfieldTestFixture, FindSingle) {
 }
 
 REGISTER_TYPED_TEST_CASE_P(BitfieldTestFixture,
-    Extract, ExtractConstant, ExtractConstantC,
+    Extract, ExtractConstant, ExtractConstantA, ExtractConstantC,
+    ExtractConstantABC, ExtractConstantBC,
     Insert,  InsertConstant,  InsertConstantD,
     FindSingle);
 

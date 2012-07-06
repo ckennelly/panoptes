@@ -2238,9 +2238,9 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
          *
          * Mark that we are using the tmp variable.
          */
-        if (width == 8u) {
+        if (width == 4u) {
             aux->push_back(make_mov(btype, vd, immed));
-        } else if (width == 4u) {
+        } else if (width == 8u) {
             /**
              * Sign extend.
              */
