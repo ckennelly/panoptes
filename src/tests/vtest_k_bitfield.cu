@@ -60,7 +60,7 @@ public:
         ASSERT_EQ(cudaSuccess, ret);
     }
 
-    static const int32_t n = 1 << 24;
+    static const int32_t n = 1 << 20;
     /**
      * When testing insertions, we use d as field b.
      */
