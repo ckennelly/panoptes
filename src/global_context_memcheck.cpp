@@ -1151,13 +1151,7 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
              * If any bits are invalid, assume all are invalid.
              */
             if (va.is_constant() && vb.is_constant()) {
-                if (statement.op == op_mul &&
-                        statement.width == width_wide) {
-                    /* Destination is wider than source. */
-                    aux->push_back(make_mov(bitwise_of(2u * width), vd, va));
-                } else {
-                    aux->push_back(make_mov(btype, vd, va));
-                }
+                aux->push_back(make_mov(btype, vd, va));
             } else if (va.is_constant() && !(vb.is_constant())) {
                 const temp_operand tmp(*auxillary, stype);
                 aux->push_back(make_cnot(btype, tmp, vb));
@@ -3101,9 +3095,8 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 operand_t::make_identifier(src.identifier[0])));
             if (src.op_type == operand_addressable &&
                     src.offset != 0) {
-                const int64_t soffset = llabs(src.offset);
                 aux->push_back(make_add(uptr_t, original_ptr,
-                    original_ptr, operand_t::make_iconstant(soffset)));
+                    original_ptr, operand_t::make_iconstant(src.offset)));
             }
 
             const temp_operand not_valid_pred(*auxillary, pred_type);
@@ -3283,9 +3276,8 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             operand_t::make_identifier(src.identifier[0])));
         if (src.op_type == operand_addressable &&
                 src.offset != 0) {
-            const int64_t poffset = llabs(src.offset);
             aux->push_back(make_add(uptr_t, chidx, chidx,
-                operand_t::make_iconstant(poffset)));
+                operand_t::make_iconstant(src.offset)));
         }
 
         aux->push_back(make_mov(uptr_t, global_ro_reg, global_ro));
@@ -5242,9 +5234,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
                     dst.identifier[0])));
             if (dst.op_type == operand_addressable &&
                     dst.offset != 0) {
-                const int64_t poffset = llabs(dst.offset);
                 aux->push_back(make_add(uptr_t, original_ptr,
-                    original_ptr, operand_t::make_iconstant(poffset)));
+                    original_ptr, operand_t::make_iconstant(dst.offset)));
             }
 
             aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit,
@@ -5345,9 +5336,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             operand_t::make_identifier(dst.identifier[0])));
         if (dst.op_type == operand_addressable &&
                 dst.offset != 0) {
-            const int64_t doffset = llabs(dst.offset);
             aux->push_back(make_add(uptr_t, chidx, chidx,
-                operand_t::make_iconstant(doffset)));
+                operand_t::make_iconstant(dst.offset)));
         }
 
         aux->push_back(make_mov(ptr_t, original_ptr, chidx));
