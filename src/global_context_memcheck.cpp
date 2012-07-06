@@ -2950,453 +2950,418 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
     const type_t ptr_t  = pointer_type();
     const type_t uptr_t = upointer_type();
 
-    switch (src.op_type) {
-        case operand_identifier:
-        case operand_addressable:
-            if (statement.space == param_space) {
-                assert(src.identifier.size() == 1u);
-                /* Verify that this is a parameter to us and not a
-                 * call-level parameter. */
-                const block_t    * b = auxillary->block;
-                const function_t * f = NULL;
-                while (b) {
-                    f = b->fparent;
-                    b = b->parent;
-                }
-                assert(f);
+    if (statement.space == param_space) {
+        assert(src.identifier.size() == 1u);
+        /* Verify that this is a parameter to us and not a
+         * call-level parameter. */
+        const block_t    * b = auxillary->block;
+        const function_t * f = NULL;
+        while (b) {
+            f = b->fparent;
+            b = b->parent;
+        }
+        assert(f);
 
-                bool found = false;
-                for (function_t::param_vt::const_iterator jit =
-                        f->params.begin(); jit != f->params.end();
-                        ++jit) {
-                    if (jit->name == src.identifier[0]) {
-                        found = true;
-                    }
-                }
+        bool found = false;
+        for (function_t::param_vt::const_iterator jit =
+                f->params.begin(); jit != f->params.end();
+                ++jit) {
+            if (jit->name == src.identifier[0]) {
+                found = true;
+            }
+        }
 
-                if (found) {
-                    new_src  = src;
-                    new_vsrc = operand_t::make_identifier(
-                        make_validity_symbol(src.identifier[0]));
-                    if (src.op_type == operand_addressable) {
-                        new_vsrc.op_type = operand_addressable;
-                        new_vsrc.offset  = src.offset;
-                    }
-                } else {
-                    /* Mark as valid.  Keep load as-is. */
-                    validate = true;
-                    drop_load = true;
-                    aux->push_back(statement);
-                }
+        if (found) {
+            new_src  = src;
+            new_vsrc = operand_t::make_identifier(
+                make_validity_symbol(src.identifier[0]));
+            if (src.op_type == operand_addressable) {
+                new_vsrc.op_type = operand_addressable;
+                new_vsrc.offset  = src.offset;
+            }
+        } else {
+            /* Mark as valid.  Keep load as-is. */
+            validate = true;
+            drop_load = true;
+            aux->push_back(statement);
+        }
+    } else if (statement.space == shared_space) {
+        assert(src.identifier.size() == 1u);
+        const std::string & id = src.identifier[0];
 
-                break;
-            } else if (statement.space == shared_space) {
-                assert(src.identifier.size() == 1u);
-                const std::string & id = src.identifier[0];
+        /* Walk up scopes for identifiers. */
+        const block_t * b = auxillary->block;
+        const function_t * f = NULL;
 
-                /* Walk up scopes for identifiers. */
-                const block_t * b = auxillary->block;
-                const function_t * f = NULL;
+        bool found = false;
+        bool flexible = false;
+        size_t size;
 
-                bool found = false;
-                bool flexible = false;
-                size_t size;
+        while (b && !(found)) {
+            assert(!(b->parent) || !(b->fparent));
+            assert(b->block_type == block_scope);
+            const scope_t * s = b->scope;
 
-                while (b && !(found)) {
-                    assert(!(b->parent) || !(b->fparent));
-                    assert(b->block_type == block_scope);
-                    const scope_t * s = b->scope;
-
-                    const size_t vn = s->variables.size();
-                    for (size_t vi = 0; vi < vn; vi++) {
-                        const variable_t & v = s->variables[vi];
-                        if (id == v.name && !(v.has_suffix) &&
-                                v.space != reg_space) {
-                            found = true;
-                            size = v.size();
-                            break;
-                        }
-                    }
-
-                    /* Move up. */
-                    f = b->fparent;
-                    b = b->parent;
-                }
-
-                if (!(found)) {
-                    assert(f);
-
-                    const ptx_t * p = f->parent;
-                    const size_t vn = p->variables.size();
-                    for (size_t vi = 0; vi < vn; vi++) {
-                        const variable_t & v = p->variables[vi];
-                        if (id == v.name && !(v.has_suffix) &&
-                                v.space != reg_space) {
-                            found = true;
-                            flexible = v.array_flexible;
-                            if (!(flexible)) {
-                                size = v.size();
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (found && !(flexible)) {
-                    /* We found a fixed symbol, verify we do not
-                     * statically overrun it. */
-                    if (src.offset < 0) {
-                        std::stringstream ss;
-                        ss << statement;
-
-                        char msg[256];
-                        int ret = snprintf(msg, sizeof(msg),
-                            "Shared load of %zu bytes at offset "
-                            "%ld will underrun buffer:\n"
-                            "Disassembly: %s\n", width,
-                            src.offset, ss.str().c_str());
-
-                        assert(ret < (int) sizeof(msg) - 1);
-                        logger::instance().print(msg);
-
-                        /* Cast off bits into the ether. */
-                        drop_load = true;
-                        invalidate = true;
-                        break;
-                    }
-
-                    const size_t end = width + (size_t) src.offset;
-                    if (end > size) {
-                        std::stringstream ss;
-                        ss << statement;
-
-                        char msg[256];
-                        int ret = snprintf(msg, sizeof(msg),
-                            "Shared store of %zu bytes at offset "
-                            "%ld will overrun buffer:\n"
-                            "Disassembly: %s\n", width,
-                            src.offset, ss.str().c_str());
-
-                        assert(ret < (int) sizeof(msg) - 1);
-                        logger::instance().print(msg);
-
-                        /* Cast off bits into the ether. */
-                        drop_load = true;
-                        invalidate = true;
-                    } else {
-                        /* Map it to the validity symbol. */
-                        new_src  = src;
-
-                        new_vsrc = src;
-                        new_vsrc.identifier.clear();
-                        new_vsrc.identifier.push_back(
-                            make_validity_symbol(id));
-                        new_vsrc.field.clear();
-                        new_vsrc.field.push_back(field_none);
-                    }
-
-                    break;
-                } else {
-                    /* Verify address against the shared size
-                     * parameter. TODO:  Verify we don't overrun
-                     * the buffer. */
-
-                    const operand_t limit =
-                        operand_t::make_identifier(__shared_reg);
-
-                    drop_load = true;
-                    invalidate = false;
-
-                    assert(src.identifier.size() == 1u);
-                    aux->push_back(make_mov(ptr_t, original_ptr,
-                        operand_t::make_identifier(src.identifier[0])));
-                    if (src.op_type == operand_addressable &&
-                            src.offset != 0) {
-                        const int64_t soffset = llabs(src.offset);
-                        aux->push_back(make_add(uptr_t, original_ptr,
-                            original_ptr, operand_t::make_iconstant(soffset)));
-                    }
-
-                    const temp_operand not_valid_pred(*auxillary, pred_type);
-
-                    aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred,
-                        not_valid_pred, limit, original_ptr));
-
-                    statement_t new_load = statement;
-                    /**
-                     * TODO:  We need to propagate the predicate
-                     * flags of predicated loads.
-                     */
-                    assert(!(new_load.has_predicate));
-                    new_load.has_predicate = true;
-                    new_load.predicate = valid_pred;
-                    aux->push_back(new_load);
-
-                    const operand_t vsrc =
-                        operand_t::make_identifier(
-                        "__panoptes_ptr1");
-
-                    aux->push_back(make_add(uptr_t,
-                        vsrc, original_ptr, limit));
-
-                    const type_t btype =
-                        bitwise_type(statement.type);
-
-                    const operand_t vdst = make_validity_operand(
-                        statement.operands[0]);
-
-                    statement_t new_vload = statement;
-                    new_vload.has_predicate = true;
-                    new_vload.predicate = valid_pred;
-                    new_vload.type = btype;
-                    new_vload.operands[0] = vdst;
-                    new_vload.operands[1] = vsrc;
-                    aux->push_back(new_vload);
-
-                    /* If we don't do the load, invalidate on the
-                     * not_valid_pred flag. */
-                    const size_t ni = vdst.identifier.size();
-                    const operand_t negone =
-                        operand_t::make_iconstant(-1);
-
-                    /**
-                     * nvcc does not seem to generate byte-sized
-                     * registers, so while the load is a byte-wide,
-                     * we don't get clued in on the size of our
-                     * target register.  For now, widen the
-                     * register (and hope this behavior doesn't
-                     * change).
-                     */
-                    const type_t bwtype = (btype == b8_type) ?
-                        b16_type : btype;
-
-                    for (size_t i = 0; i < ni; i++) {
-                        operand_t o;
-                        o.op_type = vdst.op_type;
-                        o.identifier.push_back(vdst.identifier[i]);
-                        o.field.push_back(vdst.field[i]);
-
-                        statement_t s;
-                        s.op = op_mov;
-                        s.type = bwtype;
-                        s.has_predicate = true;
-                        s.predicate = not_valid_pred;
-                        s.operands.push_back(o);
-                        s.operands.push_back(negone);
-                        aux->push_back(s);
-                    }
-
+            const size_t vn = s->variables.size();
+            for (size_t vi = 0; vi < vn; vi++) {
+                const variable_t & v = s->variables[vi];
+                if (id == v.name && !(v.has_suffix) &&
+                        v.space != reg_space) {
+                    found = true;
+                    size = v.size();
                     break;
                 }
-
-                assert(0 && "Unreachable.");
-                break;
-            } else if (statement.space == local_space) {
-                assert(src.identifier.size() == 1u);
-                const std::string & id = src.identifier[0];
-
-                /* Verify address against the shared size
-                 * parameter. TODO:  Verify we don't overrun
-                 * the buffer. */
-
-                const operand_t limit =
-                    operand_t::make_identifier(__local_reg);
-
-                drop_load = true;
-                invalidate = false;
-
-                aux->push_back(make_mov(ptr_t, original_ptr,
-                    operand_t::make_identifier(id)));
-                if (src.op_type == operand_addressable &&
-                        src.offset != 0) {
-                    const int64_t soffset = llabs(src.offset);
-                    aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
-                        operand_t::make_iconstant(soffset)));
-                }
-
-                const temp_operand not_valid_pred(*auxillary, pred_type);
-
-                aux->push_back(make_setp(uptr_t, cmp_le, valid_pred,
-                    not_valid_pred, limit, original_ptr));
-
-                statement_t new_load = statement;
-                /**
-                 * TODO:  We need to propagate the predicate
-                 * flags of predicated loads.
-                 */
-                assert(!(new_load.has_predicate));
-                new_load.has_predicate = true;
-                new_load.predicate = valid_pred;
-                aux->push_back(new_load);
-
-                const operand_t vsrc =
-                    operand_t::make_identifier("__panoptes_ptr1");
-
-                aux->push_back(make_add(uptr_t, vsrc, original_ptr, limit));
-
-                const type_t btype =
-                    bitwise_type(statement.type);
-
-                const operand_t vdst = make_validity_operand(
-                    statement.operands[0]);
-
-                statement_t new_vload = statement;
-                new_vload.has_predicate = true;
-                new_vload.predicate = valid_pred;
-                new_vload.type = btype;
-                new_vload.operands[0] = vdst;
-                new_vload.operands[1] = vsrc;
-                aux->push_back(new_vload);
-
-                /* If we don't do the load, invalidate on the
-                 * not_valid_pred flag. */
-                const size_t ni = vdst.identifier.size();
-                const operand_t negone =
-                    operand_t::make_iconstant(-1);
-
-                /**
-                 * nvcc does not seem to generate byte-sized
-                 * registers, so while the load is a byte-wide,
-                 * we don't get clued in on the size of our
-                 * target register.  For now, widen the
-                 * register (and hope this behavior doesn't
-                 * change).
-                 */
-                const type_t bwtype = (btype == b8_type) ?
-                    b16_type : btype;
-
-                for (size_t i = 0; i < ni; i++) {
-                    operand_t o;
-                    o.op_type = vdst.op_type;
-                    o.identifier.push_back(vdst.identifier[i]);
-                    o.field.push_back(vdst.field[i]);
-
-                    statement_t s;
-                    s.op = op_mov;
-                    s.type = bwtype;
-                    s.has_predicate = true;
-                    s.predicate = not_valid_pred;
-                    s.operands.push_back(o);
-                    s.operands.push_back(negone);
-                    aux->push_back(s);
-                }
-
-                break;
             }
 
-            new_src  = data_ptr;
-            new_vsrc = validity_ptr_src;
+            /* Move up. */
+            f = b->fparent;
+            b = b->parent;
+        }
 
-            aux->push_back(make_mov(ptr_t, chidx,
+        if (!(found)) {
+            assert(f);
+
+            const ptx_t * p = f->parent;
+            const size_t vn = p->variables.size();
+            for (size_t vi = 0; vi < vn; vi++) {
+                const variable_t & v = p->variables[vi];
+                if (id == v.name && !(v.has_suffix) &&
+                        v.space != reg_space) {
+                    found = true;
+                    flexible = v.array_flexible;
+                    if (!(flexible)) {
+                        size = v.size();
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (found && !(flexible)) {
+            /* We found a fixed symbol, verify we do not
+             * statically overrun it. */
+            const size_t end = width + (size_t) src.offset;
+
+            if (src.offset < 0) {
+                std::stringstream ss;
+                ss << statement;
+
+                char msg[256];
+                int ret = snprintf(msg, sizeof(msg),
+                    "Shared load of %zu bytes at offset "
+                    "%ld will underrun buffer:\n"
+                    "Disassembly: %s\n", width,
+                    src.offset, ss.str().c_str());
+
+                assert(ret < (int) sizeof(msg) - 1);
+                logger::instance().print(msg);
+
+                /* Cast off bits into the ether. */
+                drop_load = true;
+                invalidate = true;
+            } else if (end > size) {
+                std::stringstream ss;
+                ss << statement;
+
+                char msg[256];
+                int ret = snprintf(msg, sizeof(msg),
+                    "Shared store of %zu bytes at offset "
+                    "%ld will overrun buffer:\n"
+                    "Disassembly: %s\n", width,
+                    src.offset, ss.str().c_str());
+
+                assert(ret < (int) sizeof(msg) - 1);
+                logger::instance().print(msg);
+
+                /* Cast off bits into the ether. */
+                drop_load = true;
+                invalidate = true;
+            } else {
+                /* Map it to the validity symbol. */
+                new_src  = src;
+
+                new_vsrc = src;
+                new_vsrc.identifier.clear();
+                new_vsrc.identifier.push_back(
+                    make_validity_symbol(id));
+                new_vsrc.field.clear();
+                new_vsrc.field.push_back(field_none);
+            }
+        } else {
+            /* Verify address against the shared size
+             * parameter. TODO:  Verify we don't overrun
+             * the buffer. */
+
+            const operand_t limit =
+                operand_t::make_identifier(__shared_reg);
+
+            drop_load = true;
+            invalidate = false;
+
+            assert(src.identifier.size() == 1u);
+            aux->push_back(make_mov(ptr_t, original_ptr,
                 operand_t::make_identifier(src.identifier[0])));
             if (src.op_type == operand_addressable &&
                     src.offset != 0) {
-                const int64_t poffset = llabs(src.offset);
-                aux->push_back(make_add(uptr_t, chidx, chidx,
-                    operand_t::make_iconstant(poffset)));
+                const int64_t soffset = llabs(src.offset);
+                aux->push_back(make_add(uptr_t, original_ptr,
+                    original_ptr, operand_t::make_iconstant(soffset)));
             }
 
-            aux->push_back(make_mov(uptr_t, global_ro_reg, global_ro));
-            aux->push_back(make_mov(ptr_t, original_ptr, chidx));
-            aux->push_back(make_mov(ptr_t, inidx, chidx));
+            const temp_operand not_valid_pred(*auxillary, pred_type);
 
-            aux->push_back(make_shr(ptr_t, chidx, chidx,
-                operand_t::make_iconstant(lg_chunk_bytes)));
-            aux->push_back(make_and(ptr_t, chidx, chidx,
-                operand_t::make_iconstant(max_chunks - 1)));
-            aux->push_back(make_shl(ptr_t, chidx, chidx,
-                operand_t::make_iconstant(log_ptr)));
+            aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred,
+                not_valid_pred, limit, original_ptr));
 
-            aux->push_back(make_and(ptr_t, inidx, inidx,
-                operand_t::make_iconstant(chunk_size - 1)));
-            aux->push_back(make_mov(ptr_t, vidx, inidx));
-            aux->push_back(make_shr(ptr_t, inidx, inidx,
-                operand_t::make_iconstant(3)));
+            statement_t new_load = statement;
+            /**
+             * TODO:  We need to propagate the predicate
+             * flags of predicated loads.
+             */
+            assert(!(new_load.has_predicate));
+            new_load.has_predicate = true;
+            new_load.predicate = valid_pred;
+            aux->push_back(new_load);
 
-            aux->push_back(make_ld(ptr_t, const_space, chunk, master));
-            aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
-            aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk));
+            const operand_t vsrc =
+                operand_t::make_identifier(
+                "__panoptes_ptr1");
 
-            aux->push_back(make_add(uptr_t, validity_ptr_src, chunk_ptr, vidx));
-            aux->push_back(make_add(uptr_t, chunk_ptr, chunk_ptr, inidx));
-            aux->push_back(make_ld(read_t, global_space,
-                a_data, a_data_ptr));
-            if (width <= 8) {
-                /* We cannot setp on a u8 */
-                aux->push_back(make_cvt(wread_t, read_t, a_wdata, a_data));
+            aux->push_back(make_add(uptr_t,
+                vsrc, original_ptr, limit));
 
-                /**
-                 * Since we load a byte at a time (the address bits
-                 * for 8 bytes) even if we are performing a load of
-                 * less than 8 bytes, we need to shift and mask.
-                 *
-                 * Grab lower bits of the address and shift
-                 * accordingly.  Shifts take u32's as their
-                 * shift argument.
-                 */
-                const type_t bwread_t = bitwise_type(wread_t);
-                switch (sizeof(void *)) {
-                    case 8u:
-                    aux->push_back(make_cvt(u32_type, uptr_t, a_data32, vidx));
-                    break;
-                    case 4u:
-                    aux->push_back(make_mov(u32_type, a_data32, vidx));
-                    break;
-                }
-                aux->push_back(make_and(b32_type,
-                    a_data32, a_data32, operand_t::make_iconstant(
-                    sizeof(void *) - 1)));
-                aux->push_back(make_shr(wread_t,
-                    a_wdata, a_wdata, a_data32));
+            const type_t btype =
+                bitwise_type(statement.type);
 
-                /**
-                 * Mask high bits.
-                 */
-                aux->push_back(make_and(bwread_t,
-                    a_wdata, a_wdata, operand_t::make_iconstant(
-                    (1 << width) - 1)));
+            const operand_t vdst = make_validity_operand(
+                statement.operands[0]);
+
+            statement_t new_vload = statement;
+            new_vload.has_predicate = true;
+            new_vload.predicate = valid_pred;
+            new_vload.type = btype;
+            new_vload.operands[0] = vdst;
+            new_vload.operands[1] = vsrc;
+            aux->push_back(new_vload);
+
+            /* If we don't do the load, invalidate on the
+             * not_valid_pred flag. */
+            const size_t ni = vdst.identifier.size();
+            const operand_t negone =
+                operand_t::make_iconstant(-1);
+
+            /**
+             * nvcc does not seem to generate byte-sized
+             * registers, so while the load is a byte-wide,
+             * we don't get clued in on the size of our
+             * target register.  For now, widen the
+             * register (and hope this behavior doesn't
+             * change).
+             */
+            const type_t bwtype = (btype == b8_type) ?
+                b16_type : btype;
+
+            for (size_t i = 0; i < ni; i++) {
+                operand_t o;
+                o.op_type = vdst.op_type;
+                o.identifier.push_back(vdst.identifier[i]);
+                o.field.push_back(vdst.field[i]);
+
+                statement_t s;
+                s.op = op_mov;
+                s.type = bwtype;
+                s.has_predicate = true;
+                s.predicate = not_valid_pred;
+                s.operands.push_back(o);
+                s.operands.push_back(negone);
+                aux->push_back(s);
+            }
+        }
+    } else if (statement.space == local_space) {
+        const operand_t limit =
+            operand_t::make_identifier(__local_reg);
+        const operand_t local_errors =
+            operand_t::make_identifier(__errors_register);
+
+        drop_load = true;
+        invalidate = false;
+
+        operand_t origin;
+
+        /* Verify address against the local size parameter. */
+        if (src.is_constant()) {
+            origin = src;
+
+            const temp_ptr tmp(*auxillary);
+            aux->push_back(make_add(uptr_t, tmp, origin,
+                operand_t::make_iconstant((int) width)));
+            aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit, tmp));
+            /* TODO:  Check for underrun. */
+        } else {
+            assert(src.identifier.size() == 1u);
+            const std::string & id = src.identifier[0];
+
+            aux->push_back(make_mov(ptr_t, original_ptr,
+                operand_t::make_identifier(id)));
+            if (src.op_type == operand_addressable &&
+                    src.offset != 0) {
+                aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
+                    operand_t::make_iconstant(src.offset)));
             }
 
-            aux->push_back(make_setp(wread_t, cmp_eq, valid_pred,
-                a_cdata,
-                operand_t::make_iconstant((1 << width) - 1)));
-            aux->push_back(make_selp(ptr_t, valid_pred,
-                data_ptr, original_ptr, global_ro_reg));
+            origin = original_ptr;
 
-            if (offsetof(metadata_chunk, v_data)) {
-                aux->push_back(make_add(uptr_t, validity_ptr_src,
-                    validity_ptr_src, operand_t::make_iconstant(
-                    offsetof(metadata_chunk, v_data))));
+            const temp_ptr tmp(*auxillary);
+            aux->push_back(make_add(uptr_t, tmp, origin,
+                operand_t::make_iconstant((int) width)));
+            aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred,
+                operand_t::make_iconstant(0xFFFCA0), tmp));
+        }
+
+        statement_t new_load = statement;
+        /**
+         * TODO:  We need to propagate the predicate
+         * flags of predicated loads.
+         */
+        assert(!(new_load.has_predicate));
+        new_load.has_predicate = true;
+        new_load.predicate = valid_pred;
+        aux->push_back(new_load);
+
+        const operand_t vsrc =
+            operand_t::make_identifier("__panoptes_ptr1");
+
+        aux->push_back(make_add(uptr_t, vsrc, origin, limit));
+
+        const type_t btype = bitwise_type(statement.type);
+        const operand_t vdst = make_validity_operand(statement.operands[0]);
+
+        statement_t new_vload = statement;
+        new_vload.has_predicate = true;
+        new_vload.predicate = valid_pred;
+        new_vload.type = btype;
+        new_vload.operands[0] = vdst;
+        new_vload.operands[1] = vsrc;
+        aux->push_back(new_vload);
+
+        /* If we don't do the load, invalidate on the
+         * not_valid_pred flag. */
+        const size_t ni = vdst.identifier.size();
+        const operand_t negone =
+            operand_t::make_iconstant(-1);
+
+        /**
+         * nvcc does not seem to generate byte-sized
+         * registers, so while the load is a byte-wide,
+         * we don't get clued in on the size of our
+         * target register.  For now, widen the
+         * register (and hope this behavior doesn't
+         * change).
+         */
+        const type_t bwtype = (btype == b8_type) ?
+            b16_type : btype;
+
+        for (size_t i = 0; i < ni; i++) {
+            operand_t o;
+            o.op_type = vdst.op_type;
+            o.identifier.push_back(vdst.identifier[i]);
+            o.field.push_back(vdst.field[i]);
+
+            statement_t s;
+            s.op = op_mov;
+            s.type = bwtype;
+            s.has_predicate = true;
+            s.is_negated = true;
+            s.predicate = valid_pred;
+            s.operands.push_back(o);
+            s.operands.push_back(negone);
+            aux->push_back(s);
+        }
+    } else {
+        new_src  = data_ptr;
+        new_vsrc = validity_ptr_src;
+
+        aux->push_back(make_mov(ptr_t, chidx,
+            operand_t::make_identifier(src.identifier[0])));
+        if (src.op_type == operand_addressable &&
+                src.offset != 0) {
+            const int64_t poffset = llabs(src.offset);
+            aux->push_back(make_add(uptr_t, chidx, chidx,
+                operand_t::make_iconstant(poffset)));
+        }
+
+        aux->push_back(make_mov(uptr_t, global_ro_reg, global_ro));
+        aux->push_back(make_mov(ptr_t, original_ptr, chidx));
+        aux->push_back(make_mov(ptr_t, inidx, chidx));
+
+        aux->push_back(make_shr(ptr_t, chidx, chidx,
+            operand_t::make_iconstant(lg_chunk_bytes)));
+        aux->push_back(make_and(ptr_t, chidx, chidx,
+            operand_t::make_iconstant(max_chunks - 1)));
+        aux->push_back(make_shl(ptr_t, chidx, chidx,
+            operand_t::make_iconstant(log_ptr)));
+
+        aux->push_back(make_and(ptr_t, inidx, inidx,
+            operand_t::make_iconstant(chunk_size - 1)));
+        aux->push_back(make_mov(ptr_t, vidx, inidx));
+        aux->push_back(make_shr(ptr_t, inidx, inidx,
+            operand_t::make_iconstant(3)));
+
+        aux->push_back(make_ld(ptr_t, const_space, chunk, master));
+        aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
+        aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk));
+
+        aux->push_back(make_add(uptr_t, validity_ptr_src, chunk_ptr, vidx));
+        aux->push_back(make_add(uptr_t, chunk_ptr, chunk_ptr, inidx));
+        aux->push_back(make_ld(read_t, global_space,
+            a_data, a_data_ptr));
+        if (width <= 8) {
+            /* We cannot setp on a u8 */
+            aux->push_back(make_cvt(wread_t, read_t, a_wdata, a_data));
+
+            /**
+             * Since we load a byte at a time (the address bits
+             * for 8 bytes) even if we are performing a load of
+             * less than 8 bytes, we need to shift and mask.
+             *
+             * Grab lower bits of the address and shift
+             * accordingly.  Shifts take u32's as their
+             * shift argument.
+             */
+            const type_t bwread_t = bitwise_type(wread_t);
+            switch (sizeof(void *)) {
+                case 8u:
+                aux->push_back(make_cvt(u32_type, uptr_t, a_data32, vidx));
+                break;
+                case 4u:
+                aux->push_back(make_mov(u32_type, a_data32, vidx));
+                break;
             }
+            aux->push_back(make_and(b32_type,
+                a_data32, a_data32, operand_t::make_iconstant(
+                sizeof(void *) - 1)));
+            aux->push_back(make_shr(wread_t,
+                a_wdata, a_wdata, a_data32));
 
-            break;
-        case operand_constant:
-            aux->push_back(make_mov(ptr_t, chidx,
-                ((static_cast<uintptr_t>(src.offset) >>
-                    lg_chunk_bytes) &
-                 (max_chunks - 1u)) * sizeof(void *)));
-            aux->push_back(make_mov(ptr_t, inidx,
-                (static_cast<uintptr_t>(src.offset) &
-                 chunk_size) >> 3u));
-            aux->push_back(make_ld(ptr_t, const_space, chunk, master));
-            aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
-            aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk));
-            aux->push_back(make_ld(read_t, global_space, a_data, a_data_ptr));
-            aux->push_back(make_setp(read_t, cmp_eq, valid_pred, a_data,
-                operand_t::make_iconstant((1 << width) - 1)));
-            aux->push_back(make_selp(ptr_t, valid_pred, data_ptr, src,
-                global_ro));
-            aux->push_back(make_add(uptr_t, validity_ptr_src, chunk_ptr,
-                inidx));
+            /**
+             * Mask high bits.
+             */
+            aux->push_back(make_and(bwread_t,
+                a_wdata, a_wdata, operand_t::make_iconstant(
+                (1 << width) - 1)));
+        }
 
-            new_src  = data_ptr;
-            new_vsrc = validity_ptr;
+        aux->push_back(make_setp(wread_t, cmp_eq, valid_pred,
+            a_cdata,
+            operand_t::make_iconstant((1 << width) - 1)));
+        aux->push_back(make_selp(ptr_t, valid_pred,
+            data_ptr, original_ptr, global_ro_reg));
 
-            break;
-        default:
-            assert(0 &&
-                "Unsupported operand type for load source.");
-            break;
+        if (offsetof(metadata_chunk, v_data)) {
+            aux->push_back(make_add(uptr_t, validity_ptr_src,
+                validity_ptr_src, operand_t::make_iconstant(
+                offsetof(metadata_chunk, v_data))));
+        }
     }
 
     *keep = false;
@@ -5160,340 +5125,303 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     const type_t ptr_t  = pointer_type();
     const type_t uptr_t = upointer_type();
 
-    switch (dst.op_type) {
-        case operand_identifier:
-        case operand_addressable:
-            if (statement.space == param_space) {
-                assert(dst.identifier.size() == 1u);
-                new_dst  = dst;
-                new_vdst = operand_t::make_identifier(
-                    make_validity_symbol(dst.identifier[0]));
-                break;
-            } else if (statement.space == shared_space) {
-                assert(dst.identifier.size() == 1u);
-                const std::string & id = dst.identifier[0];
+    if (statement.space == param_space) {
+        assert(dst.identifier.size() == 1u);
+        new_dst  = dst;
+        new_vdst = operand_t::make_identifier(
+            make_validity_symbol(dst.identifier[0]));
+    } else if (statement.space == shared_space) {
+        assert(dst.identifier.size() == 1u);
+        const std::string & id = dst.identifier[0];
 
-                /* Walk up scopes for identifiers. */
-                const block_t * b = auxillary->block;
-                const function_t * f = NULL;
+        /* Walk up scopes for identifiers. */
+        const block_t * b = auxillary->block;
+        const function_t * f = NULL;
 
-                bool found = false;
-                bool flexible = false;
-                size_t size;
+        bool found = false;
+        bool flexible = false;
+        size_t size;
 
-                while (b && !(found)) {
-                    assert(!(b->parent) || !(b->fparent));
-                    assert(b->block_type == block_scope);
-                    const scope_t * s = b->scope;
+        while (b && !(found)) {
+            assert(!(b->parent) || !(b->fparent));
+            assert(b->block_type == block_scope);
+            const scope_t * s = b->scope;
 
-                    const size_t vn = s->variables.size();
-                    for (size_t vi = 0; vi < vn; vi++) {
-                        const variable_t & v = s->variables[vi];
-                        if (id == v.name && !(v.has_suffix) &&
-                                v.space != reg_space) {
-                            found = true;
-                            size = v.size();
-                            break;
-                        }
-                    }
-
-                    /* Move up. */
-                    f = b->fparent;
-                    b = b->parent;
-                }
-
-                if (!(found)) {
-                    assert(f);
-
-                    const ptx_t * p = f->parent;
-                    const size_t vn = p->variables.size();
-                    for (size_t vi = 0; vi < vn; vi++) {
-                        const variable_t & v = p->variables[vi];
-                        if (id == v.name && !(v.has_suffix) &&
-                                v.space != reg_space) {
-                            found = true;
-                            flexible = v.array_flexible;
-                            if (!(flexible)) {
-                                size = v.size();
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (found && !(flexible)) {
-                    /* We found a fixed symbol, verify we do not
-                     * statically overrun it. */
-                    if (dst.offset < 0) {
-                        std::stringstream ss;
-                        ss << statement;
-
-                        char msg[256];
-                        int ret = snprintf(msg, sizeof(msg),
-                            "Shared store of %zu bytes at offset "
-                            "%ld will underrun buffer:\n"
-                            "Disassembly: %s\n", width,
-                            dst.offset, ss.str().c_str());
-
-                        assert(ret < (int) sizeof(msg) - 1);
-                        logger::instance().print(msg);
-
-                        /* Cast off bits into the ether. */
-                        drop_store = true;
-                        break;
-                    }
-
-                    const size_t end = width + (size_t) dst.offset;
-                    if (end > size) {
-                        std::stringstream ss;
-                        ss << statement;
-
-                        char msg[256];
-                        int ret = snprintf(msg, sizeof(msg),
-                            "Shared store of %zu bytes at offset "
-                            "%ld will overrun buffer:\n"
-                            "Disassembly: %s\n", width,
-                            dst.offset, ss.str().c_str());
-
-                        assert(ret < (int) sizeof(msg) - 1);
-                        logger::instance().print(msg);
-
-                        /* Cast off bits into the ether. */
-                        drop_store = true;
-                    } else {
-                        /* Map it to the validity symbol. */
-                        new_dst  = dst;
-
-                        new_vdst = dst;
-                        new_vdst.identifier.clear();
-                        new_vdst.identifier.push_back(
-                            make_validity_symbol(id));
-                        new_vdst.field.clear();
-                        new_vdst.field.push_back(field_none);
-                    }
-
-                    break;
-                } else {
-                    /* Verify address against the shared size
-                     * parameter. TODO:  Verify we don't overrun
-                     * the buffer. */
-
-                    const operand_t limit =
-                        operand_t::make_identifier(__shared_reg);
-
-                    drop_store = true;
-
-                    aux->push_back(make_mov(ptr_t, original_ptr,
-                        operand_t::make_identifier(
-                            dst.identifier[0])));
-                    if (dst.op_type == operand_addressable &&
-                            dst.offset != 0) {
-                        const int64_t poffset = llabs(dst.offset);
-                        aux->push_back(make_add(uptr_t, original_ptr,
-                            original_ptr, operand_t::make_iconstant(poffset)));
-                    }
-
-                    aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit,
-                        original_ptr));
-
-                    statement_t new_store = statement;
-                    /**
-                     * TODO:  We need to propagate the predicate
-                     * flags of predicated stores.
-                     */
-                    assert(!(new_store.has_predicate));
-                    new_store.has_predicate = true;
-                    new_store.predicate = valid_pred;
-                    aux->push_back(new_store);
-
-                    const operand_t vdst =
-                        operand_t::make_identifier(
-                        "__panoptes_ptr1");
-
-                    aux->push_back(make_add(uptr_t, vdst, original_ptr, limit));
-
-                    statement_t new_vstore = statement;
-                    new_vstore.has_predicate = true;
-                    new_vstore.predicate = valid_pred;
-                    new_vstore.type = bitwise_type(
-                        new_vstore.type);
-                    new_vstore.operands[0] = vdst;
-                    new_vstore.operands[1] =
-                        make_validity_operand(
-                        new_vstore.operands[1]);
-                    aux->push_back(new_vstore);
+            const size_t vn = s->variables.size();
+            for (size_t vi = 0; vi < vn; vi++) {
+                const variable_t & v = s->variables[vi];
+                if (id == v.name && !(v.has_suffix) &&
+                        v.space != reg_space) {
+                    found = true;
+                    size = v.size();
                     break;
                 }
-
-                assert(0 && "Unreachable.");
-                break;
-            } else if (statement.space == local_space) {
-                assert(dst.identifier.size() == 1u);
-                const std::string & id = dst.identifier[0];
-
-                /* Verify address against the shared size
-                 * parameter. TODO:  Verify we don't overrun
-                 * the buffer. */
-
-                const operand_t limit =
-                    operand_t::make_identifier(__local_reg);
-
-                drop_store = true;
-
-                aux->push_back(make_mov(ptr_t, original_ptr,
-                    operand_t::make_identifier(id)));
-                if (dst.op_type == operand_addressable &&
-                        dst.offset != 0) {
-                    const int64_t poffset = llabs(dst.offset);
-                    aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
-                        operand_t::make_iconstant(poffset)));
-                }
-
-                aux->push_back(make_setp(uptr_t, cmp_le, valid_pred, limit,
-                    original_ptr));
-
-                statement_t new_store = statement;
-                /**
-                 * TODO:  We need to propagate the predicate
-                 * flags of predicated stores.
-                 */
-                assert(!(new_store.has_predicate));
-                new_store.has_predicate = true;
-                new_store.predicate = valid_pred;
-                aux->push_back(new_store);
-
-                const operand_t vdst =
-                    operand_t::make_identifier("__panoptes_ptr1");
-
-                aux->push_back(make_add(uptr_t, vdst, original_ptr, limit));
-
-                statement_t new_vstore = statement;
-                new_vstore.has_predicate = true;
-                new_vstore.predicate = valid_pred;
-                new_vstore.type = bitwise_type(
-                    new_vstore.type);
-                new_vstore.operands[0] = vdst;
-                new_vstore.operands[1] =
-                    make_validity_operand(
-                    new_vstore.operands[1]);
-                aux->push_back(new_vstore);
-                break;
             }
 
-            aux->push_back(make_mov(uptr_t, global_wo_reg, global_wo));
+            /* Move up. */
+            f = b->fparent;
+            b = b->parent;
+        }
 
-            aux->push_back(make_mov(ptr_t, chidx,
-                operand_t::make_identifier(dst.identifier[0])));
+        if (!(found)) {
+            assert(f);
+
+            const ptx_t * p = f->parent;
+            const size_t vn = p->variables.size();
+            for (size_t vi = 0; vi < vn; vi++) {
+                const variable_t & v = p->variables[vi];
+                if (id == v.name && !(v.has_suffix) &&
+                        v.space != reg_space) {
+                    found = true;
+                    flexible = v.array_flexible;
+                    if (!(flexible)) {
+                        size = v.size();
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (found && !(flexible)) {
+            /* We found a fixed symbol, verify we do not statically overrun
+             * it. */
+            const size_t end = width + (size_t) dst.offset;
+            if (dst.offset < 0) {
+                std::stringstream ss;
+                ss << statement;
+
+                char msg[256];
+                int ret = snprintf(msg, sizeof(msg),
+                    "Shared store of %zu bytes at offset "
+                    "%ld will underrun buffer:\n"
+                    "Disassembly: %s\n", width,
+                    dst.offset, ss.str().c_str());
+
+                assert(ret < (int) sizeof(msg) - 1);
+                logger::instance().print(msg);
+
+                /* Cast off bits into the ether. */
+                drop_store = true;
+            } else if (end > size) {
+                std::stringstream ss;
+                ss << statement;
+
+                char msg[256];
+                int ret = snprintf(msg, sizeof(msg),
+                    "Shared store of %zu bytes at offset "
+                    "%ld will overrun buffer:\n"
+                    "Disassembly: %s\n", width,
+                    dst.offset, ss.str().c_str());
+
+                assert(ret < (int) sizeof(msg) - 1);
+                logger::instance().print(msg);
+
+                /* Cast off bits into the ether. */
+                drop_store = true;
+            } else {
+                /* Map it to the validity symbol. */
+                new_dst  = dst;
+
+                new_vdst = dst;
+                new_vdst.identifier.clear();
+                new_vdst.identifier.push_back(
+                    make_validity_symbol(id));
+                new_vdst.field.clear();
+                new_vdst.field.push_back(field_none);
+            }
+        } else {
+            /* Verify address against the shared size
+             * parameter. TODO:  Verify we don't overrun
+             * the buffer. */
+
+            const operand_t limit =
+                operand_t::make_identifier(__shared_reg);
+
+            drop_store = true;
+
+            aux->push_back(make_mov(ptr_t, original_ptr,
+                operand_t::make_identifier(
+                    dst.identifier[0])));
             if (dst.op_type == operand_addressable &&
                     dst.offset != 0) {
-                const int64_t doffset = llabs(dst.offset);
-                aux->push_back(make_add(uptr_t, chidx, chidx,
-                    operand_t::make_iconstant(doffset)));
+                const int64_t poffset = llabs(dst.offset);
+                aux->push_back(make_add(uptr_t, original_ptr,
+                    original_ptr, operand_t::make_iconstant(poffset)));
             }
 
-            aux->push_back(make_mov(ptr_t, original_ptr, chidx));
-            aux->push_back(make_mov(ptr_t, inidx, chidx));
+            aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit,
+                original_ptr));
 
-            aux->push_back(make_shr(ptr_t, chidx, chidx,
-                operand_t::make_iconstant(lg_chunk_bytes)));
-            aux->push_back(make_and(ptr_t, chidx, chidx,
-                operand_t::make_iconstant(max_chunks - 1)));
-            aux->push_back(make_shl(ptr_t, chidx, chidx,
-                operand_t::make_iconstant(log_ptr)));
+            statement_t new_store = statement;
+            /**
+             * TODO:  We need to propagate the predicate
+             * flags of predicated stores.
+             */
+            assert(!(new_store.has_predicate));
+            new_store.has_predicate = true;
+            new_store.predicate = valid_pred;
+            aux->push_back(new_store);
 
-            aux->push_back(make_and(ptr_t, inidx, inidx,
-                operand_t::make_iconstant(chunk_size - 1)));
-            aux->push_back(make_mov(ptr_t, vidx, inidx));
-            aux->push_back(make_shr(ptr_t, inidx, inidx,
-                operand_t::make_iconstant(3)));
+            const operand_t vdst =
+                operand_t::make_identifier(
+                "__panoptes_ptr1");
 
-            aux->push_back(make_ld(ptr_t, const_space, chunk, master));
-            aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
-            aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk));
+            aux->push_back(make_add(uptr_t, vdst, original_ptr, limit));
 
-            aux->push_back(make_add(uptr_t, validity_ptr_dst, chunk_ptr, vidx));
+            statement_t new_vstore = statement;
+            new_vstore.has_predicate = true;
+            new_vstore.predicate = valid_pred;
+            new_vstore.type = bitwise_type(
+                new_vstore.type);
+            new_vstore.operands[0] = vdst;
+            new_vstore.operands[1] =
+                make_validity_operand(
+                new_vstore.operands[1]);
+            aux->push_back(new_vstore);
+        }
+    } else if (statement.space == local_space) {
+        const operand_t limit = operand_t::make_identifier(__local_reg);
+        drop_store = true;
 
-            aux->push_back(make_add(uptr_t, chunk_ptr, chunk_ptr, inidx));
-            aux->push_back(make_ld(read_t, global_space, a_data, a_data_ptr));
-            if (width <= 8) {
-                /* We cannot setp on a u8 */
-                aux->push_back(make_cvt(wread_t, read_t, a_wdata, a_data));
+        /* Verify address against the local size parameter. */
+        operand_t origin;
 
-                /* See explaination under op_ld.
-                 *
-                 * Grab lower bits of the address and shift
-                 * accordingly.  Shifts take u32's as their
-                 * shift argument.
-                 */
-                const type_t bwread_t = bitwise_type(wread_t);
-                switch (sizeof(void *)) {
-                    case 8u:
-                    aux->push_back(make_cvt(u32_type, uptr_t, a_data32, vidx));
-                    break;
-                    case 4u:
-                    aux->push_back(make_mov(u32_type, a_data32, vidx));
-                    break;
-                }
-                aux->push_back(make_and(b32_type, a_data32, a_data32,
-                    operand_t::make_iconstant(sizeof(void *) - 1)));
-                aux->push_back(make_shr(wread_t, a_wdata, a_wdata, a_data32));
+        if (dst.is_constant()) {
+            origin = dst;
 
-                /**
-                 * Mask high bits.
-                 */
-                aux->push_back(make_and(bwread_t,
-                    a_wdata, a_wdata, operand_t::make_iconstant(
-                    (1 << width) - 1)));
+            const temp_ptr tmp(*auxillary);
+            aux->push_back(make_add(uptr_t, tmp, origin,
+                operand_t::make_iconstant((int) width)));
+            aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit, tmp));
+            /* TODO:  Check for underrun. */
+        } else {
+            assert(dst.identifier.size() == 1u);
+            const std::string & id = dst.identifier[0];
+
+            aux->push_back(make_mov(ptr_t, original_ptr,
+                operand_t::make_identifier(id)));
+            if (dst.op_type == operand_addressable &&
+                    dst.offset != 0) {
+                aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
+                    operand_t::make_iconstant(dst.offset)));
             }
 
-            aux->push_back(make_setp(wread_t, cmp_eq, valid_pred, a_cdata,
-                operand_t::make_iconstant((1 << width) - 1)));
+            origin = original_ptr;
 
-            aux->push_back(make_selp(ptr_t, valid_pred, data_ptr, original_ptr,
-                global_wo_reg));
-            if (offsetof(metadata_chunk, v_data)) {
-                aux->push_back(make_add(uptr_t, validity_ptr_dst,
-                    validity_ptr_dst, operand_t::make_iconstant(
-                    offsetof(metadata_chunk, v_data))));
+            const temp_ptr tmp(*auxillary);
+            aux->push_back(make_add(uptr_t, tmp, origin,
+                operand_t::make_iconstant((int) width)));
+            aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred,
+                operand_t::make_iconstant(0xFFFCA0), tmp));
+        }
+
+        statement_t new_store = statement;
+        /**
+         * TODO:  We need to propagate the predicate
+         * flags of predicated stores.
+         */
+        assert(!(new_store.has_predicate));
+        new_store.has_predicate = true;
+        new_store.predicate = valid_pred;
+        aux->push_back(new_store);
+
+        const operand_t vdst =
+            operand_t::make_identifier("__panoptes_ptr1");
+
+        aux->push_back(make_add(uptr_t, vdst, origin, limit));
+
+        statement_t new_vstore = statement;
+        new_vstore.has_predicate = true;
+        new_vstore.predicate = valid_pred;
+        new_vstore.type = bitwise_type(
+            new_vstore.type);
+        new_vstore.operands[0] = vdst;
+        new_vstore.operands[1] =
+            make_validity_operand(
+            new_vstore.operands[1]);
+        aux->push_back(new_vstore);
+    } else {
+        aux->push_back(make_mov(uptr_t, global_wo_reg, global_wo));
+
+        aux->push_back(make_mov(ptr_t, chidx,
+            operand_t::make_identifier(dst.identifier[0])));
+        if (dst.op_type == operand_addressable &&
+                dst.offset != 0) {
+            const int64_t doffset = llabs(dst.offset);
+            aux->push_back(make_add(uptr_t, chidx, chidx,
+                operand_t::make_iconstant(doffset)));
+        }
+
+        aux->push_back(make_mov(ptr_t, original_ptr, chidx));
+        aux->push_back(make_mov(ptr_t, inidx, chidx));
+
+        aux->push_back(make_shr(ptr_t, chidx, chidx,
+            operand_t::make_iconstant(lg_chunk_bytes)));
+        aux->push_back(make_and(ptr_t, chidx, chidx,
+            operand_t::make_iconstant(max_chunks - 1)));
+        aux->push_back(make_shl(ptr_t, chidx, chidx,
+            operand_t::make_iconstant(log_ptr)));
+
+        aux->push_back(make_and(ptr_t, inidx, inidx,
+            operand_t::make_iconstant(chunk_size - 1)));
+        aux->push_back(make_mov(ptr_t, vidx, inidx));
+        aux->push_back(make_shr(ptr_t, inidx, inidx,
+            operand_t::make_iconstant(3)));
+
+        aux->push_back(make_ld(ptr_t, const_space, chunk, master));
+        aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
+        aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk));
+
+        aux->push_back(make_add(uptr_t, validity_ptr_dst, chunk_ptr, vidx));
+
+        aux->push_back(make_add(uptr_t, chunk_ptr, chunk_ptr, inidx));
+        aux->push_back(make_ld(read_t, global_space, a_data, a_data_ptr));
+        if (width <= 8) {
+            /* We cannot setp on a u8 */
+            aux->push_back(make_cvt(wread_t, read_t, a_wdata, a_data));
+
+            /* See explaination under op_ld.
+             *
+             * Grab lower bits of the address and shift
+             * accordingly.  Shifts take u32's as their
+             * shift argument.
+             */
+            const type_t bwread_t = bitwise_type(wread_t);
+            switch (sizeof(void *)) {
+                case 8u:
+                aux->push_back(make_cvt(u32_type, uptr_t, a_data32, vidx));
+                break;
+                case 4u:
+                aux->push_back(make_mov(u32_type, a_data32, vidx));
+                break;
             }
-            aux->push_back(make_selp(ptr_t, valid_pred, validity_ptr_dst,
-                validity_ptr_dst, global_wo_reg));
+            aux->push_back(make_and(b32_type, a_data32, a_data32,
+                operand_t::make_iconstant(sizeof(void *) - 1)));
+            aux->push_back(make_shr(wread_t, a_wdata, a_wdata, a_data32));
 
-            new_dst  = data_ptr;
-            new_vdst = validity_ptr_dst;
+            /**
+             * Mask high bits.
+             */
+            aux->push_back(make_and(bwread_t,
+                a_wdata, a_wdata, operand_t::make_iconstant(
+                (1 << width) - 1)));
+        }
 
-            break;
-        case operand_constant:
-            aux->push_back(make_mov(uptr_t, global_wo_reg, global_wo));
+        aux->push_back(make_setp(wread_t, cmp_eq, valid_pred, a_cdata,
+            operand_t::make_iconstant((1 << width) - 1)));
 
-            aux->push_back(make_mov(ptr_t, chidx,
-                ((static_cast<uintptr_t>(dst.offset) >>
-                    lg_chunk_bytes) &
-                 (max_chunks - 1u)) * sizeof(void *)));
-            aux->push_back(make_mov(ptr_t, inidx,
-                (static_cast<uintptr_t>(dst.offset) &
-                 chunk_size) >> 3u));
-            aux->push_back(make_ld(ptr_t, global_space, chunk, master));
-            aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
-            aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk));
-            aux->push_back(make_ld(read_t, global_space, a_data, a_data_ptr));
-            aux->push_back(make_setp(read_t, cmp_eq, valid_pred, a_data,
-                operand_t::make_iconstant((1 << width) - 1)));
-            aux->push_back(make_selp(ptr_t, valid_pred, data_ptr, dst,
-                global_wo));
-            aux->push_back(make_add(uptr_t, validity_ptr_dst, chunk_ptr,
-                inidx));
-            aux->push_back(make_selp(ptr_t, valid_pred, validity_ptr_dst,
-                validity_ptr_dst, global_wo));
+        aux->push_back(make_selp(ptr_t, valid_pred, data_ptr, original_ptr,
+            global_wo_reg));
+        if (offsetof(metadata_chunk, v_data)) {
+            aux->push_back(make_add(uptr_t, validity_ptr_dst,
+                validity_ptr_dst, operand_t::make_iconstant(
+                offsetof(metadata_chunk, v_data))));
+        }
+        aux->push_back(make_selp(ptr_t, valid_pred, validity_ptr_dst,
+            validity_ptr_dst, global_wo_reg));
 
-            new_dst  = data_ptr;
-            new_vdst = validity_ptr;
-
-            break;
-        default:
-            assert(0 &&
-                "Unsupported operand type for store destination.");
-            break;
+        new_dst  = data_ptr;
+        new_vdst = validity_ptr_dst;
     }
 
     *keep = false;

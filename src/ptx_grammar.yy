@@ -852,10 +852,7 @@ optionalVectorType  : /* */ | vectorType {
 }
 
 ldSource : TOKEN_LBRACKET addressableOperand TOKEN_RBRACKET ;
-ldSource : TOKEN_LBRACKET immediateDecimal TOKEN_RBRACKET {
-    parser->operands.push_back(parser->operand);
-    parser->operand.reset();
-}
+ldSource : TOKEN_LBRACKET immediateDecimal TOKEN_RBRACKET ;
 
 volatileFlag : TOKEN_VOLATILE {
     parser->function->top->instruction.is_volatile = true;
@@ -1383,11 +1380,7 @@ stCacheOp           : TOKEN_WB | TOKEN_CG | TOKEN_CS | TOKEN_WT ;
 optionalSTCacheOp   : /* */ | stCacheOp ;
 
 stDestination : TOKEN_LBRACKET addressableOperand TOKEN_RBRACKET ;
-
-stDestination : TOKEN_LBRACKET immediateDecimal TOKEN_RBRACKET {
-    parser->operands.push_back(parser->operand);
-    parser->operand.reset();
-};
+stDestination : TOKEN_LBRACKET immediateDecimal TOKEN_RBRACKET ;
 
 identifierOperand : TOKEN_IDENTIFIER {
     operand_t op = parser->operand;
