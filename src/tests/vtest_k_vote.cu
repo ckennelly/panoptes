@@ -388,6 +388,223 @@ TEST(Ballot, Validity) {
     }
 }
 
+static __global__ void vote_all_const0(bool * out) {
+    int _out;
+    asm("{\n"
+        "  .reg .pred %tmp;\n"
+        "  vote.all.pred %tmp, 0;\n"
+        "  selp.s32 %0, 1, 0, %tmp;\n"
+        "}\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_all_const1(bool * out) {
+    int _out;
+    asm("{\n"
+        "  .reg .pred %tmp;\n"
+        "  vote.all.pred %tmp, 1;\n"
+        "  selp.s32 %0, 1, 0, %tmp;\n"
+        "}\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_none_const0(bool * out) {
+    int _out;
+    asm("{\n"
+        "  .reg .pred %tmp;\n"
+        "  vote.all.pred %tmp, !0;\n"
+        "  selp.s32 %0, 1, 0, %tmp;\n"
+        "}\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_none_const1(bool * out) {
+    int _out;
+    asm("{\n"
+        "  .reg .pred %tmp;\n"
+        "  vote.all.pred %tmp, !1;\n"
+        "  selp.s32 %0, 1, 0, %tmp;\n"
+        "}\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_any_const0(bool * out) {
+    int _out;
+    asm("{\n"
+        "  .reg .pred %tmp;\n"
+        "  vote.any.pred %tmp, 0;\n"
+        "  selp.s32 %0, 1, 0, %tmp;\n"
+        "}\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_any_const1(bool * out) {
+    int _out;
+    asm("{\n"
+        "  .reg .pred %tmp;\n"
+        "  vote.any.pred %tmp, 1;\n"
+        "  selp.s32 %0, 1, 0, %tmp;\n"
+        "}\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_notall_const0(bool * out) {
+    int _out;
+    asm("{\n"
+        "  .reg .pred %tmp;\n"
+        "  vote.any.pred %tmp, !0;\n"
+        "  selp.s32 %0, 1, 0, %tmp;\n"
+        "}\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_notall_const1(bool * out) {
+    int _out;
+    asm("{\n"
+        "  .reg .pred %tmp;\n"
+        "  vote.any.pred %tmp, !1;\n"
+        "  selp.s32 %0, 1, 0, %tmp;\n"
+        "}\n" : "=r"(_out));
+    *out = _out;
+}
+
+TEST(Vote, ConstantArguments) {
+    cudaError_t ret;
+    int device;
+    ret = cudaGetDevice(&device);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaDeviceProp prop;
+    ret = cudaGetDeviceProperties(&prop, device);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    const int warpSize = prop.warpSize;
+
+    bool * out;
+    ret = cudaMalloc((void **) &out, 8 * sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    vote_all_const0   <<<1, warpSize, 0, stream>>>(out + 0);
+    vote_all_const1   <<<1, warpSize, 0, stream>>>(out + 1);
+    vote_none_const0  <<<1, warpSize, 0, stream>>>(out + 2);
+    vote_none_const1  <<<1, warpSize, 0, stream>>>(out + 3);
+    vote_any_const0   <<<1, warpSize, 0, stream>>>(out + 4);
+    vote_any_const1   <<<1, warpSize, 0, stream>>>(out + 5);
+    vote_notall_const0<<<1, warpSize, 0, stream>>>(out + 6);
+    vote_notall_const1<<<1, warpSize, 0, stream>>>(out + 7);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    bool hout[8];
+    ret = cudaMemcpy(hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_FALSE(hout[0]);
+    EXPECT_TRUE (hout[1]);
+    EXPECT_TRUE (hout[2]);
+    EXPECT_FALSE(hout[3]);
+    EXPECT_FALSE(hout[4]);
+    EXPECT_TRUE (hout[5]);
+    EXPECT_TRUE (hout[6]);
+    EXPECT_FALSE(hout[7]);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
+static __global__ void vote_ballot_const0(uint32_t * out) {
+    uint32_t _out;
+    asm("vote.ballot.b32 %0, 0;\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_ballot_const1(uint32_t * out) {
+    uint32_t _out;
+    asm("vote.ballot.b32 %0, 1;\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_ballot_not_const0(uint32_t * out) {
+    uint32_t _out;
+    asm("vote.ballot.b32 %0, !0;\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void vote_ballot_not_const1(uint32_t * out) {
+    uint32_t _out;
+    asm("vote.ballot.b32 %0, !1;\n" : "=r"(_out));
+    *out = _out;
+}
+
+TEST(Ballot, ConstantArguments) {
+    cudaError_t ret;
+    int device;
+    ret = cudaGetDevice(&device);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaDeviceProp prop;
+    ret = cudaGetDeviceProperties(&prop, device);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    const int warpSize = prop.warpSize;
+
+    uint32_t * out;
+    ret = cudaMalloc((void **) &out, 8 * sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    vote_ballot_const0    <<<1, warpSize,     0, stream>>>(out + 0);
+    vote_ballot_const1    <<<1, warpSize,     0, stream>>>(out + 1);
+    vote_ballot_not_const0<<<1, warpSize,     0, stream>>>(out + 2);
+    vote_ballot_not_const1<<<1, warpSize,     0, stream>>>(out + 3);
+    vote_ballot_const0    <<<1, warpSize / 2, 0, stream>>>(out + 4);
+    vote_ballot_const1    <<<1, warpSize / 2, 0, stream>>>(out + 5);
+    vote_ballot_not_const0<<<1, warpSize / 2, 0, stream>>>(out + 6);
+    vote_ballot_not_const1<<<1, warpSize / 2, 0, stream>>>(out + 7);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint32_t hout[8];
+    ret = cudaMemcpy(hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /**
+     * This is a particularly unexpected outcome that is validated by
+     * the control run of the test suite (e.g., without Panoptes).  For
+     * immediate arguments, vote.ballot treats the operand as a true predicate
+     * value.  Consequently, the result of the ballot is an indicator of which
+     * threads participated.
+     */
+    EXPECT_EQ(0xFFFFFFFF, hout[0]);
+    EXPECT_EQ(0xFFFFFFFF, hout[1]);
+    EXPECT_EQ(0xFFFFFFFF, hout[2]);
+    EXPECT_EQ(0xFFFFFFFF, hout[3]);
+    EXPECT_EQ(0x0000FFFF, hout[4]);
+    EXPECT_EQ(0x0000FFFF, hout[5]);
+    EXPECT_EQ(0x0000FFFF, hout[6]);
+    EXPECT_EQ(0x0000FFFF, hout[7]);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

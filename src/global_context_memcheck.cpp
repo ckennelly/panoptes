@@ -5567,7 +5567,7 @@ void global_context_memcheck::instrument_vote(const statement_t & statement,
             break;
         case vote_ballot:
             if (va.is_constant()) {
-                aux->push_back(make_mov(b16_type, vd, 0));
+                aux->push_back(make_mov(b32_type, vd, 0));
             } else {
                 const temp_operand tmpp(*auxillary, pred_type);
                 aux->push_back(make_setp(b16_type, cmp_ne, tmpp, va, zero));

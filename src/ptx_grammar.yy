@@ -1473,7 +1473,7 @@ vmin : ;
 
 voteModeToken : TOKEN_ALL | TOKEN_ANY | TOKEN_UNI ;
 vote : OPCODE_VOTE voteModeToken TOKEN_PRED identifierOperand TOKEN_COMMA
-        optionalNegatedOperand identifierOperand {
+        optionalNegatedOperand immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.set_token($<vsigned>2);
     parser->set_type($<vsigned>3);
@@ -1483,7 +1483,7 @@ vote : OPCODE_VOTE voteModeToken TOKEN_PRED identifierOperand TOKEN_COMMA
 }
 
 vote : OPCODE_VOTE TOKEN_BALLOT TOKEN_B32 identifierOperand TOKEN_COMMA
-        optionalNegatedOperand identifierOperand {
+        optionalNegatedOperand immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.set_token($<vsigned>2);
     parser->set_type($<vsigned>3);
