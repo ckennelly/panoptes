@@ -1109,7 +1109,7 @@ not : OPCODE_NOT dataType identifierOperand TOKEN_COMMA identifierOperand {
     parser->operands.clear();
 };
 
-or : OPCODE_OR dataType identifierOperand TOKEN_COMMA identifierOperand
+or : OPCODE_OR dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
