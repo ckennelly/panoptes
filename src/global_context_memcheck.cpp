@@ -498,7 +498,7 @@ static operand_t make_validity_operand(const operand_t & in) {
                 bool constant = false;
 
                 const char pm[]  = "%pm";
-                const char env[] = "envreg";
+                const char env[] = "%envreg";
 
                 if (id == "%tid" || id == "%ntid" || id == "%laneid" ||
                         id == "%warpid" || id == "%nwarpid" ||
@@ -519,7 +519,8 @@ static operand_t make_validity_operand(const operand_t & in) {
                         }
                     }
 
-                    if (memcmp(id.c_str(), env, sizeof(env) - 1u) == 0) {
+                    if (memcmp(id.c_str(), env, std::min(id_size,
+                            sizeof(env) - 1u)) == 0) {
                         int s;
                         int p = sscanf(id.c_str() + sizeof(env) - 1u,
                             "%d", &s);

@@ -63,6 +63,7 @@ vtest_k_cnot
 vtest_k_copy_scalar_float
 vtest_k_copysign
 vtest_k_divmod
+vtest_k_envreg
 vtest_k_explog
 vtest_k_fma
 vtest_k_funcgetattributes
