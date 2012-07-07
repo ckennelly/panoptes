@@ -41,6 +41,10 @@ static const char * __reg_global_errors  = "__panoptes_gerrors";
 static const char * __reg_global_errorsw = "__panoptes_gerrorsw";
 static const char * __errors_address  = "__panoptes_eaddr";
 static const char * __reg_error_count = "__panoptes_recount";
+static const char * __zero_register8  = "__panoptes_zero8";
+static const char * __zero_register16 = "__panoptes_zero16";
+static const char * __zero_register32 = "__panoptes_zero32";
+static const char * __zero_register64 = "__panoptes_zero64";
 
 static const char * __shared_reg      = "__panoptes_shared_size";
 static const char * __local_reg       = "__panoptes_local_size";
@@ -474,7 +478,7 @@ static std::string make_validity_symbol(const std::string & in) {
     }
 }
 
-static operand_t make_validity_operand(const operand_t & in) {
+static operand_t make_validity_operand(const operand_t & in, size_t width) {
     operand_t ret;
 
     size_t ni, nf;
@@ -533,10 +537,40 @@ static operand_t make_validity_operand(const operand_t & in) {
                 if (constant) {
                     if (ni == 1) {
                         return operand_t::make_iconstant(0);
+                    } else {
+                        /**
+                         * The zero registers are necessary as we cannot
+                         * express {0, %foo} in PTX.  Instead, we must do
+                         * {%zero, %foo}, where %zero is an appropriately sized
+                         * register.
+                         */
+                        switch (width) {
+                            case 1:
+                                ret.identifier.push_back(__zero_register8);
+                                ret.field.push_back(field_none);
+                                break;
+                            case 2:
+                                ret.identifier.push_back(__zero_register16);
+                                ret.field.push_back(field_none);
+                                break;
+                            case 3:
+                            case 4:
+                                ret.identifier.push_back(__zero_register32);
+                                ret.field.push_back(field_none);
+                                break;
+                            case 5:
+                            case 6:
+                            case 7:
+                            case 8:
+                                ret.identifier.push_back(__zero_register64);
+                                ret.field.push_back(field_none);
+                                break;
+                            case 0:
+                            default:
+                                assert(0 && "Unreachable.");
+                                break;
+                        }
                     }
-
-                    ret.identifier.push_back("0");
-                    ret.field.push_back(field_none);
                 } else {
                     ret.identifier.push_back(make_validity_symbol(id));
                     ret.field.push_back(f);
@@ -930,6 +964,39 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
             b->statement    = new statement_t(make_mov(u32_type, vc_reg, 0));
             scope.blocks.push_front(b);
         }
+
+        /* Initialize zero registers. */
+        {
+            type_t       types[] = {u8_type, u16_type, u32_type, u64_type};
+            const char * names[] = {__zero_register8, __zero_register16,
+                                    __zero_register32, __zero_register64};
+
+            scope_t & scope = *entry->scope.scope;
+            for (int i = 0; i < 4; i++) {
+                const type_t type = types[i];
+                const char * name = names[i];
+
+                variable_t v;
+                v.space = reg_space;
+                v.type  = type;
+                v.name  = name;
+
+                scope.variables.push_back(v);
+
+                const operand_t vreg = operand_t::make_identifier(name);
+
+                block_t * b = new block_t();
+                b->block_type   = block_statement;
+                b->parent       = &entry->scope;
+
+                const statement_t s = type == u8_type ?
+                    make_cvt(u8_type, u16_type, vreg,
+                        operand_t::make_iconstant(0)) :
+                    make_mov(type, vreg, 0);
+                b->statement    = new statement_t(s);
+                scope.blocks.push_front(b);
+            }
+        }
     }
 
     /* Copy instrumented function. */
@@ -1044,8 +1111,8 @@ void global_context_memcheck::instrument_abs(const statement_t & statement,
     const operand_t & d = statement.operands[0];
     const operand_t & a = statement.operands[1];
 
-    const operand_t vd = make_validity_operand(d);
-    const operand_t va = make_validity_operand(a);
+    const operand_t vd = make_validity_operand(d, 0);
+    const operand_t va = make_validity_operand(a, 0);
 
     switch (statement.type) {
         case s16_type:
@@ -1109,7 +1176,7 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
     const operand_t & b = statement.operands[2];
     const operand_t & d = statement.operands[0];
 
-    const operand_t & vd = make_validity_operand(d);
+    const operand_t & vd = make_validity_operand(d, 0);
 
     /**
      * mul24 instructions with types other than u32 and s32 are not
@@ -1119,8 +1186,8 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
         (statement.type == s32_type ||
          statement.type == u32_type));
 
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
 
     const bool carry_in = (statement.op == op_addc) ||
         (statement.op == op_subc);
@@ -1270,9 +1337,9 @@ void global_context_memcheck::instrument_and(const statement_t & statement,
     const operand_t & b = statement.operands[2];
     const operand_t & d = statement.operands[0];
 
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
-    const operand_t vd = make_validity_operand(d);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
+    const operand_t vd = make_validity_operand(d, 0);
 
     const size_t width  = sizeof_type(statement.type);
     const type_t btype  = bitwise_of(width);
@@ -1376,11 +1443,11 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
     const operand_t & b    = statement.operands[1 + !reduce];
     const operand_t & c    = statement.operands[1 + !reduce + cas];
 
-    const operand_t vb     = make_validity_operand(b);
-    const operand_t vc     = make_validity_operand(c);
+    const operand_t vb     = make_validity_operand(b, 0);
+    const operand_t vc     = make_validity_operand(c, 0);
 
     const operand_t vd     = reduce ? operand_t() :
-        make_validity_operand(statement.operands[0]);
+        make_validity_operand(statement.operands[0], 0);
 
     /**
      * Atomics do not support vectors.
@@ -2141,7 +2208,7 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
     std::vector<operand_t> source_validity;
     for (unsigned i = 2; i < 4; i++) {
         const operand_t & op   = statement.operands[i];
-        const operand_t vop = make_validity_operand(op);
+        const operand_t vop = make_validity_operand(op, 0);
         if (!(vop.is_constant())) {
             source_validity.push_back(vop);
         }
@@ -2200,11 +2267,11 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
      * Consider the argument to a.
      */
     const operand_t & a  = statement.operands[1];
-    const operand_t   va = make_validity_operand(a);
+    const operand_t   va = make_validity_operand(a, 0);
     const bool aconstant = va.is_constant();
 
     const operand_t & d  = statement.operands[0];
-    const operand_t   vd = make_validity_operand(d);
+    const operand_t   vd = make_validity_operand(d, 0);
 
     if (aconstant && immed_constant) {
         /**
@@ -2289,7 +2356,7 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
     std::vector<operand_t> source_validity;
     for (unsigned i = 3; i < 5; i++) {
         const operand_t & op   = statement.operands[i];
-        const operand_t vop = make_validity_operand(op);
+        const operand_t vop = make_validity_operand(op, 0);
         if (!(vop.is_constant())) {
             source_validity.push_back(vop);
         }
@@ -2344,15 +2411,15 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
      * Consider the argument to a and b.
      */
     const operand_t & a  = statement.operands[1];
-    const operand_t   va = make_validity_operand(a);
+    const operand_t   va = make_validity_operand(a, 0);
     const bool aconstant = va.is_constant();
 
     const operand_t & b  = statement.operands[2];
-    const operand_t   vb = make_validity_operand(b);
+    const operand_t   vb = make_validity_operand(b, 0);
     const bool bconstant = vb.is_constant();
 
     const operand_t & vd = make_validity_operand(
-        statement.operands[0]);
+        statement.operands[0], 0);
 
     const bool data_constant = aconstant && bconstant;
 
@@ -2427,8 +2494,8 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
     const operand_t & a = statement.operands[1];
     const operand_t & d = statement.operands[0];
 
-    const operand_t va  = make_validity_operand(a);
-    const operand_t vd  = make_validity_operand(d);
+    const operand_t va  = make_validity_operand(a, 0);
+    const operand_t vd  = make_validity_operand(d, 0);
 
     const bool constant = va.is_constant();
 
@@ -2527,8 +2594,8 @@ void global_context_memcheck::instrument_brev(const statement_t & statement,
     const operand_t & a = statement.operands[1];
     const operand_t & d = statement.operands[0];
 
-    const operand_t va = make_validity_operand(a);
-    const operand_t vd = make_validity_operand(d);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vd = make_validity_operand(d, 0);
 
     switch (statement.type) {
         case b32_type:
@@ -2582,9 +2649,9 @@ void global_context_memcheck::instrument_cnot(const statement_t & statement,
     const operand_t & a = statement.operands[1];
     const operand_t & d = statement.operands[0];
 
-    const operand_t & vd = make_validity_operand(d);
+    const operand_t & vd = make_validity_operand(d, 0);
 
-    const operand_t va = make_validity_operand(a);
+    const operand_t va = make_validity_operand(a, 0);
     bool constant = va.is_constant();
 
     if (constant) {
@@ -2617,9 +2684,9 @@ void global_context_memcheck::instrument_copysign(
     const operand_t & b = statement.operands[2];
     const operand_t & d = statement.operands[0];
 
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
-    const operand_t vd = make_validity_operand(d);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
+    const operand_t vd = make_validity_operand(d, 0);
 
     const type_t btype = bitwise_type(statement.type);
 
@@ -2648,8 +2715,8 @@ void global_context_memcheck::instrument_cvt(const statement_t & statement,
     const operand_t & d = statement.operands[0];
     const operand_t & a = statement.operands[1];
 
-    const operand_t vd = make_validity_operand(d);
-    const operand_t va = make_validity_operand(a);
+    const operand_t vd = make_validity_operand(d, 0);
+    const operand_t va = make_validity_operand(a, 0);
 
     const type_t dtype = statement.type;
     const type_t atype = statement.type2;
@@ -2729,11 +2796,11 @@ void global_context_memcheck::instrument_fp1(const statement_t & statement,
     assert(statement.operands.size() == 2u);
 
     const operand_t & a  = statement.operands[1];
-    const operand_t   va = make_validity_operand(a);
+    const operand_t   va = make_validity_operand(a, 0);
     const bool constant  = va.is_constant();
 
     const operand_t & d  = statement.operands[0];
-    const operand_t   vd = make_validity_operand(d);
+    const operand_t   vd = make_validity_operand(d, 0);
 
     const type_t btype   = bitwise_type(statement.type);
     const type_t stype   = signed_type(statement.type);
@@ -2765,14 +2832,14 @@ void global_context_memcheck::instrument_fp3(const statement_t & statement,
     std::vector<operand_t> source_validity;
     for (unsigned i = 1; i < 4; i++) {
         const operand_t & op  = statement.operands[i];
-        const operand_t   vop = make_validity_operand(op);
+        const operand_t   vop = make_validity_operand(op, 0);
         if (!(vop.is_constant())) {
             source_validity.push_back(vop);
         }
     }
 
     const operand_t & d = statement.operands[0];
-    const operand_t vd  = make_validity_operand(d);
+    const operand_t vd  = make_validity_operand(d, 0);
     const type_t btype  = bitwise_type(statement.type);
     const type_t stype  = signed_type(statement.type);
 
@@ -2813,9 +2880,9 @@ void global_context_memcheck::instrument_isspacep(
     const operand_t & p = statement.operands[0];
     const operand_t & a = statement.operands[1];
 
-    const operand_t vp = make_validity_operand(p);
+    const operand_t vp = make_validity_operand(p, 0);
     assert(!(vp.is_constant()));
-    const operand_t va = make_validity_operand(a);
+    const operand_t va = make_validity_operand(a, 0);
 
     const operand_t zero = operand_t::make_iconstant(0);
     const operand_t one  = operand_t::make_iconstant(1);
@@ -3115,7 +3182,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 bitwise_type(statement.type);
 
             const operand_t vdst = make_validity_operand(
-                statement.operands[0]);
+                statement.operands[0], 0);
 
             statement_t new_vload = statement;
             new_vload.has_predicate = true;
@@ -3215,7 +3282,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         aux->push_back(make_add(uptr_t, vsrc, origin, limit));
 
         const type_t btype = bitwise_type(statement.type);
-        const operand_t vdst = make_validity_operand(statement.operands[0]);
+        const operand_t vdst = make_validity_operand(statement.operands[0], 0);
 
         statement_t new_vload = statement;
         new_vload.has_predicate = true;
@@ -3406,7 +3473,7 @@ void global_context_memcheck::instrument_mad(const statement_t & statement,
         switch (t) {
             case operand_identifier:
                 source_validity.push_back(
-                    make_validity_operand(op));
+                    make_validity_operand(op, 0));
                 break;
             case operand_addressable:
             case operand_indexed:
@@ -3422,7 +3489,7 @@ void global_context_memcheck::instrument_mad(const statement_t & statement,
     }
 
     const operand_t & d = statement.operands[0];
-    const operand_t vd  = make_validity_operand(d);
+    const operand_t vd  = make_validity_operand(d, 0);
 
     const type_t btype  = bitwise_type(statement.type);
     const type_t stype  = signed_type(statement.type);
@@ -3538,7 +3605,7 @@ void global_context_memcheck::instrument_math2(const statement_t & statement,
     std::vector<operand_t> source_validity;
     for (unsigned i = 1; i < 3; i++) {
         const operand_t & op  = statement.operands[i];
-        const operand_t   vop = make_validity_operand(op);
+        const operand_t   vop = make_validity_operand(op, 0);
         if (!(vop.is_constant())) {
             source_validity.push_back(vop);
         }
@@ -3549,7 +3616,7 @@ void global_context_memcheck::instrument_math2(const statement_t & statement,
     const type_t stype = signed_type(statement.type);
 
     const operand_t & d = statement.operands[0];
-    const operand_t vd  = make_validity_operand(d);
+    const operand_t vd  = make_validity_operand(d, 0);
 
     const operand_t zero = operand_t::make_iconstant(0);
     const operand_t one  = operand_t::make_iconstant(1);
@@ -3593,11 +3660,14 @@ void global_context_memcheck::instrument_mov(const statement_t & statement,
 
     const operand_t & a = statement.operands[1];
     const operand_t & d = statement.operands[0];
+    const size_t awidth = statement.type == pred_type ? 0 :
+        (sizeof_type(statement.type) /
+         (a.is_constant() ? 1 : a.identifier.size()));
 
     *keep = true;
 
     /* Short cut for the simple case, constants/sreg's */
-    operand_t va = make_validity_operand(a);
+    operand_t va = make_validity_operand(a, awidth);
     if (!(va.is_constant())) {
         const size_t n = va.identifier.size();
         std::vector<bool> done(n, false);
@@ -3686,7 +3756,10 @@ void global_context_memcheck::instrument_mov(const statement_t & statement,
         }
     }
 
-    const operand_t vd = make_validity_operand(d);
+    const size_t dwidth = statement.type == pred_type ? 1u :
+        (sizeof_type(statement.type) /
+         (d.is_constant() ? 1 : d.identifier.size()));
+    const operand_t vd = make_validity_operand(d, dwidth);
     statement_t copy = statement;
     copy.op = op_mov;
     if (copy.type == pred_type) {
@@ -3708,8 +3781,8 @@ void global_context_memcheck::instrument_neg(const statement_t & statement,
     const operand_t & d = statement.operands[0];
     const operand_t & a = statement.operands[0];
 
-    const operand_t vd  = make_validity_operand(d);
-    const operand_t va  = make_validity_operand(a);
+    const operand_t vd  = make_validity_operand(d, 0);
+    const operand_t va  = make_validity_operand(a, 0);
 
     switch (statement.type) {
         case s16_type:
@@ -3761,8 +3834,8 @@ void global_context_memcheck::instrument_not(const statement_t & statement,
     const operand_t & a = statement.operands[1];
     const operand_t & d = statement.operands[0];
 
-    const operand_t va = make_validity_operand(a);
-    const operand_t vd = make_validity_operand(d);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vd = make_validity_operand(d, 0);
 
     switch (statement.type) {
         case pred_type:
@@ -3810,9 +3883,9 @@ void global_context_memcheck::instrument_or(const statement_t & statement,
     const operand_t & b = statement.operands[2];
     const operand_t & d = statement.operands[0];
 
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
-    const operand_t vd = make_validity_operand(d);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
+    const operand_t vd = make_validity_operand(d, 0);
 
     switch (statement.type) {
         case pred_type:
@@ -4049,7 +4122,7 @@ void global_context_memcheck::instrument_prefetch(
             clean_a.field.push_back(field_none);
         }
 
-        const operand_t va  = make_validity_operand(clean_a);
+        const operand_t va  = make_validity_operand(clean_a, 0);
         const operand_t zero = operand_t::make_iconstant(0);
 
         /* If everything is okay, the predicates are set to good. */
@@ -4406,10 +4479,10 @@ void global_context_memcheck::instrument_prmt(const statement_t & statement,
     const operand_t & c = statement.operands[3];
     const operand_t & d = statement.operands[0];
 
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
-    const operand_t vc = make_validity_operand(c);
-    const operand_t vd = make_validity_operand(d);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
+    const operand_t vc = make_validity_operand(c, 0);
+    const operand_t vd = make_validity_operand(d, 0);
 
     assert(!(vd.is_constant()));
 
@@ -4523,7 +4596,7 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
     std::vector<operand_t> source_validity;
     for (unsigned i = 1; i < 3; i++) {
         const operand_t & op  = statement.operands[i];
-        const operand_t   vop = make_validity_operand(op);
+        const operand_t   vop = make_validity_operand(op, 0);
         if (!(vop.is_constant())) {
             source_validity.push_back(vop);
         }
@@ -4574,11 +4647,11 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
      * Consider the argument to c.
      */
     const operand_t & c  = statement.operands[3];
-    const operand_t   vc = make_validity_operand(c);
+    const operand_t   vc = make_validity_operand(c, 0);
     const bool cconstant = vc.is_constant();
 
     const operand_t & d = statement.operands[0];
-    const operand_t vd  = make_validity_operand(d);
+    const operand_t vd  = make_validity_operand(d, 0);
 
     if (cconstant && immed_constant) {
         /**
@@ -4632,10 +4705,10 @@ void global_context_memcheck::instrument_selp(const statement_t & statement,
     const operand_t & c = statement.operands[3];
     assert(!(c.is_constant()));
 
-    const operand_t vd = make_validity_operand(d);
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
-    const operand_t vc = make_validity_operand(c);
+    const operand_t vd = make_validity_operand(d, 0);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
+    const operand_t vc = make_validity_operand(c, 0);
 
     /**
      * Sign extend validity bits associated with c to the width of
@@ -4682,9 +4755,9 @@ void global_context_memcheck::instrument_set(const statement_t & statement,
     const operand_t & a = statement.operands[1];
     const operand_t & b = statement.operands[2];
 
-    const operand_t vd = make_validity_operand(d);
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
+    const operand_t vd = make_validity_operand(d, 0);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
 
     const type_t bdtype = bitwise_type(statement.type);
     const type_t sdtype = signed_type(statement.type);
@@ -4737,7 +4810,7 @@ void global_context_memcheck::instrument_set(const statement_t & statement,
      */
     if (statement.operands.size() == 4u) {
         const operand_t & c = statement.operands[2];
-        const operand_t vc = make_validity_operand(c);
+        const operand_t vc = make_validity_operand(c, 0);
 
         if (immed.is_constant()) {
             immed = vc;
@@ -4760,8 +4833,8 @@ void global_context_memcheck::instrument_setp(const statement_t & statement,
 
     const operand_t & a = statement.operands[0];
     const operand_t & b = statement.operands[1];
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
 
     const type_t btype = bitwise_type(statement.type);
     const type_t stype = signed_type(statement.type);
@@ -4811,7 +4884,7 @@ void global_context_memcheck::instrument_setp(const statement_t & statement,
      */
     if (statement.operands.size() == 3u) {
         const operand_t & c = statement.operands[2];
-        const operand_t vc = make_validity_operand(c);
+        const operand_t vc = make_validity_operand(c, 0);
 
         if (immed.is_constant()) {
             immed = vc;
@@ -4842,16 +4915,18 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
     assert(statement.operands.size() == 3u);
     *keep = true;
 
+    const size_t width = sizeof_type(statement.type);
+
     const operand_t & a  = statement.operands[1];
-    const operand_t   va = make_validity_operand(a);
+    const operand_t   va = make_validity_operand(a, 0);
     const bool aconstant = va.is_constant();
 
     const operand_t & b  = statement.operands[2];
-    const operand_t   vb = make_validity_operand(b);
+    const operand_t   vb = make_validity_operand(b, 0);
     const bool bconstant = vb.is_constant();
 
     const operand_t & d = statement.operands[0];
-    const operand_t vd = make_validity_operand(d);
+    const operand_t vd = make_validity_operand(d, 0);
 
     /**
      * We shift the validity bits just as the data bits are shifted
@@ -4871,8 +4946,6 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
     } else if (aconstant) {
         /* Result is dependant on the validity bits of b.  b is
          * always a 32-bit value. */
-        const size_t width = sizeof_type(statement.type);
-
         const temp_operand tmp(*auxillary, b32_type);
 
         aux->push_back(make_cnot(b32_type, tmp, vb));
@@ -4897,7 +4970,6 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
         aux->push_back(sh);
     } else {
         /* Join sources of validity bits. */
-        const size_t width = sizeof_type(statement.type);
         const temp_operand tmp0(*auxillary, btype);
 
         statement_t sh;
@@ -4949,10 +5021,10 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
     const operand_t & c = statement.operands[3];
     const operand_t & d = statement.operands[0];
 
-    const operand_t va = make_validity_operand(a);
-    const operand_t vb = make_validity_operand(b);
-    const operand_t vc = make_validity_operand(c);
-    const operand_t vd = make_validity_operand(d);
+    const operand_t va = make_validity_operand(a, 0);
+    const operand_t vb = make_validity_operand(b, 0);
+    const operand_t vc = make_validity_operand(c, 0);
+    const operand_t vd = make_validity_operand(d, 0);
 
     assert(!(vd.is_constant()));
 
@@ -5080,8 +5152,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     const size_t chunk_size = 1u << lg_chunk_bytes;
     const size_t max_chunks =
         (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
-    const size_t width = sizeof_type(statement.type) *
-        (unsigned) statement.vector;
+    const size_t cwidth = sizeof_type(statement.type);
+    const size_t width  = cwidth * (unsigned) statement.vector;
     const type_t read_t = unsigned_of(width);
     const temp_operand a_data(*auxillary, read_t);
 
@@ -5254,8 +5326,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
                 new_vstore.type);
             new_vstore.operands[0] = vdst;
             new_vstore.operands[1] =
-                make_validity_operand(
-                new_vstore.operands[1]);
+                make_validity_operand(new_vstore.operands[1], cwidth);
             aux->push_back(new_vstore);
         }
     } else if (statement.space == local_space) {
@@ -5316,8 +5387,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             new_vstore.type);
         new_vstore.operands[0] = vdst;
         new_vstore.operands[1] =
-            make_validity_operand(
-            new_vstore.operands[1]);
+            make_validity_operand(new_vstore.operands[1], cwidth);
         aux->push_back(new_vstore);
     } else {
         aux->push_back(make_mov(uptr_t, global_wo_reg, global_wo));
@@ -5430,8 +5500,8 @@ void global_context_memcheck::instrument_testp(const statement_t & statement,
     const operand_t & d = statement.operands[0];
     const operand_t & a = statement.operands[1];
 
-    const operand_t vd = make_validity_operand(d);
-    const operand_t va = make_validity_operand(a);
+    const operand_t vd = make_validity_operand(d, 0);
+    const operand_t va = make_validity_operand(a, 0);
 
     const type_t btype = bitwise_type(statement.type);
     const type_t stype = signed_type(statement.type);
@@ -5458,8 +5528,8 @@ void global_context_memcheck::instrument_vote(const statement_t & statement,
     const operand_t & d = statement.operands[0];
     const operand_t & a = statement.operands[1];
 
-    const operand_t vd = make_validity_operand(d);
-    const operand_t va = make_validity_operand(a);
+    const operand_t vd = make_validity_operand(d, 0);
+    const operand_t va = make_validity_operand(a, 0);
 
     const operand_t zero   = operand_t::make_iconstant(0);
     const operand_t negone = operand_t::make_iconstant(-1);

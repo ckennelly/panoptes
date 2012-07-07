@@ -20,6 +20,7 @@
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
+#include <valgrind/memcheck.h>
 
 template<typename S, typename T>
 static __device__ __inline__ S zip(const T a, const T b) {
@@ -173,6 +174,69 @@ TEST(Regression, MovePredicate) {
     ASSERT_EQ(cudaSuccess, ret);
 
     EXPECT_EQ(expected, hout);
+}
+
+/**
+ * We move one known-constant identifier and one variable identifier in the
+ * same operation to validate that Panoptes generates valid instrumentation.
+ */
+__global__ void k_mov_dual(uint2 * out, const unsigned int in) {
+    uint2 _out;
+    asm("{ .reg .b64 %tmp;\n"
+        "mov.b64 %tmp, {%clock, %2};\n"
+        "mov.b64 {%0, %1}, %tmp;}\n" : "=r"(_out.x), "=r"(_out.y) : "r"(in));
+    *out = _out;
+}
+
+TEST(MovTest, Dual) {
+    cudaError_t ret;
+
+    uint2 * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    unsigned int in = 0xDEADBEEF;
+    k_mov_dual<<<1, 1, 0, stream>>>(out, in);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint2 hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(in, hout.y);
+    uint2 vout;
+    int vret = VALGRIND_GET_VBITS(&hout, &vout, sizeof(hout));
+    if (vret == 1) {
+        EXPECT_EQ(0x00000000, vout.x);
+        EXPECT_EQ(0x00000000, vout.y);
+
+        VALGRIND_MAKE_MEM_UNDEFINED(&in, sizeof(in));
+        k_mov_dual<<<1, 1, 0, stream>>>(out, in);
+
+        ret = cudaStreamSynchronize(stream);
+        ASSERT_EQ(cudaSuccess, ret);
+
+        ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+        ASSERT_EQ(cudaSuccess, ret);
+
+        vret = VALGRIND_GET_VBITS(&hout, &vout, sizeof(hout));
+        ASSERT_EQ(1, vret);
+
+        EXPECT_EQ(0x00000000, vout.x);
+        EXPECT_EQ(0xFFFFFFFF, vout.y);
+    }
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 int main(int argc, char **argv) {
