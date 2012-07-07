@@ -529,7 +529,8 @@ addc : OPCODE_ADDC optionalCarryOut dataType immedOrVarOperand TOKEN_COMMA
     parser->operands.clear();
 };
 
-and : OPCODE_AND dataType identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA immedOrVarOperand {
+and : OPCODE_AND dataType identifierOperand TOKEN_COMMA immedOrVarOperand
+        TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
 

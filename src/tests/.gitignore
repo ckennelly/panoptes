@@ -47,6 +47,7 @@ vtest_hostregister
 vtest_hostunregister
 vtest_k_abs
 vtest_k_add
+vtest_k_and
 vtest_k_array
 vtest_k_atomic_generic
 vtest_k_atomic_global
