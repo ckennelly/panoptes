@@ -78,6 +78,7 @@ vtest_k_mul24
 vtest_k_mulhi
 vtest_k_noop
 vtest_k_peeraccess
+vtest_k_pm
 vtest_k_pmevent
 vtest_k_popc
 vtest_k_prefetch

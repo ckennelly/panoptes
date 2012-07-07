@@ -494,9 +494,10 @@ static operand_t make_validity_operand(const operand_t & in) {
                 field_t f = i < nf ? in.field[i] : field_none;
 
                 const std::string & id = in.identifier[i];
+                const size_t id_size = id.size();
                 bool constant = false;
 
-                const char pm[]  = "pm";
+                const char pm[]  = "%pm";
                 const char env[] = "envreg";
 
                 if (id == "%tid" || id == "%ntid" || id == "%laneid" ||
@@ -509,10 +510,11 @@ static operand_t make_validity_operand(const operand_t & in) {
                         id == "%clock64" || id == "WARP_SZ") {
                     constant = true;
                 } else {
-                    if (memcmp(id.c_str(), pm, sizeof(pm) - 1u) == 0) {
+                    if (memcmp(id.c_str(), pm, std::min(id_size,
+                            sizeof(pm) - 1u)) == 0) {
                         int s;
                         int p = sscanf(id.c_str() + sizeof(pm) - 1u, "%d", &s);
-                        if (p == 1 && s >= 0 && s <= 3) {
+                        if (p == 1 && s >= 0 && s <= 7) {
                             constant = true;
                         }
                     }
