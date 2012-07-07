@@ -239,6 +239,51 @@ TEST(MovTest, Dual) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+/**
+ * Move two known values together
+ */
+__global__ void k_mov_dual_const(uint2 * out) {
+    uint2 _out;
+    asm("{ .reg .b64 %tmp;\n"
+        "mov.b64 %tmp, {%clock, %clock};\n"
+        "mov.b64 {%0, %1}, %tmp;}\n" : "=r"(_out.x), "=r"(_out.y));
+    *out = _out;
+}
+
+TEST(MovTest, DualConst) {
+    cudaError_t ret;
+
+    uint2 * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_mov_dual_const<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint2 hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint2 vout;
+    int vret = VALGRIND_GET_VBITS(&hout, &vout, sizeof(hout));
+    if (vret == 1) {
+        EXPECT_EQ(0x00000000, vout.x);
+        EXPECT_EQ(0x00000000, vout.y);
+    }
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
