@@ -1305,7 +1305,7 @@ setp : OPCODE_SETP cmpOp optionalBoolOp optionalFTZ dataType TOKEN_IDENTIFIER
     parser->operands.clear();
 };
 
-shl : OPCODE_SHL dataType identifierOperand TOKEN_COMMA identifierOperand
+shl : OPCODE_SHL dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
@@ -1313,7 +1313,7 @@ shl : OPCODE_SHL dataType identifierOperand TOKEN_COMMA identifierOperand
     parser->operands.clear();
 };
 
-shr : OPCODE_SHR dataType identifierOperand TOKEN_COMMA identifierOperand
+shr : OPCODE_SHR dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
