@@ -3669,12 +3669,31 @@ void global_context_memcheck::instrument_mov(const statement_t & statement,
     /* Short cut for the simple case, constants/sreg's */
     operand_t va = make_validity_operand(a, awidth);
     if (!(va.is_constant())) {
+        const char * zero_register = NULL;
+        switch (awidth) {
+            case 1:
+                zero_register = __zero_register8;
+                break;
+            case 2:
+                zero_register = __zero_register16;
+                break;
+            case 4:
+                zero_register = __zero_register32;
+                break;
+            case 8:
+                zero_register = __zero_register64;
+                break;
+            default:
+                assert(0 && "Unsupported width.");
+                break;
+        }
+
         const size_t n = va.identifier.size();
         std::vector<bool> done(n, false);
         std::vector<bool> fixed(n, false);
         size_t rem = n;
         for (size_t i = 0; i < n; i++) {
-            if (va.identifier[i] == "0") {
+            if (va.identifier[i] == zero_register) {
                 done[i] = true;
                 fixed[i] = true;
                 rem--;
@@ -3750,7 +3769,7 @@ void global_context_memcheck::instrument_mov(const statement_t & statement,
 
         for (size_t i = 0; i < n; i++) {
             if (fixed[i])  {
-                va.identifier[i] = "0";
+                va.identifier[i] = zero_register;
                 va.field[i]      = field_none;
             }
         }
