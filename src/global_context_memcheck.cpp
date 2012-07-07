@@ -1341,10 +1341,10 @@ void global_context_memcheck::instrument_and(const statement_t & statement,
     const operand_t vb = make_validity_operand(b, 0);
     const operand_t vd = make_validity_operand(d, 0);
 
-    const size_t width  = sizeof_type(statement.type);
-    const type_t btype  = bitwise_of(width);
+    const type_t type   = statement.type;
+    const type_t btype  = type == pred_type ? b16_type : bitwise_type(type);
 
-    switch (statement.type) {
+    switch (type) {
         case pred_type:
             /**
              * For simplicity, we assume the worst case and OR the
