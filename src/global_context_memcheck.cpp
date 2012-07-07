@@ -164,19 +164,6 @@ static type_t signed_type(type_t t) {
     return invalid_type;
 }
 
-static unsigned log_size(size_t s) {
-    assert(s <= 64u);
-    if (s > 32u) {
-        return 4u;
-    } else if (s > 16u) {
-        return 3u;
-    } else if (s > 8u) {
-        return 2u;
-    } else {
-        return 1u;
-    }
-}
-
 static type_t bitwise_of(size_t s) {
     if (s > 4u) {
         return b64_type;
@@ -2918,7 +2905,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
     const size_t width = sizeof_type(statement.type) *
         (unsigned) statement.vector;
     const type_t read_t = unsigned_of(width);
-    const temp_operand a_data(*auxillary, unsigned_of(4u << log_size(width)));
+    const temp_operand a_data(*auxillary, read_t);
 
     const type_t wread_t =
         width <= 8 ? u16_type : read_t;
@@ -5093,7 +5080,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     const size_t width = sizeof_type(statement.type) *
         (unsigned) statement.vector;
     const type_t read_t = unsigned_of(width);
-    const temp_operand a_data(*auxillary, unsigned_of(4u << log_size(width)));
+    const temp_operand a_data(*auxillary, read_t);
 
     const type_t wread_t =
         width <= 8 ? u16_type : read_t;
