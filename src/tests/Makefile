@@ -75,6 +75,9 @@ vtest_k_atomic_global: vtest_k_atomic_global.o k_atomic_kernels.o
 vtest_k_atomic_shared: vtest_k_atomic_shared.o k_atomic_kernels.o
 	nvcc -o vtest_k_atomic_shared $^ $(LDFLAGS)
 
+vtest_k_atomic_shared_offsets.o: vtest_k_atomic_shared_offsets.cu Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_13
+
 vtest_k_ballot.o: vtest_k_ballot.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 

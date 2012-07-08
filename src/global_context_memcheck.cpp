@@ -1425,6 +1425,109 @@ void global_context_memcheck::instrument_and(const statement_t & statement,
     *keep = true;
 }
 
+/**
+ * Searches for the variable in the block (and its parents), returning true
+ * if the variable is found.
+ *
+ * If not NULL, f_ returns a pointer to the containing function.
+ * If not NULL, v_ returns a pointer to the variable.
+ */
+static bool find_variable(const std::string & id, space_t space,
+        const block_t * block, const function_t ** f_,
+        const variable_t ** v_) {
+    bool found            = false;
+    const function_t * f  = NULL;
+    const variable_t * vr = NULL;
+
+    const size_t isize = id.size();
+    while (block && !(found)) {
+        assert(!(block->parent) || !(block->fparent));
+        assert(block->block_type == block_scope);
+        const scope_t * s = block->scope;
+
+        const size_t vn = s->variables.size();
+        for (size_t vi = 0; vi < vn; vi++) {
+            const variable_t & v = s->variables[vi];
+            if (v.space != space) {
+                continue;
+            }
+
+            const size_t vsize = v.name.size();
+            const size_t msize = std::min(vsize, isize);
+            if (v.has_suffix && memcmp(v.name.c_str(), id.c_str(), msize) == 0) {
+                /* Matched the prefix, now parse the suffix.*/
+                int suffix;
+                int p = sscanf(id.c_str() + msize, "%d", &suffix);
+                if (p == 1 && suffix >= 0 && suffix < v.suffix) {
+                    found = true;
+                    vr = &v;
+                }
+            } else if (!(v.has_suffix) && id == v.name) {
+                found = true;
+                vr = &v;
+                break;
+            }
+
+            /* Consistency check. */
+            assert(!(v.has_suffix ^ (v.suffix >= 0)));
+        }
+
+        /* Move up. */
+        f     = block->fparent;
+        block = block->parent;
+    }
+
+    if (f_) {
+        *f_ = f;
+    }
+
+    if (found && v_) {
+        *v_ = vr;
+    }
+
+    return found;
+}
+
+/**
+ * Like find_variable but conducts its search in the global scope.
+ */
+static bool find_variable_global(const std::string & id, space_t space,
+        const ptx_t * ptx, const variable_t ** v_) {
+    bool found = false;
+    const variable_t * vr = NULL;
+
+    const size_t vn = ptx->variables.size();
+    const size_t isize = id.size();
+    for (size_t vi = 0; vi < vn; vi++) {
+        const variable_t & v = ptx->variables[vi];
+        if (v.space != space) {
+            continue;
+        }
+
+        const size_t vsize = v.name.size();
+        const size_t msize = std::min(vsize, isize);
+        if (v.has_suffix && memcmp(v.name.c_str(), id.c_str(), msize) == 0) {
+            /* Matched the prefix, now parse the suffix.*/
+            int s;
+            int p = sscanf(id.c_str() + msize, "%d", &s);
+            if (p == 1 && s >= 0 && s <= v.suffix) {
+                found = true;
+                vr = &v;
+            }
+        } else if (!(v.has_suffix) && id == v.name) {
+            found = true;
+            vr = &v;
+            break;
+        }
+    }
+
+    if (found && v_) {
+        *v_ = vr;
+    }
+
+    return found;
+}
+
 void global_context_memcheck::instrument_atom(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert((statement.op == op_atom && (statement.operands.size() >= 3u ||
@@ -1552,54 +1655,17 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
         const std::string & id = addr.identifier[0];
 
         /* Walk up scopes for identifiers. */
-        const block_t * block = auxillary->block;
         const function_t * f = NULL;
-
-        bool found = false;
-        bool flexible = false;
-        size_t size;
-
-        while (block && !(found)) {
-            assert(!(block->parent) || !(block->fparent));
-            assert(block->block_type == block_scope);
-            const scope_t * s = block->scope;
-
-            const size_t vn = s->variables.size();
-            for (size_t vi = 0; vi < vn; vi++) {
-                const variable_t & v = s->variables[vi];
-                if (id == v.name && !(v.has_suffix) &&
-                        v.space != reg_space) {
-                    found = true;
-                    size = v.size();
-                    break;
-                }
-            }
-
-            /* Move up. */
-            f     = block->fparent;
-            block = block->parent;
-        }
+        const variable_t * v = NULL;
+        bool found = find_variable(id, shared_space, auxillary->block, &f, &v);
 
         if (!(found)) {
             assert(f);
-
-            const ptx_t * p = f->parent;
-            const size_t vn = p->variables.size();
-            for (size_t vi = 0; vi < vn; vi++) {
-                const variable_t & v = p->variables[vi];
-                if (id == v.name && !(v.has_suffix) &&
-                        v.space != reg_space) {
-                    found = true;
-                    flexible = v.array_flexible;
-                    if (!(flexible)) {
-                        size = v.size();
-                    }
-                    break;
-                }
-            }
+            found = find_variable_global(id, shared_space, f->parent, &v);
         }
 
-        if (found && !(flexible)) {
+        const size_t size = found ? v->size() : 0u;
+        if (found && !(v->array_flexible)) {
             /* We found a fixed symbol, verify we do not statically overrun
              * it. */
             const size_t end = width + (size_t) addr.offset;
@@ -1617,7 +1683,11 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
                 assert(ret < (int) sizeof(msg) - 1);
                 logger::instance().print(msg);
 
-                /* Cast off bits into the ether. */
+                /* Cast off bits into the ether and mark result as invalid. */
+                if (!(reduce)) {
+                    aux->push_back(make_mov(btype, vd, -1));
+                }
+
                 return;
             } else {
                 /* Map it to the validity symbol, preserving offset. */
@@ -3039,52 +3109,17 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         const std::string & id = src.identifier[0];
 
         /* Walk up scopes for identifiers. */
-        const block_t * b = auxillary->block;
         const function_t * f = NULL;
-
-        bool found = false;
-        bool flexible = false;
-        size_t size;
-
-        while (b && !(found)) {
-            assert(!(b->parent) || !(b->fparent));
-            assert(b->block_type == block_scope);
-            const scope_t * s = b->scope;
-
-            const size_t vn = s->variables.size();
-            for (size_t vi = 0; vi < vn; vi++) {
-                const variable_t & v = s->variables[vi];
-                if (id == v.name && !(v.has_suffix) &&
-                        v.space != reg_space) {
-                    found = true;
-                    size = v.size();
-                    break;
-                }
-            }
-
-            /* Move up. */
-            f = b->fparent;
-            b = b->parent;
-        }
+        const variable_t * v = NULL;
+        bool found = find_variable(id, shared_space, auxillary->block, &f, &v);
 
         if (!(found)) {
             assert(f);
-
-            const ptx_t * p = f->parent;
-            const size_t vn = p->variables.size();
-            for (size_t vi = 0; vi < vn; vi++) {
-                const variable_t & v = p->variables[vi];
-                if (id == v.name && !(v.has_suffix) &&
-                        v.space != reg_space) {
-                    found = true;
-                    flexible = v.array_flexible;
-                    if (!(flexible)) {
-                        size = v.size();
-                    }
-                    break;
-                }
-            }
+            found = find_variable_global(id, shared_space, f->parent, &v);
         }
+
+        const bool   flexible = found ? v->array_flexible : false;
+        const size_t size     = found ? v->size() : 0;
 
         if (found && !(flexible)) {
             /* We found a fixed symbol, verify we do not
@@ -3114,7 +3149,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
                 char msg[256];
                 int ret = snprintf(msg, sizeof(msg),
-                    "Shared store of %zu bytes at offset "
+                    "Shared load of %zu bytes at offset "
                     "%ld will overrun buffer:\n"
                     "Disassembly: %s\n", width,
                     src.offset, ss.str().c_str());
@@ -5206,52 +5241,17 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
         const std::string & id = dst.identifier[0];
 
         /* Walk up scopes for identifiers. */
-        const block_t * b = auxillary->block;
         const function_t * f = NULL;
-
-        bool found = false;
-        bool flexible = false;
-        size_t size;
-
-        while (b && !(found)) {
-            assert(!(b->parent) || !(b->fparent));
-            assert(b->block_type == block_scope);
-            const scope_t * s = b->scope;
-
-            const size_t vn = s->variables.size();
-            for (size_t vi = 0; vi < vn; vi++) {
-                const variable_t & v = s->variables[vi];
-                if (id == v.name && !(v.has_suffix) &&
-                        v.space != reg_space) {
-                    found = true;
-                    size = v.size();
-                    break;
-                }
-            }
-
-            /* Move up. */
-            f = b->fparent;
-            b = b->parent;
-        }
+        const variable_t * v = NULL;
+        bool found = find_variable(id, shared_space, auxillary->block, &f, &v);
 
         if (!(found)) {
             assert(f);
-
-            const ptx_t * p = f->parent;
-            const size_t vn = p->variables.size();
-            for (size_t vi = 0; vi < vn; vi++) {
-                const variable_t & v = p->variables[vi];
-                if (id == v.name && !(v.has_suffix) &&
-                        v.space != reg_space) {
-                    found = true;
-                    flexible = v.array_flexible;
-                    if (!(flexible)) {
-                        size = v.size();
-                    }
-                    break;
-                }
-            }
+            found = find_variable_global(id, shared_space, f->parent, &v);
         }
+
+        const bool   flexible = found ? v->array_flexible : false;
+        const size_t size     = found ? v->size() : 0u;
 
         if (found && !(flexible)) {
             /* We found a fixed symbol, verify we do not statically overrun
@@ -5301,9 +5301,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
                 new_vdst.field.push_back(field_none);
             }
         } else {
-            /* Verify address against the shared size
-             * parameter. TODO:  Verify we don't overrun
-             * the buffer. */
+            /* Verify address against the shared size parameter. */
 
             const operand_t limit =
                 operand_t::make_identifier(__shared_reg);
@@ -5319,8 +5317,13 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
                     original_ptr, operand_t::make_iconstant(dst.offset)));
             }
 
-            aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit,
-                original_ptr));
+            {
+                const temp_ptr tmp(*auxillary);
+                aux->push_back(make_add(uptr_t, tmp, original_ptr,
+                    operand_t::make_iconstant((int) width)));
+                aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit,
+                    tmp));
+            }
 
             statement_t new_store = statement;
             /**

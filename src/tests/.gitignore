@@ -52,6 +52,7 @@ vtest_k_array
 vtest_k_atomic_generic
 vtest_k_atomic_global
 vtest_k_atomic_shared
+vtest_k_atomic_shared_offsets
 vtest_k_ballot
 vtest_k_bitfield
 vtest_k_blas

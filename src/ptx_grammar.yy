@@ -203,6 +203,7 @@ dataType : dataTypeToken {
 declarationSpace : TOKEN_REG | TOKEN_PARAM | TOKEN_LOCAL | TOKEN_SHARED ;
 declarationSuffix : TOKEN_LANGLE TOKEN_CONSTANT_DECIMAL TOKEN_RANGLE {
     parser->function->top->variable.suffix = $<vsigned>2;
+    parser->function->top->variable.has_suffix = true;
 };
 declarationSuffix : /* */ ;
 

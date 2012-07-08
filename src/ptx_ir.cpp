@@ -850,10 +850,12 @@ size_t variable_t::size() const {
 
     size_t scale = 1u;
     if (is_array) {
-        assert(!(array_flexible) && "TODO Support flexible arrays");
-
-        for (unsigned i = 0; i < array_dimensions; i++) {
-            scale *= array_size[i];
+        if (array_flexible) {
+            scale = 0u;
+        } else {
+            for (unsigned i = 0; i < array_dimensions; i++) {
+                scale *= array_size[i];
+            }
         }
     }
 
