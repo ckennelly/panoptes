@@ -1103,7 +1103,7 @@ neg : OPCODE_NEG optionalFTZ floatingDataType identifierOperand TOKEN_COMMA
     parser->operands.clear();
 };
 
-not : OPCODE_NOT dataType identifierOperand TOKEN_COMMA identifierOperand {
+not : OPCODE_NOT dataType identifierOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);

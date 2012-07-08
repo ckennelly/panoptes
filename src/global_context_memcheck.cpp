@@ -3896,7 +3896,7 @@ void global_context_memcheck::instrument_not(const statement_t & statement,
             /**
              * Validity information is simply transfered.
              */
-            aux->push_back(make_mov(b16_type, va, vd));
+            aux->push_back(make_mov(b16_type, vd, va));
 
             assert(d.identifier.size() > 0);
             auxillary->inst->unchecked.insert(d.identifier[0]);
