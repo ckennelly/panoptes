@@ -107,6 +107,16 @@ bool launch_atomic_global_cas(int threads, uint32_t * d, uint32_t * a,
 cudaError_t launch_red_global_overrun(uint32_t * a);
 
 template<typename T>
+bool launch_atomic_global_const1(int threads, uint32_t * d, uint32_t * a);
+
+/* The values of the chosen hard-coded constants are returned via host
+ * pointer. */
+bool launch_atomic_global_cas_const1(int threads, uint32_t * d, uint32_t * a,
+    uint32_t * b, uint32_t c);
+bool launch_atomic_global_cas_const2(int threads, uint32_t * d, uint32_t * a,
+    uint32_t * b, uint32_t * c);
+
+template<typename T>
 bool launch_atomic_shared(int threads, uint32_t * d, uint32_t * a, uint32_t b);
 
 bool launch_atomic_shared_cas(int threads, uint32_t * d, uint32_t * a,

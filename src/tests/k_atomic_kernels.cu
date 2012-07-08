@@ -97,6 +97,75 @@ static __device__ uint32_t atomic_global<atom_xor>(uint32_t * a, uint32_t b) {
 }
 
 template<typename OP>
+static __device__ uint32_t atomic_global_const1(uint32_t * a) {
+    BOOST_STATIC_ASSERT(sizeof(OP) == 0);
+    return 0;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_add>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.add.u32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_and>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.and.b32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_dec>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.dec.u32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_exch>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.exch.b32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_inc>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.inc.u32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_max>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.max.u32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_min>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.min.u32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_or>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.or.b32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<>
+static __device__ uint32_t atomic_global_const1<atom_xor>(uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.xor.b32 %0, [%1], 1;" : "=r"(out) : "l"(a));
+    return out;
+}
+
+template<typename OP>
 static __device__ uint32_t atomic_shared(uint32_t * a, uint32_t b) {
     BOOST_STATIC_ASSERT(sizeof(OP) == 0);
     return 0;
@@ -179,11 +248,29 @@ static __global__ void k_ag(uint32_t * d, uint32_t * a, uint32_t b) {
     d[threadIdx.x] = atomic_global<OP>(a, b);
 }
 
+template<typename OP>
+static __global__ void k_ag_const1(uint32_t * d, uint32_t * a) {
+    d[threadIdx.x] = atomic_global_const1<OP>(a);
+}
+
 static __global__ void k_ag_cas(uint32_t * d, uint32_t * a, uint32_t b,
         uint32_t c) {
     uint32_t out;
     asm volatile("atom.global.cas.b32 %0, [%1], %2, %3;" :
         "=r"(out) : "l"(a), "r"(b), "r"(c));
+    d[threadIdx.x] = out;
+}
+
+static __global__ void k_ag_cas_const1(uint32_t * d, uint32_t * a, uint32_t c) {
+    uint32_t out;
+    asm volatile("atom.global.cas.b32 %0, [%1], 1, %2;" :
+        "=r"(out) : "l"(a), "r"(c));
+    d[threadIdx.x] = out;
+}
+
+static __global__ void k_ag_cas_const2(uint32_t * d, uint32_t * a) {
+    uint32_t out;
+    asm volatile("atom.global.cas.b32 %0, [%1], 1, 5;" : "=r"(out) : "l"(a));
     d[threadIdx.x] = out;
 }
 
@@ -259,6 +346,57 @@ bool launch_atomic_global_cas(int threads, uint32_t * d, uint32_t * a,
     return true;
 }
 
+bool launch_atomic_global_cas_const1(int threads, uint32_t * d, uint32_t * a,
+        uint32_t * b, uint32_t c) {
+    cudaError_t ret;
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    k_ag_cas_const1<<<1, threads, 0, stream>>>(d, a, c);
+    *b = 1u;
+
+    ret = cudaStreamSynchronize(stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    ret = cudaStreamDestroy(stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    return true;
+}
+
+bool launch_atomic_global_cas_const2(int threads, uint32_t * d, uint32_t * a,
+        uint32_t * b, uint32_t * c) {
+    cudaError_t ret;
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    k_ag_cas_const2<<<1, threads, 0, stream>>>(d, a);
+    *b = 1;
+    *c = 5;
+
+    ret = cudaStreamSynchronize(stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    ret = cudaStreamDestroy(stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    return true;
+}
+
 template<typename T>
 bool launch_atomic_shared(int threads, uint32_t * d, uint32_t * a,
         uint32_t b) {
@@ -308,6 +446,30 @@ bool launch_atomic_shared_cas(int threads, uint32_t * d, uint32_t * a,
     return true;
 }
 
+template<typename T>
+bool launch_atomic_global_const1(int threads, uint32_t * d, uint32_t * a) {
+    cudaError_t ret;
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    k_ag_const1<T><<<1, threads, 0, stream>>>(d, a);
+
+    ret = cudaStreamSynchronize(stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    ret = cudaStreamDestroy(stream);
+    if (ret != cudaSuccess) {
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * Instantiate templates.
  */
@@ -320,6 +482,16 @@ template bool launch_atomic_global<atom_max> (int, uint32_t *, uint32_t *, uint3
 template bool launch_atomic_global<atom_min> (int, uint32_t *, uint32_t *, uint32_t);
 template bool launch_atomic_global<atom_or>  (int, uint32_t *, uint32_t *, uint32_t);
 template bool launch_atomic_global<atom_xor> (int, uint32_t *, uint32_t *, uint32_t);
+
+template bool launch_atomic_global_const1<atom_add> (int, uint32_t *, uint32_t *);
+template bool launch_atomic_global_const1<atom_and> (int, uint32_t *, uint32_t *);
+template bool launch_atomic_global_const1<atom_dec> (int, uint32_t *, uint32_t *);
+template bool launch_atomic_global_const1<atom_exch>(int, uint32_t *, uint32_t *);
+template bool launch_atomic_global_const1<atom_inc> (int, uint32_t *, uint32_t *);
+template bool launch_atomic_global_const1<atom_max> (int, uint32_t *, uint32_t *);
+template bool launch_atomic_global_const1<atom_min> (int, uint32_t *, uint32_t *);
+template bool launch_atomic_global_const1<atom_or>  (int, uint32_t *, uint32_t *);
+template bool launch_atomic_global_const1<atom_xor> (int, uint32_t *, uint32_t *);
 
 template bool launch_atomic_shared<atom_add> (int, uint32_t *, uint32_t *, uint32_t);
 template bool launch_atomic_shared<atom_and> (int, uint32_t *, uint32_t *, uint32_t);
