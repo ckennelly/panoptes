@@ -311,6 +311,45 @@ TEST(TestPTest, SingleValidity) {
     }
 }
 
+__global__ void k_const_isfinite(bool * d) {
+    int ret;
+    asm volatile(
+        "{ .reg .pred %tmp;\n"
+        "  testp.finite.f32 %tmp, 0f00000000;\n"
+        "  selp.b32 %0, 1, 0, %tmp; }\n" :
+        "=r"(ret));
+    *d = ret;
+}
+
+TEST(TestPTest, ConstantValidity) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    bool * d;
+    ret = cudaMalloc((void **) &d, sizeof(d));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_const_isfinite<<<1, 1, 0, stream>>>(d);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    bool hd;
+    ret = cudaMemcpy(&hd, d, sizeof(hd), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(d);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_TRUE(hd);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

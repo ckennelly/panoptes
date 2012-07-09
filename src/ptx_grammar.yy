@@ -1431,7 +1431,7 @@ testpOpToken : TOKEN_FINITE | TOKEN_INFINITE | TOKEN_NUMBER |
     TOKEN_NOTANUMBER | TOKEN_NORMAL | TOKEN_SUBNORMAL ;
 
 testp : OPCODE_TESTP testpOpToken floatingDataType identifierOperand
-        TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.set_token($<vsigned>2);
 
