@@ -114,6 +114,9 @@ vtest_k_global_reductions.o: vtest_k_global_reductions.cu Makefile
 vtest_k_isspacep.o: vtest_k_isspacep.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
+vtest_k_mad.o: vtest_k_mad.cu Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
+
 vtest_k_mulhi.o: vtest_k_mulhi.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
