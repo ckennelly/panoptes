@@ -241,9 +241,75 @@ TEST(TestPTest, Single) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
-/**
- * TODO:  Add a validity check to see that we propagate invalid bits.
- */
+TEST(TestPTest, SingleValidity) {
+    if (!(RUNNING_ON_VALGRIND)) {
+        return;
+    }
+
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    bool * d;
+    ret = cudaMalloc((void **) &d, 12 * sizeof(d));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+          float  fs = 0.5f;
+          double fd = 0.2;
+    VALGRIND_MAKE_MEM_UNDEFINED(&fs, sizeof(fs));
+    VALGRIND_MAKE_MEM_UNDEFINED(&fd, sizeof(fd));
+
+    k_isfinite   <<<1, 1, 0, stream>>>(d + 0,  fs);
+    k_isfinite   <<<1, 1, 0, stream>>>(d + 1,  fd);
+
+    k_isinfinite <<<1, 1, 0, stream>>>(d + 2,  fs);
+    k_isinfinite <<<1, 1, 0, stream>>>(d + 3,  fd);
+
+    k_isnumber   <<<1, 1, 0, stream>>>(d + 4,  fs);
+    k_isnumber   <<<1, 1, 0, stream>>>(d + 5,  fd);
+
+    k_isnan      <<<1, 1, 0, stream>>>(d + 6,  fs);
+    k_isnan      <<<1, 1, 0, stream>>>(d + 7,  fd);
+
+    k_isnormal   <<<1, 1, 0, stream>>>(d + 8,  fs);
+    k_isnormal   <<<1, 1, 0, stream>>>(d + 9,  fd);
+
+    k_issubnormal<<<1, 1, 0, stream>>>(d + 10, fs);
+    k_issubnormal<<<1, 1, 0, stream>>>(d + 11, fd);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    bool hd[12];
+    ret = cudaMemcpy(&hd, d, sizeof(hd), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(d);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint8_t vd[12];
+    BOOST_STATIC_ASSERT(sizeof(hd) == sizeof(vd));
+    int vret = VALGRIND_GET_VBITS(hd, vd, sizeof(hd));
+    if (vret == 1) {
+        EXPECT_EQ(0xFF, vd[0]);
+        EXPECT_EQ(0xFF, vd[1]);
+        EXPECT_EQ(0xFF, vd[2]);
+        EXPECT_EQ(0xFF, vd[3]);
+        EXPECT_EQ(0xFF, vd[4]);
+        EXPECT_EQ(0xFF, vd[5]);
+        EXPECT_EQ(0xFF, vd[6]);
+        EXPECT_EQ(0xFF, vd[7]);
+        EXPECT_EQ(0xFF, vd[8]);
+        EXPECT_EQ(0xFF, vd[9]);
+        EXPECT_EQ(0xFF, vd[10]);
+        EXPECT_EQ(0xFF, vd[11]);
+    }
+}
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
