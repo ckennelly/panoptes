@@ -895,8 +895,8 @@ integerDataType : integerDataTypeToken {
 };
 
 mad : OPCODE_MAD optionalWidth optionalCarryOut optionalSaturating
-        integerDataType identifierOperand TOKEN_COMMA identifierOperand
-        TOKEN_COMMA identifierOperand TOKEN_COMMA identifierOperand {
+        integerDataType identifierOperand TOKEN_COMMA immedOrVarOperand
+        TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -905,8 +905,8 @@ mad : OPCODE_MAD optionalWidth optionalCarryOut optionalSaturating
 
 /* Floating point. */
 mad : OPCODE_MAD optionalFRounding optionalSaturating TOKEN_F32
-        identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand {
+        identifierOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
 
     parser->set_type(TOKEN_F32);
@@ -916,8 +916,8 @@ mad : OPCODE_MAD optionalFRounding optionalSaturating TOKEN_F32
 }
 
 mad : OPCODE_MAD fRounding TOKEN_F64 identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA
-        identifierOperand {
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
+        immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
 
     parser->set_type(TOKEN_F64);
