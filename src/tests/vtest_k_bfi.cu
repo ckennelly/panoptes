@@ -17,9 +17,12 @@
  */
 
 #include <boost/static_assert.hpp>
+#include <boost/type_traits/make_unsigned.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
+#include <limits>
 #include <stdint.h>
+#include <valgrind/memcheck.h>
 
 template<typename T>
 class BitfieldTestFixture : public ::testing::Test {
@@ -281,6 +284,161 @@ REGISTER_TYPED_TEST_CASE_P(BitfieldTestFixture,
 
 typedef ::testing::Types<int32_t, uint32_t, int64_t, uint64_t> MyTypes;
 INSTANTIATE_TYPED_TEST_CASE_P(My, BitfieldTestFixture, MyTypes);
+
+template<typename T>
+class BitfieldSingle : public ::testing::Test {
+public:
+    BitfieldSingle() { }
+    ~BitfieldSingle() { }
+
+    void SetUp() {
+        cudaError_t ret;
+        ret = cudaStreamCreate(&stream);
+        ASSERT_EQ(cudaSuccess, ret);
+    }
+
+    void TearDown() {
+        cudaError_t ret;
+        ret = cudaStreamDestroy(stream);
+        ASSERT_EQ(cudaSuccess, ret);
+    }
+
+    cudaStream_t stream;
+};
+
+TYPED_TEST_CASE_P(BitfieldSingle);
+
+template<typename T>
+__global__ void k_bfi_constant_data(T * f, uint32_t c, uint32_t d) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+__global__ void k_bfi_constant_data(uint32_t * f, uint32_t c, uint32_t d) {
+    uint32_t _out;
+    asm("bfi.b32 %0, 2863311530, 1431655765, %1, %2;" : "=r"(_out) :
+        "r"(c), "r"(d));
+    *f = _out;
+}
+
+template<>
+__global__ void k_bfi_constant_data(int32_t * f, uint32_t c, uint32_t d) {
+    int32_t _out;
+    asm("bfi.b32 %0, 2863311530, 1431655765, %1, %2;" : "=r"(_out) :
+        "r"(c), "r"(d));
+    *f = _out;
+}
+
+template<>
+__global__ void k_bfi_constant_data(uint64_t * f, uint32_t c, uint32_t d) {
+    uint64_t _out;
+    asm("bfi.b64 %0, 3074457345618258602, 6148914691236517205, %1, %2;" :
+        "=l"(_out) : "r"(c), "r"(d));
+    *f = _out;
+}
+
+template<>
+__global__ void k_bfi_constant_data(int64_t * f, uint32_t c, uint32_t d) {
+    int64_t _out;
+    asm("bfi.b64 %0, 3074457345618258602, 6148914691236517205, %1, %2;" :
+        "=l"(_out) : "r"(c), "r"(d));
+    *f = _out;
+}
+
+template<typename T>
+__global__ void k_bfi_constant(T * f) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+__global__ void k_bfi_constant(uint32_t * f) {
+    uint32_t _out;
+    asm("bfi.b32 %0, 2863311530, 1431655765, 5, 5;" : "=r"(_out));
+    *f = _out;
+}
+
+template<>
+__global__ void k_bfi_constant(int32_t * f) {
+    int32_t _out;
+    asm("bfi.b32 %0, 2863311530, 1431655765, 5, 5;" : "=r"(_out));
+    *f = _out;
+}
+
+template<>
+__global__ void k_bfi_constant(uint64_t * f) {
+    uint64_t _out;
+    asm("bfi.b64 %0, 3074457345618258602, 6148914691236517205, 5, 5;" :
+        "=l"(_out));
+    *f = _out;
+}
+
+template<>
+__global__ void k_bfi_constant(int64_t * f) {
+    int64_t _out;
+    asm("bfi.b64 %0, 3074457345618258602, 6148914691236517205, 5, 5;" :
+        "=l"(_out));
+    *f = _out;
+}
+
+TYPED_TEST_P(BitfieldSingle, InsertConstantData) {
+    TypeParam * f;
+
+    cudaError_t ret;
+    ret = cudaMalloc((void **) &f, 5 * sizeof(*f));
+    assert(cudaSuccess == ret);
+
+    const uint32_t c = 5;
+    const uint32_t d = 5;
+
+    uint32_t c_invalid = c;
+    VALGRIND_MAKE_MEM_UNDEFINED(&c_invalid, sizeof(c_invalid));
+    uint32_t d_invalid = d;
+    VALGRIND_MAKE_MEM_UNDEFINED(&d_invalid, sizeof(d_invalid));
+
+    k_bfi_constant_data<<<1, 1, 0, this->stream>>>(f + 0, c,         d);
+    k_bfi_constant     <<<1, 1, 0, this->stream>>>(f + 1);
+    k_bfi_constant_data<<<1, 1, 0, this->stream>>>(f + 2, c,         d_invalid);
+    k_bfi_constant_data<<<1, 1, 0, this->stream>>>(f + 3, c_invalid, d);
+    k_bfi_constant_data<<<1, 1, 0, this->stream>>>(f + 4, c_invalid, d_invalid);
+
+    ret = cudaStreamSynchronize(this->stream);
+    assert(cudaSuccess == ret);
+
+    TypeParam hf[5];
+    ret = cudaMemcpy(hf, f, sizeof(hf), cudaMemcpyDeviceToHost);
+
+    const TypeParam expected = (sizeof(TypeParam) == 4) ?
+         1431655765 : 6148914691236517205;
+
+    assert(expected == hf[0]);
+    assert(expected == hf[1]);
+
+    uint32_t vf[10];
+    const int vret = VALGRIND_GET_VBITS(hf, vf, sizeof(hf));
+    BOOST_STATIC_ASSERT(sizeof(hf) <= sizeof(vf));
+    if (vret == 1) {
+        assert(0 == vf[0]);
+        assert(0 == vf[1]);
+
+        if (sizeof(TypeParam) == 4) {
+            assert(0xFFFFFFFF == vf[2]);
+            assert(0xFFFFFFFF == vf[3]);
+        } else {
+            assert(0 == vf[2]);
+            assert(0 == vf[3]);
+        }
+
+        for (size_t i = 4; i < sizeof(TypeParam); i++) {
+            assert(0xFFFFFFFF == vf[i]);
+        }
+    }
+
+    ret = cudaFree(f);
+    assert(cudaSuccess == ret);
+}
+
+REGISTER_TYPED_TEST_CASE_P(BitfieldSingle, InsertConstantData);
+INSTANTIATE_TYPED_TEST_CASE_P(My, BitfieldSingle, MyTypes);
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
