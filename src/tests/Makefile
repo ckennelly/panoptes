@@ -81,7 +81,13 @@ vtest_k_atomic_shared_offsets.o: vtest_k_atomic_shared_offsets.cu Makefile
 vtest_k_ballot.o: vtest_k_ballot.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
-vtest_k_bitfield.o: vtest_k_bitfield.cu Makefile
+vtest_k_bfe.o: vtest_k_bfe.cu Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
+
+vtest_k_bfi.o: vtest_k_bfi.cu Makefile
+	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
+
+vtest_k_bfind.o: vtest_k_bfind.cu Makefile
 	$(NVCC) -g $(INCLUDEDIR) -c $< -o $@ -arch sm_20
 
 vtest_k_blas.o: vtest_k_blas.cu Makefile

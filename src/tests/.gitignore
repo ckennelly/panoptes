@@ -54,7 +54,9 @@ vtest_k_atomic_global
 vtest_k_atomic_shared
 vtest_k_atomic_shared_offsets
 vtest_k_ballot
-vtest_k_bitfield
+vtest_k_bfe
+vtest_k_bfi
+vtest_k_bfind
 vtest_k_blas
 vtest_k_block_reductions
 vtest_k_brev
