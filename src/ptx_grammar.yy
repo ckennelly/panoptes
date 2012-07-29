@@ -945,7 +945,7 @@ madc : OPCODE_MADC optionalWidth optionalCarryOut
 };
 
 max : OPCODE_MAX optionalFTZ dataType identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand {
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -959,7 +959,7 @@ membar : OPCODE_MEMBAR membarLevelToken {
 }
 
 min : OPCODE_MIN optionalFTZ dataType identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand {
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);

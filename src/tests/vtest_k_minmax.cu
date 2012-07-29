@@ -16,8 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
+#include <stdint.h>
+#include <valgrind/memcheck.h>
 
 extern "C" __global__ void k_minmax(const int * data, const int N,
         int * min_value, int * max_value) {
@@ -36,7 +39,7 @@ extern "C" __global__ void k_minmax(const int * data, const int N,
     min_value[blockIdx.x] = local_min;
 }
 
-TEST(kNOOP, ExplicitStream) {
+TEST(kMinMax, ExplicitStream) {
     cudaError_t ret;
     cudaStream_t stream;
 
@@ -75,6 +78,108 @@ TEST(kNOOP, ExplicitStream) {
 
     ret = cudaFree(min_values);
     ASSERT_EQ(cudaSuccess, ret);
+}
+
+static __global__ void k_max_A5(int * out, int A) {
+    int _out;
+    asm("max.s32 %0, %1, 5;\n" : "=r"(_out) : "r"(A));
+    *out = _out;
+}
+
+static __global__ void k_max_5B(int * out, int B) {
+    int _out;
+    asm("max.s32 %0, 5, %1;\n" : "=r"(_out) : "r"(B));
+    *out = _out;
+}
+
+static __global__ void k_max_57(int * out) {
+    int _out;
+    asm("max.s32 %0, 5, 7;\n" : "=r"(_out));
+    *out = _out;
+}
+
+static __global__ void k_min_A5(int * out, int A) {
+    int _out;
+    asm("min.s32 %0, %1, 5;\n" : "=r"(_out) : "r"(A));
+    *out = _out;
+}
+
+static __global__ void k_min_5B(int * out, int B) {
+    int _out;
+    asm("min.s32 %0, 5, %1;\n" : "=r"(_out) : "r"(B));
+    *out = _out;
+}
+
+static __global__ void k_min_57(int * out) {
+    int _out;
+    asm("min.s32 %0, 5, 7;\n" : "=r"(_out));
+    *out = _out;
+}
+
+TEST(kMinMax, Constants) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    int * out;
+    ret = cudaMalloc((void **) &out, 10 * sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    const int A = 10;
+    const int B = 2;
+    int A_invalid = A;
+    int B_invalid = B;
+    VALGRIND_MAKE_MEM_UNDEFINED(&A_invalid, sizeof(A_invalid));
+    VALGRIND_MAKE_MEM_UNDEFINED(&B_invalid, sizeof(B_invalid));
+
+    k_max_A5<<<1, 1, 0, stream>>>(out + 0, A);
+    k_max_A5<<<1, 1, 0, stream>>>(out + 1, A_invalid);
+    k_max_5B<<<1, 1, 0, stream>>>(out + 2, B);
+    k_max_5B<<<1, 1, 0, stream>>>(out + 3, B_invalid);
+    k_max_57<<<1, 1, 0, stream>>>(out + 4);
+    k_min_A5<<<1, 1, 0, stream>>>(out + 5, A);
+    k_min_A5<<<1, 1, 0, stream>>>(out + 6, A_invalid);
+    k_min_5B<<<1, 1, 0, stream>>>(out + 7, B);
+    k_min_5B<<<1, 1, 0, stream>>>(out + 8, B_invalid);
+    k_min_57<<<1, 1, 0, stream>>>(out + 9);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    int hout[10];
+    ret = cudaMemcpy(hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(std::max(A, 5), hout[0]);
+    EXPECT_EQ(std::max(5, B), hout[2]);
+    EXPECT_EQ(std::max(5, 7), hout[4]);
+    EXPECT_EQ(std::min(A, 5), hout[5]);
+    EXPECT_EQ(std::min(5, B), hout[7]);
+    EXPECT_EQ(std::min(5, 7), hout[9]);
+
+    uint32_t vout[10];
+    BOOST_STATIC_ASSERT(sizeof(hout) == sizeof(vout));
+    const int vret = VALGRIND_GET_VBITS(hout, vout, sizeof(hout));
+    if (vret == 1) {
+        EXPECT_EQ(0x00000000, vout[0]);
+        EXPECT_EQ(0xFFFFFFFF, vout[1]);
+        EXPECT_EQ(0x00000000, vout[2]);
+        EXPECT_EQ(0xFFFFFFFF, vout[3]);
+        EXPECT_EQ(0x00000000, vout[4]);
+        EXPECT_EQ(0x00000000, vout[5]);
+        EXPECT_EQ(0xFFFFFFFF, vout[6]);
+        EXPECT_EQ(0x00000000, vout[7]);
+        EXPECT_EQ(0xFFFFFFFF, vout[8]);
+        EXPECT_EQ(0x00000000, vout[9]);
+    }
 }
 
 int main(int argc, char **argv) {
