@@ -1207,7 +1207,7 @@ red : OPCODE_RED atomicSpace atomicOp dataType stDestination TOKEN_COMMA
 }
 
 rem : OPCODE_REM integerDataType identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand {
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);

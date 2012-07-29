@@ -472,6 +472,228 @@ typedef ::testing::Types<int16_t, uint16_t, int32_t, uint32_t, int64_t,
     uint64_t, float, double> MyTypes;
 INSTANTIATE_TYPED_TEST_CASE_P(My, DivisionFixture, MyTypes);
 
+template<typename T>
+class RemainderFixture : public ::testing::Test {
+public:
+    RemainderFixture() { }
+    ~RemainderFixture() { }
+
+    void SetUp() {
+        cudaError_t ret;
+        ret = cudaStreamCreate(&stream);
+        ASSERT_EQ(cudaSuccess, ret);
+    }
+
+    void TearDown() {
+        cudaError_t ret;
+        ret = cudaStreamDestroy(stream);
+        ASSERT_EQ(cudaSuccess, ret);
+    }
+
+    cudaStream_t stream;
+};
+
+TYPED_TEST_CASE_P(RemainderFixture);
+
+template<typename T>
+static __global__ void k_remA5(T * out, const T a) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+static __global__ void k_remA5<>(int16_t * out, const int16_t a) {
+    int16_t _out;
+    asm("rem.s16 %0, %1, 5;\n" : "=h"(_out) : "h"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_remA5<>(uint16_t * out, const uint16_t a) {
+    uint16_t _out;
+    asm("rem.u16 %0, %1, 5;\n" : "=h"(_out) : "h"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_remA5<>(int32_t * out, const int32_t a) {
+    int32_t _out;
+    asm("rem.s32 %0, %1, 5;\n" : "=r"(_out) : "r"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_remA5<>(uint32_t * out, const uint32_t a) {
+    uint32_t _out;
+    asm("rem.u32 %0, %1, 5;\n" : "=r"(_out) : "r"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_remA5<>(int64_t * out, const int64_t a) {
+    int64_t _out;
+    asm("rem.s64 %0, %1, 5;\n" : "=l"(_out) : "l"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_remA5<>(uint64_t * out, const uint64_t a) {
+    uint64_t _out;
+    asm("rem.u64 %0, %1, 5;\n" : "=l"(_out) : "l"(a));
+    *out = _out;
+}
+
+template<typename T>
+static __global__ void k_rem10B(T * out, const T a) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+static __global__ void k_rem10B(int16_t * out, const int16_t a) {
+    int16_t _out;
+    asm("rem.s16 %0, 10, %1;\n" : "=h"(_out) : "h"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem10B(uint16_t * out, const uint16_t a) {
+    uint16_t _out;
+    asm("rem.u16 %0, 10, %1;\n" : "=h"(_out) : "h"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem10B(int32_t * out, const int32_t a) {
+    int32_t _out;
+    asm("rem.s32 %0, 10, %1;\n" : "=r"(_out) : "r"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem10B(uint32_t * out, const uint32_t a) {
+    uint32_t _out;
+    asm("rem.u32 %0, 10, %1;\n" : "=r"(_out) : "r"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem10B(int64_t * out, const int64_t a) {
+    int64_t _out;
+    asm("rem.s64 %0, 10, %1;\n" : "=l"(_out) : "l"(a));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem10B(uint64_t * out, const uint64_t a) {
+    uint64_t _out;
+    asm("rem.u64 %0, 10, %1;\n" : "=l"(_out) : "l"(a));
+    *out = _out;
+}
+
+template<typename T>
+static __global__ void k_rem105(T * out) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+static __global__ void k_rem105(int16_t * out) {
+    int16_t _out;
+    asm("rem.s16 %0, 10, 5;\n" : "=h"(_out));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem105(uint16_t * out) {
+    uint16_t _out;
+    asm("rem.u16 %0, 10, 5;\n" : "=h"(_out));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem105(int32_t * out) {
+    int32_t _out;
+    asm("rem.s32 %0, 10, 5;\n" : "=r"(_out));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem105(uint32_t * out) {
+    uint32_t _out;
+    asm("rem.u32 %0, 10, 5;\n" : "=r"(_out));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem105(int64_t * out) {
+    int64_t _out;
+    asm("rem.s64 %0, 10, 5;\n" : "=l"(_out));
+    *out = _out;
+}
+
+template<>
+static __global__ void k_rem105(uint64_t * out) {
+    uint64_t _out;
+    asm("rem.u64 %0, 10, 5;\n" : "=l"(_out));
+    *out = _out;
+}
+
+TYPED_TEST_P(RemainderFixture, ConstantDivision) {
+    cudaError_t ret;
+
+    TypeParam * out;
+    ret = cudaMalloc((void **) &out, 5 * sizeof(*out));
+    assert(cudaSuccess == ret);
+
+    const TypeParam a = 10;
+    const TypeParam b =  5;
+    TypeParam a_invalid = a;
+    TypeParam b_invalid = b;
+
+    VALGRIND_MAKE_MEM_UNDEFINED(&a_invalid, sizeof(a_invalid));
+    VALGRIND_MAKE_MEM_UNDEFINED(&b_invalid, sizeof(b_invalid));
+
+    k_remA5 <<<1, 1, 0, this->stream>>>(out + 0, a);
+    k_remA5 <<<1, 1, 0, this->stream>>>(out + 1, a_invalid);
+    k_rem10B<<<1, 1, 0, this->stream>>>(out + 2, b);
+    k_rem10B<<<1, 1, 0, this->stream>>>(out + 3, b_invalid);
+    k_rem105<<<1, 1, 0, this->stream>>>(out + 4);
+
+    ret = cudaStreamSynchronize(this->stream);
+    assert(cudaSuccess == ret);
+
+    TypeParam hout[5];
+    ret = cudaMemcpy(hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    assert(cudaSuccess == ret);
+
+    ret = cudaFree(out);
+    assert(cudaSuccess == ret);
+
+    const TypeParam expected = a % b;
+    assert(expected == hout[0]);
+    assert(expected == hout[2]);
+    assert(expected == hout[4]);
+
+    typedef typename unsigned_of<sizeof(TypeParam)>::type unsigned_t;
+    BOOST_STATIC_ASSERT(sizeof(unsigned_t) == sizeof(TypeParam));
+    unsigned_t vout[5];
+    BOOST_STATIC_ASSERT(sizeof(hout) == sizeof(vout));
+    const int vret = VALGRIND_GET_VBITS(hout, vout, sizeof(vout));
+    if (vret == 1) {
+        const unsigned_t invalid = static_cast<unsigned_t>(-1);
+
+        assert(      0 == vout[0]);
+        assert(invalid == vout[1]);
+        assert(      0 == vout[2]);
+        assert(invalid == vout[3]);
+        assert(      0 == vout[4]);
+    }
+}
+
+REGISTER_TYPED_TEST_CASE_P(RemainderFixture, ConstantDivision);
+
+typedef ::testing::Types<int16_t, uint16_t, int32_t, uint32_t, int64_t,
+    uint64_t> IntTypes;
+INSTANTIATE_TYPED_TEST_CASE_P(My, RemainderFixture, IntTypes);
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
