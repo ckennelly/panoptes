@@ -748,7 +748,7 @@ cvta : OPCODE_CVTA spaceType integerWidthType identifierOperand
 };
 
 div : OPCODE_DIV integerDataType identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand {
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     /* Integer division */
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
@@ -762,7 +762,7 @@ approximation : approximationToken {
 }
 
 div : OPCODE_DIV approximation optionalFTZ TOKEN_F32 identifierOperand
-        TOKEN_COMMA identifierOperand TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     /* Approximate floating point division */
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->set_type(TOKEN_F32);
@@ -777,7 +777,7 @@ floatingDataType : floatingDataTypeToken {
 };
 
 div : OPCODE_DIV fRounding optionalFTZ floatingDataType identifierOperand
-        TOKEN_COMMA identifierOperand TOKEN_COMMA identifierOperand {
+        TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     /* IEEE754 floating point division */
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
