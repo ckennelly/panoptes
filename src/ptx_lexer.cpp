@@ -20,8 +20,9 @@
 #define yyFlexLexer ptxFlexLexer
 #include <FlexLexer.h>
 #include <stdint.h>
-#include "ptx_grammar.tab.hh"
 #include "ptx_lexer.h"
+#include "ptx_parser.h"
+#include "ptx_grammar.tab.hh"
 
 namespace panoptes {
 

@@ -17,6 +17,12 @@
  */
 
 #include <stdint.h>
+
+/* Forward declarations for ptx_grammar.tab.hh. */
+namespace panoptes {
+    class ptx_lexer;
+    class ptx_parser_state;
+}
 #include "ptx_grammar.tab.hh"
 #include "ptx_ir.h"
 
