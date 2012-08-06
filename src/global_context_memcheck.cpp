@@ -215,6 +215,17 @@ static statement_t make_add(type_t type, const operand_t & dst,
     return ret;
 }
 
+static statement_t make_add(type_t type, const operand_t & dst,
+        const operand_t & a, const int64_t b) {
+    statement_t ret;
+    ret.op = op_add;
+    ret.type = type;
+    ret.operands.push_back(dst);
+    ret.operands.push_back(a);
+    ret.operands.push_back(operand_t::make_iconstant(b));
+    return ret;
+}
+
 static statement_t make_and(type_t type, const operand_t & dst,
         const operand_t & a, const operand_t & b) {
     statement_t ret;
@@ -223,6 +234,17 @@ static statement_t make_and(type_t type, const operand_t & dst,
     ret.operands.push_back(dst);
     ret.operands.push_back(a);
     ret.operands.push_back(b);
+    return ret;
+}
+
+static statement_t make_and(type_t type, const operand_t & dst,
+        const operand_t & a, const int64_t b) {
+    statement_t ret;
+    ret.op = op_and;
+    ret.type = type;
+    ret.operands.push_back(dst);
+    ret.operands.push_back(a);
+    ret.operands.push_back(operand_t::make_iconstant(b));
     return ret;
 }
 
@@ -413,13 +435,13 @@ static statement_t make_slct(type_t type, type_t type2, const operand_t & d,
 }
 
 static statement_t make_shl(type_t type, const operand_t & dst,
-        const operand_t & src, const operand_t & shift) {
+        const operand_t & src, const int64_t shift) {
     statement_t ret;
     ret.op = op_shl;
     ret.type = type;
     ret.operands.push_back(dst);
     ret.operands.push_back(src);
-    ret.operands.push_back(shift);
+    ret.operands.push_back(operand_t::make_iconstant(shift));
     return ret;
 }
 
@@ -434,6 +456,17 @@ static statement_t make_shr(type_t type, const operand_t & dst,
     return ret;
 }
 
+static statement_t make_shr(type_t type, const operand_t & dst,
+        const operand_t & src, const int64_t shift) {
+    statement_t ret;
+    ret.op = op_shr;
+    ret.type = type;
+    ret.operands.push_back(dst);
+    ret.operands.push_back(src);
+    ret.operands.push_back(operand_t::make_iconstant(shift));
+    return ret;
+}
+
 static statement_t make_sub(type_t type, const operand_t & dst,
         const operand_t & a, const operand_t & b) {
     statement_t ret;
@@ -442,6 +475,17 @@ static statement_t make_sub(type_t type, const operand_t & dst,
     ret.operands.push_back(dst);
     ret.operands.push_back(a);
     ret.operands.push_back(b);
+    return ret;
+}
+
+static statement_t make_sub(type_t type, const operand_t & dst,
+        const operand_t & a, const int64_t b) {
+    statement_t ret;
+    ret.op = op_sub;
+    ret.type = type;
+    ret.operands.push_back(dst);
+    ret.operands.push_back(a);
+    ret.operands.push_back(operand_t::make_iconstant(b));
     return ret;
 }
 
@@ -886,8 +930,7 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
                 b->parent       = &entry->scope;
                 b->statement    = new statement_t(
                     make_add(uptr, shared_reg, shared_reg,
-                    operand_t::make_iconstant(
-                        (int) it->second.fixed_shared_memory)));
+                        (int) it->second.fixed_shared_memory));
                 scope.blocks.push_front(b);
             }
 
@@ -1111,8 +1154,8 @@ void global_context_memcheck::instrument_abs(const statement_t & statement,
              * vabs(x) = vx | (vx >> (sizeof(vx) * CHAR_BIT - 1))
              */
             const temp_operand tmp(*auxillary, stype);
-            aux->push_back(make_shr(stype, tmp, va, operand_t::make_iconstant(
-                (int) width * CHAR_BIT - 1)));
+            aux->push_back(make_shr(stype, tmp, va,
+                (int) width * CHAR_BIT - 1));
             aux->push_back(make_or(btype, vd, tmp, va));
 
             break; }
@@ -1123,8 +1166,8 @@ void global_context_memcheck::instrument_abs(const statement_t & statement,
              *
              * The sign bit will always be cleared.
              */
-            aux->push_back(make_and(btype, vd, va, operand_t::make_iconstant(
-                (1 << (width * CHAR_BIT - 1)) - 1)));
+            aux->push_back(make_and(btype, vd, va,
+                (1 << (width * CHAR_BIT - 1)) - 1));
             break;
         case s8_type:
         case b8_type:
@@ -1173,7 +1216,6 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
     const type_t stype  = signed_of(width);
     const type_t btype  = bitwise_of(width);
 
-    const operand_t one = operand_t::make_iconstant(1);
     const operand_t vc = operand_t::make_identifier(__vcarry);
 
     switch (statement.type) {
@@ -1189,16 +1231,16 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
             } else if (va.is_constant() && !(vb.is_constant())) {
                 const temp_operand tmp(*auxillary, stype);
                 aux->push_back(make_cnot(btype, tmp, vb));
-                aux->push_back(make_sub(stype, vd, tmp, one));
+                aux->push_back(make_sub(stype, vd, tmp, 1));
             } else if (!(va.is_constant()) && vb.is_constant()) {
                 const temp_operand tmp(*auxillary, stype);
                 aux->push_back(make_cnot(btype, tmp, va));
-                aux->push_back(make_sub(stype, vd, tmp, one));
+                aux->push_back(make_sub(stype, vd, tmp, 1));
             } else {
                 const temp_operand tmp(*auxillary, stype);
                 aux->push_back(make_or(btype, tmp, va, vb));
                 aux->push_back(make_cnot(btype, tmp, tmp));
-                aux->push_back(make_sub(stype, vd, tmp, one));
+                aux->push_back(make_sub(stype, vd, tmp, 1));
             }
 
             break;
@@ -1284,8 +1326,7 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
                     /* Carry-out is wholly valid. */
                     aux->push_back(make_mov(btype, vc, 0));
                 } else {
-                    aux->push_back(make_shr(stype, vc, vd,
-                        operand_t::make_iconstant(31)));
+                    aux->push_back(make_shr(stype, vc, vd, 31));
                 }
             }
 
@@ -1572,8 +1613,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
                 aux->push_back(make_mov(btype, mix_in, vb));
             } else {
                 aux->push_back(make_cnot(btype, mix_in, vb));
-                aux->push_back(make_sub(stype, mix_in, mix_in,
-                    operand_t::make_iconstant(1)));
+                aux->push_back(make_sub(stype, mix_in, mix_in, 1));
             }
             break;
         case atom_cas:
@@ -1590,8 +1630,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
                 }
             } else {
                 aux->push_back(make_cnot(btype, mix_in, vb));
-                aux->push_back(make_sub(stype, mix_in, mix_in,
-                    operand_t::make_iconstant(1)));
+                aux->push_back(make_sub(stype, mix_in, mix_in, 1));
 
                 if (!(vc.is_constant())) {
                     aux->push_back(make_or(btype, mix_in, mix_in, vc));
@@ -1705,7 +1744,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             if (addr.op_type == operand_addressable &&
                     addr.offset != 0) {
                 aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
-                    operand_t::make_iconstant(addr.offset)));
+                    addr.offset));
             }
 
             const temp_operand valid_pred(*auxillary, pred_type);
@@ -1719,7 +1758,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
                 const temp_ptr tmp_ptr(*auxillary);
 
                 aux->push_back(make_add(uptr_t, tmp_ptr, original_ptr,
-                    operand_t::make_iconstant((int64_t) width)));
+                    (int64_t) width));
 
                 statement_t s;
                 s.op    = op_setp;
@@ -1803,11 +1842,9 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
          * ptr1 *= sizeof(void *);
          */
         if (sizeof(void *) == 8) {
-            aux->push_back(make_shl(ptr_t, ptr1, ptr1,
-                operand_t::make_iconstant(3)));
+            aux->push_back(make_shl(ptr_t, ptr1, ptr1, 3));
         } else {
-            aux->push_back(make_shl(ptr_t, ptr1, ptr1,
-                operand_t::make_iconstant(2)));
+            aux->push_back(make_shl(ptr_t, ptr1, ptr1, 2));
         }
 
         /**
@@ -1831,17 +1868,14 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
          * ptr1  >>= 3;
          */
         assert(chunk_size >= sizeof(void *));
-        aux->push_back(make_and(ptr_t, ptr1, addr,
-            operand_t::make_iconstant((int64_t) chunk_size - 1)));
+        aux->push_back(make_and(ptr_t, ptr1, addr, (int64_t) chunk_size - 1));
 
         const temp_ptr ptr2(*auxillary);
         aux->push_back(make_add(uptr_t, ptr2, ptr0, ptr1));
         aux->push_back(make_add(uptr_t, ptr2, ptr2,
-            operand_t::make_iconstant((int64_t)
-            offsetof(metadata_chunk, v_data))));
+            offsetof(metadata_chunk, v_data)));
 
-        aux->push_back(make_shr(ptr_t, ptr1, ptr1,
-            operand_t::make_iconstant(3)));
+        aux->push_back(make_shr(ptr_t, ptr1, ptr1, 3));
 
         /**
          * uint8_t * ptr0 += ptr1;
@@ -1852,8 +1886,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
          * shift_ptr = ptr0 & 0x1;
          */
         const temp_ptr shift_ptr(*auxillary);
-        aux->push_back(make_and(ptr_t, shift_ptr, ptr0,
-            operand_t::make_iconstant(0x1)));
+        aux->push_back(make_and(ptr_t, shift_ptr, ptr0, 0x1));
 
         /**
          * uint32_t shift_ptr32 = shift_ptr;
@@ -1884,8 +1917,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
         /**
          * ptr0 &= ~0x1;
          */
-        aux->push_back(make_and(ptr_t, shift_ptr, ptr0,
-            operand_t::make_iconstant(~((int64_t) 1))));
+        aux->push_back(make_and(ptr_t, shift_ptr, ptr0, ~((int64_t) 1)));
 
         /**
          * uint16_t tmp = *ptr;
@@ -1897,8 +1929,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
          * Shift tmp accordingly, then mask.
          */
         aux->push_back(make_shr(u16_type, tmp, tmp, shift_ptr32));
-        aux->push_back(make_and(b16_type, tmp, tmp,
-            operand_t::make_iconstant((1 << width) - 1)));
+        aux->push_back(make_and(b16_type, tmp, tmp, (1 << width) - 1));
 
         const temp_operand valid_atomic(*auxillary, pred_type);
 
@@ -1993,7 +2024,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
                 const temp_ptr tmp_ptr(*auxillary);
 
                 aux->push_back(make_add(uptr_t, tmp_ptr, addr,
-                    operand_t::make_iconstant((int64_t) width)));
+                    (int64_t) width));
 
                 statement_t s;
                 s.op                = op_setp;
@@ -2056,20 +2087,16 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
              * ptr1 &= max_chunks;
              */
             const temp_ptr ptr1(*auxillary);
-            aux->push_back(make_shr(ptr_t, ptr1, addr,
-                operand_t::make_iconstant(lg_chunk_bytes)));
-            aux->push_back(make_and(ptr_t, ptr1, ptr1,
-                operand_t::make_iconstant(chunk_mask)));
+            aux->push_back(make_shr(ptr_t, ptr1, addr, lg_chunk_bytes));
+            aux->push_back(make_and(ptr_t, ptr1, ptr1, chunk_mask));
 
             /**
              * ptr1 *= sizeof(void *);
              */
             if (sizeof(void *) == 8) {
-                aux->push_back(make_shl(ptr_t, ptr1, ptr1,
-                    operand_t::make_iconstant(3)));
+                aux->push_back(make_shl(ptr_t, ptr1, ptr1, 3));
             } else {
-                aux->push_back(make_shl(ptr_t, ptr1, ptr1,
-                    operand_t::make_iconstant(2)));
+                aux->push_back(make_shl(ptr_t, ptr1, ptr1, 2));
             }
 
             /**
@@ -2097,25 +2124,20 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
              */
             assert(chunk_size >= sizeof(void *));
             aux->push_back(make_and(ptr_t, ptr1, addr,
-                operand_t::make_iconstant((int64_t) chunk_size - 1)));
+                (int64_t) chunk_size - 1));
 
             const temp_ptr ptr2(*auxillary);
             aux->push_back(make_add(uptr_t, ptr2, ptr0, ptr1));
             aux->push_back(make_add(uptr_t, ptr2, ptr2,
-                operand_t::make_iconstant((int64_t)
-                offsetof(metadata_chunk, v_data))));
+                offsetof(metadata_chunk, v_data)));
 
             const temp_ptr shift_ptr(*auxillary);
             if (sizeof(void *) == 8) {
-                aux->push_back(make_and(ptr_t, shift_ptr, ptr1,
-                    operand_t::make_iconstant(7)));
-                aux->push_back(make_shr(ptr_t, ptr1, ptr1,
-                    operand_t::make_iconstant(3)));
+                aux->push_back(make_and(ptr_t, shift_ptr, ptr1, 7));
+                aux->push_back(make_shr(ptr_t, ptr1, ptr1, 3));
             } else {
-                aux->push_back(make_and(ptr_t, shift_ptr, ptr1,
-                    operand_t::make_iconstant(3)));
-                aux->push_back(make_shr(ptr_t, ptr1, ptr1,
-                    operand_t::make_iconstant(2)));
+                aux->push_back(make_and(ptr_t, shift_ptr, ptr1, 3));
+                aux->push_back(make_shr(ptr_t, ptr1, ptr1, 2));
             }
 
             const temp_operand shift_ptr32(*auxillary, u32_type);
@@ -2139,8 +2161,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
              * Shift and mask tmp accordingly.
              */
             aux->push_back(make_shr(b16_type, tmp, tmp, shift_ptr32));
-            aux->push_back(make_and(b16_type, tmp, tmp,
-                operand_t::make_iconstant((1 << width) - 1)));
+            aux->push_back(make_and(b16_type, tmp, tmp, (1 << width) - 1));
 
             const temp_operand global_valid(*auxillary, pred_type);
 
@@ -2267,7 +2288,6 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
     const temp_operand tmp0(*auxillary, b32_type);
 
     const operand_t zero = operand_t::make_iconstant(0);
-    const operand_t one  = operand_t::make_iconstant(1);
 
     assert(vargs <= 2);
     switch (vargs) {
@@ -2282,11 +2302,9 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
             /**
              * Propagate from source.
              */
-            aux->push_back(make_and(b32_type, tmp0,
-                source_validity[0],
-                operand_t::make_iconstant(0xFF)));
+            aux->push_back(make_and(b32_type, tmp0, source_validity[0], 0xFF));
             aux->push_back(make_cnot(b32_type, tmp0, tmp0));
-            aux->push_back(make_sub(s32_type, tmp0, tmp0, one));
+            aux->push_back(make_sub(s32_type, tmp0, tmp0, 1));
 
             immed = tmp0;
             immed_constant = false;
@@ -2297,10 +2315,9 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
              */
             aux->push_back(make_or(b32_type, tmp0,
                 source_validity[0], source_validity[1]));
-            aux->push_back(make_and(b32_type, tmp0, tmp0,
-                operand_t::make_iconstant(0xFF)));
+            aux->push_back(make_and(b32_type, tmp0, tmp0, 0xFF));
             aux->push_back(make_cnot(b32_type, tmp0, tmp0));
-            aux->push_back(make_sub(s32_type, tmp0, tmp0, one));
+            aux->push_back(make_sub(s32_type, tmp0, tmp0, 1));
 
             immed = tmp0;
             immed_constant = false;
@@ -2422,12 +2439,9 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
             /**
              * Propagate from source.
              */
-            aux->push_back(make_and(b32_type, tmp0,
-                source_validity[0],
-                operand_t::make_iconstant(0xFF)));
+            aux->push_back(make_and(b32_type, tmp0, source_validity[0], 0xFF));
             aux->push_back(make_cnot(b32_type, tmp0, tmp0));
-            aux->push_back(make_sub(s32_type, tmp0, tmp0,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(s32_type, tmp0, tmp0, 1));
 
             immed = tmp0;
             immed_constant = false;
@@ -2438,11 +2452,9 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
              */
             aux->push_back(make_or(b32_type, tmp0,
                 source_validity[0], source_validity[1]));
-            aux->push_back(make_and(b32_type, tmp0, tmp0,
-                operand_t::make_iconstant(0xFF)));
+            aux->push_back(make_and(b32_type, tmp0, tmp0, 0xFF));
             aux->push_back(make_cnot(b32_type, tmp0, tmp0));
-            aux->push_back(make_sub(s32_type, tmp0, tmp0,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(s32_type, tmp0, tmp0, 1));
             immed = tmp0;
             immed_constant = false;
             break;
@@ -2593,8 +2605,7 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
     /**
      * Map 0 -> 0, (everything else) -> 0xFFFFFFFF
      */
-    aux->push_back(make_sub(u32_type, ntmp, ntmp,
-        operand_t::make_iconstant(1)));
+    aux->push_back(make_sub(u32_type, ntmp, ntmp, 1));
 
     bool has_mask;
     int mask;
@@ -2622,8 +2633,7 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
          * The bits above those needed to represent the maximum result will be
          * zero.
          */
-        aux->push_back(make_and(b32_type, vd, ntmp,
-            operand_t::make_iconstant(mask)));
+        aux->push_back(make_and(b32_type, vd, ntmp, mask));
     }
 }
 
@@ -2820,8 +2830,7 @@ void global_context_memcheck::instrument_cvt(const statement_t & statement,
 
     const temp_operand tmp(*auxillary, abtype);
     aux->push_back(make_cnot(abtype, tmp, va));
-    aux->push_back(make_sub(astype, tmp, tmp,
-        operand_t::make_iconstant(1)));
+    aux->push_back(make_sub(astype, tmp, tmp, 1));
     /* Sign extend across target. */
     const type_t dstype = signed_type(dtype);
     aux->push_back(make_cvt(dstype, astype, vd, tmp));
@@ -2850,7 +2859,7 @@ void global_context_memcheck::instrument_fp1(const statement_t & statement,
         /* Spread invalid bits. */
         const temp_operand tmp(*auxillary, btype);
         aux->push_back(make_cnot(btype, tmp, va));
-        aux->push_back(make_sub(stype, vd, tmp, operand_t::make_iconstant(1)));
+        aux->push_back(make_sub(stype, vd, tmp, 1));
     }
 
     *keep = true;
@@ -2904,7 +2913,7 @@ void global_context_memcheck::instrument_fp3(const statement_t & statement,
 
         /* Spread invalid bits. */
         aux->push_back(make_cnot(btype, tmp, tmp));
-        aux->push_back(make_sub(stype, vd, tmp, operand_t::make_iconstant(1)));
+        aux->push_back(make_sub(stype, vd, tmp, 1));
     }
 }
 
@@ -3142,8 +3151,8 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 operand_t::make_identifier(src.identifier[0])));
             if (src.op_type == operand_addressable &&
                     src.offset != 0) {
-                aux->push_back(make_add(uptr_t, original_ptr,
-                    original_ptr, operand_t::make_iconstant(src.offset)));
+                aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
+                    src.offset));
             }
 
             const temp_operand not_valid_pred(*auxillary, pred_type);
@@ -3222,8 +3231,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             origin = src;
 
             const temp_ptr tmp(*auxillary);
-            aux->push_back(make_add(uptr_t, tmp, origin,
-                operand_t::make_iconstant((int) width)));
+            aux->push_back(make_add(uptr_t, tmp, origin, (int) width));
             aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit, tmp));
             /* TODO:  Check for underrun. */
         } else {
@@ -3235,14 +3243,13 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             if (src.op_type == operand_addressable &&
                     src.offset != 0) {
                 aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
-                    operand_t::make_iconstant(src.offset)));
+                    src.offset));
             }
 
             origin = original_ptr;
 
             const temp_ptr tmp(*auxillary);
-            aux->push_back(make_add(uptr_t, tmp, origin,
-                operand_t::make_iconstant((int) width)));
+            aux->push_back(make_add(uptr_t, tmp, origin, (int) width));
             aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred,
                 operand_t::make_iconstant(0xFFFCA0), tmp));
         }
@@ -3308,26 +3315,20 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             operand_t::make_identifier(src.identifier[0])));
         if (src.op_type == operand_addressable &&
                 src.offset != 0) {
-            aux->push_back(make_add(uptr_t, chidx, chidx,
-                operand_t::make_iconstant(src.offset)));
+            aux->push_back(make_add(uptr_t, chidx, chidx, src.offset));
         }
 
         aux->push_back(make_mov(uptr_t, global_ro_reg, global_ro));
         aux->push_back(make_mov(ptr_t, original_ptr, chidx));
         aux->push_back(make_mov(ptr_t, inidx, chidx));
 
-        aux->push_back(make_shr(ptr_t, chidx, chidx,
-            operand_t::make_iconstant(lg_chunk_bytes)));
-        aux->push_back(make_and(ptr_t, chidx, chidx,
-            operand_t::make_iconstant(max_chunks - 1)));
-        aux->push_back(make_shl(ptr_t, chidx, chidx,
-            operand_t::make_iconstant(log_ptr)));
+        aux->push_back(make_shr(ptr_t, chidx, chidx, lg_chunk_bytes));
+        aux->push_back(make_and(ptr_t, chidx, chidx, max_chunks - 1));
+        aux->push_back(make_shl(ptr_t, chidx, chidx, log_ptr));
 
-        aux->push_back(make_and(ptr_t, inidx, inidx,
-            operand_t::make_iconstant(chunk_size - 1)));
+        aux->push_back(make_and(ptr_t, inidx, inidx, chunk_size - 1));
         aux->push_back(make_mov(ptr_t, vidx, inidx));
-        aux->push_back(make_shr(ptr_t, inidx, inidx,
-            operand_t::make_iconstant(3)));
+        aux->push_back(make_shr(ptr_t, inidx, inidx, 3));
 
         aux->push_back(make_ld(ptr_t, const_space, chunk, master));
         aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
@@ -3357,18 +3358,15 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 aux->push_back(make_mov(u32_type, a_data32, vidx));
                 break;
             }
-            aux->push_back(make_and(b32_type,
-                a_data32, a_data32, operand_t::make_iconstant(
-                sizeof(void *) - 1)));
-            aux->push_back(make_shr(wread_t,
-                a_wdata, a_wdata, a_data32));
+            aux->push_back(make_and(b32_type, a_data32, a_data32,
+                sizeof(void *) - 1));
+            aux->push_back(make_shr(wread_t, a_wdata, a_wdata, a_data32));
 
             /**
              * Mask high bits.
              */
-            aux->push_back(make_and(bwread_t,
-                a_wdata, a_wdata, operand_t::make_iconstant(
-                (1 << width) - 1)));
+            aux->push_back(make_and(bwread_t, a_wdata, a_wdata,
+                (1 << width) - 1));
         }
 
         aux->push_back(make_setp(wread_t, cmp_eq, valid_pred, a_cdata,
@@ -3377,9 +3375,8 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             global_ro_reg));
 
         if (offsetof(metadata_chunk, v_data)) {
-            aux->push_back(make_add(uptr_t, validity_ptr_src,
-                validity_ptr_src, operand_t::make_iconstant(
-                offsetof(metadata_chunk, v_data))));
+            aux->push_back(make_add(uptr_t, validity_ptr_src, validity_ptr_src,
+                offsetof(metadata_chunk, v_data)));
         }
     }
 
@@ -3534,8 +3531,7 @@ void global_context_memcheck::instrument_mad(const statement_t & statement,
             if (statement.carry_out) {
                 assert(statement.type == u32_type ||
                        statement.type == s32_type);
-                aux->push_back(make_shr(stype, vc, vd,
-                    operand_t::make_iconstant(31)));
+                aux->push_back(make_shr(stype, vc, vd, 31));
             }
 
             break;
@@ -3545,8 +3541,7 @@ void global_context_memcheck::instrument_mad(const statement_t & statement,
 
             /* Spread invalid bits across type. */
             aux->push_back(make_cnot(btype, tmp, tmp));
-            aux->push_back(make_sub(stype, vd, tmp,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(stype, vd, tmp, 1));
             break;
         case b8_type:
         case b16_type:
@@ -3587,9 +3582,6 @@ void global_context_memcheck::instrument_math2(const statement_t & statement,
     const operand_t & d = statement.operands[0];
     const operand_t vd  = make_validity_operand(d, 0);
 
-    const operand_t zero = operand_t::make_iconstant(0);
-    const operand_t one  = operand_t::make_iconstant(1);
-
     assert(vargs <= 2);
     switch (vargs) {
         case 0:
@@ -3605,7 +3597,7 @@ void global_context_memcheck::instrument_math2(const statement_t & statement,
             const temp_operand tmp0(*auxillary, btype);
 
             aux->push_back(make_cnot(btype, tmp0, source_validity[0]));
-            aux->push_back(make_sub(stype, vd, tmp0, one));
+            aux->push_back(make_sub(stype, vd, tmp0, 1));
             break; }
         case 2: {
             /**
@@ -3616,7 +3608,7 @@ void global_context_memcheck::instrument_math2(const statement_t & statement,
             aux->push_back(make_or(btype, tmp0,
                 source_validity[0], source_validity[1]));
             aux->push_back(make_cnot(btype, tmp0, tmp0));
-            aux->push_back(make_sub(stype, vd, tmp0, one));
+            aux->push_back(make_sub(stype, vd, tmp0, 1));
             break; }
     }
 
@@ -4291,20 +4283,16 @@ void global_context_memcheck::instrument_prefetch(
             c.operands.push_back(clean_a);
             aux->push_back(c);
 
-            aux->push_back(make_shr(ptr_t, ptr1, ptr1,
-                operand_t::make_iconstant(lg_chunk_bytes)));
-            aux->push_back(make_and(ptr_t, ptr1, ptr1,
-                operand_t::make_iconstant(chunk_mask)));
+            aux->push_back(make_shr(ptr_t, ptr1, ptr1, lg_chunk_bytes));
+            aux->push_back(make_and(ptr_t, ptr1, ptr1, chunk_mask));
 
             /**
              * ptr1 *= sizeof(void *);
              */
             if (sizeof(void *) == 8) {
-                aux->push_back(make_shl(ptr_t, ptr1, ptr1,
-                    operand_t::make_iconstant(3)));
+                aux->push_back(make_shl(ptr_t, ptr1, ptr1, 3));
             } else {
-                aux->push_back(make_shl(ptr_t, ptr1, ptr1,
-                    operand_t::make_iconstant(2)));
+                aux->push_back(make_shl(ptr_t, ptr1, ptr1, 2));
             }
 
             /**
@@ -4333,10 +4321,8 @@ void global_context_memcheck::instrument_prefetch(
              */
             aux->push_back(c);
             aux->push_back(make_and(ptr_t, ptr1, ptr1,
-                operand_t::make_iconstant(
-                (chunk_size - 1) & ~(1024u - 1u))));
-            aux->push_back(make_shr(ptr_t, ptr1, ptr1,
-                operand_t::make_iconstant(3)));
+                (chunk_size - 1) & ~(1024u - 1u)));
+            aux->push_back(make_shr(ptr_t, ptr1, ptr1, 3));
 
             /**
              * uint8_t * ptr += ptr1;
@@ -4510,11 +4496,9 @@ void global_context_memcheck::instrument_prmt(const statement_t & statement,
         mask = 0x00000003;
     }
 
-    aux->push_back(make_and(b32_type, tmp, vc,
-        operand_t::make_iconstant(mask)));
+    aux->push_back(make_and(b32_type, tmp, vc, mask));
     aux->push_back(make_cnot(b32_type, tmp, tmp));
-    aux->push_back(make_sub(s32_type, immed, tmp,
-        operand_t::make_iconstant(1)));
+    aux->push_back(make_sub(s32_type, immed, tmp, 1));
 
     if (direct) {
         return;
@@ -4603,8 +4587,7 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
              */
             aux->push_back(make_cnot(btype, tmp0,
                 source_validity[0]));
-            aux->push_back(make_sub(stype, tmp0, tmp0,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(stype, tmp0, tmp0, 1));
 
             immed = tmp0;
             immed_constant = false;
@@ -4616,8 +4599,7 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
             aux->push_back(make_or(btype, tmp0,
                 source_validity[0], source_validity[1]));
             aux->push_back(make_cnot(btype, tmp0, tmp0));
-            aux->push_back(make_sub(stype, tmp0, tmp0,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(stype, tmp0, tmp0, 1));
             immed = tmp0;
             immed_constant = false;
             break;
@@ -4778,8 +4760,7 @@ void global_context_memcheck::instrument_set(const statement_t & statement,
         }
 
         /* 0 -> 0, (anything) -> -1 */
-        aux->push_back(make_sub(sdtype, dest, dest,
-            operand_t::make_iconstant(1)));
+        aux->push_back(make_sub(sdtype, dest, dest, 1));
 
         immed = dest;
     }
@@ -4852,8 +4833,7 @@ void global_context_memcheck::instrument_setp(const statement_t & statement,
         }
 
         /* 0 -> 0, (anything) -> 0xFFFF */
-        aux->push_back(make_sub(s16_type, otmp, otmp,
-            operand_t::make_iconstant(1)));
+        aux->push_back(make_sub(s16_type, otmp, otmp, 1));
 
         immed = otmp;
     }
@@ -4930,12 +4910,10 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
         aux->push_back(make_cnot(b32_type, tmp, vb));
         if (width == 4u) {
             /* We can write the result directly. */
-            aux->push_back(make_sub(s32_type, vd, tmp,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(s32_type, vd, tmp, 1));
         } else {
             /* Compute into temporary, the convert. */
-            aux->push_back(make_sub(s32_type, tmp, tmp,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(s32_type, tmp, tmp, 1));
             aux->push_back(make_cvt(stype, s32_type, vd, tmp));
         }
     } else if (bconstant) {
@@ -4964,8 +4942,7 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
             const temp_operand tmp1(*auxillary, b32_type);
 
             aux->push_back(make_cnot(b32_type, tmp1, vb));
-            aux->push_back(make_sub(s32_type, tmp1, tmp1,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(s32_type, tmp1, tmp1, 1));
             intermediate = tmp1;
         } else {
             assert(btype != b32_type);
@@ -4974,8 +4951,7 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
             const temp_operand tmp1(*auxillary, btype);
 
             aux->push_back(make_cnot(b32_type, tmp32_0, vb));
-            aux->push_back(make_sub(s32_type, tmp32_0, tmp32_0,
-                operand_t::make_iconstant(1)));
+            aux->push_back(make_sub(s32_type, tmp32_0, tmp32_0, 1));
             aux->push_back(make_cvt(stype, s32_type, tmp1, tmp32_0));
 
             intermediate = tmp1;
@@ -5046,12 +5022,10 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
     if (statement.type2 == f32_type) {
         /* An invalid bit anywhere corrupts the output. */
         aux->push_back(make_cnot(b32_type, tmp, vc));
-        aux->push_back(make_sub(s32_type, immed, tmp,
-            operand_t::make_iconstant(1)));
+        aux->push_back(make_sub(s32_type, immed, tmp, 1));
     } else if (statement.type2 == s32_type) {
         /* The sign bit governs whether the output is invalid */
-        aux->push_back(make_shr(s32_type, immed, vd,
-            operand_t::make_iconstant(31)));
+        aux->push_back(make_shr(s32_type, immed, vd, 31));
     }
 
     if (direct) {
@@ -5226,13 +5200,12 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             if (dst.op_type == operand_addressable &&
                     dst.offset != 0) {
                 aux->push_back(make_add(uptr_t, original_ptr,
-                    original_ptr, operand_t::make_iconstant(dst.offset)));
+                    original_ptr, dst.offset));
             }
 
             {
                 const temp_ptr tmp(*auxillary);
-                aux->push_back(make_add(uptr_t, tmp, original_ptr,
-                    operand_t::make_iconstant((int) width)));
+                aux->push_back(make_add(uptr_t, tmp, original_ptr, (int) width));
                 aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit,
                     tmp));
             }
@@ -5273,8 +5246,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             origin = dst;
 
             const temp_ptr tmp(*auxillary);
-            aux->push_back(make_add(uptr_t, tmp, origin,
-                operand_t::make_iconstant((int) width)));
+            aux->push_back(make_add(uptr_t, tmp, origin, (int) width));
             aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit, tmp));
             /* TODO:  Check for underrun. */
         } else {
@@ -5286,14 +5258,13 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             if (dst.op_type == operand_addressable &&
                     dst.offset != 0) {
                 aux->push_back(make_add(uptr_t, original_ptr, original_ptr,
-                    operand_t::make_iconstant(dst.offset)));
+                    dst.offset));
             }
 
             origin = original_ptr;
 
             const temp_ptr tmp(*auxillary);
-            aux->push_back(make_add(uptr_t, tmp, origin,
-                operand_t::make_iconstant((int) width)));
+            aux->push_back(make_add(uptr_t, tmp, origin, (int) width));
             aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred,
                 operand_t::make_iconstant(0xFFFCA0), tmp));
         }
@@ -5328,25 +5299,19 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             operand_t::make_identifier(dst.identifier[0])));
         if (dst.op_type == operand_addressable &&
                 dst.offset != 0) {
-            aux->push_back(make_add(uptr_t, chidx, chidx,
-                operand_t::make_iconstant(dst.offset)));
+            aux->push_back(make_add(uptr_t, chidx, chidx, dst.offset));
         }
 
         aux->push_back(make_mov(ptr_t, original_ptr, chidx));
         aux->push_back(make_mov(ptr_t, inidx, chidx));
 
-        aux->push_back(make_shr(ptr_t, chidx, chidx,
-            operand_t::make_iconstant(lg_chunk_bytes)));
-        aux->push_back(make_and(ptr_t, chidx, chidx,
-            operand_t::make_iconstant(max_chunks - 1)));
-        aux->push_back(make_shl(ptr_t, chidx, chidx,
-            operand_t::make_iconstant(log_ptr)));
+        aux->push_back(make_shr(ptr_t, chidx, chidx, lg_chunk_bytes));
+        aux->push_back(make_and(ptr_t, chidx, chidx, max_chunks - 1));
+        aux->push_back(make_shl(ptr_t, chidx, chidx, log_ptr));
 
-        aux->push_back(make_and(ptr_t, inidx, inidx,
-            operand_t::make_iconstant(chunk_size - 1)));
+        aux->push_back(make_and(ptr_t, inidx, inidx, chunk_size - 1));
         aux->push_back(make_mov(ptr_t, vidx, inidx));
-        aux->push_back(make_shr(ptr_t, inidx, inidx,
-            operand_t::make_iconstant(3)));
+        aux->push_back(make_shr(ptr_t, inidx, inidx, 3));
 
         aux->push_back(make_ld(ptr_t, const_space, chunk, master));
         aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
@@ -5375,15 +5340,14 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
                 break;
             }
             aux->push_back(make_and(b32_type, a_data32, a_data32,
-                operand_t::make_iconstant(sizeof(void *) - 1)));
+                sizeof(void *) - 1));
             aux->push_back(make_shr(wread_t, a_wdata, a_wdata, a_data32));
 
             /**
              * Mask high bits.
              */
-            aux->push_back(make_and(bwread_t,
-                a_wdata, a_wdata, operand_t::make_iconstant(
-                (1 << width) - 1)));
+            aux->push_back(make_and(bwread_t, a_wdata, a_wdata,
+                (1 << width) - 1));
         }
 
         aux->push_back(make_setp(wread_t, cmp_eq, valid_pred, a_cdata,
@@ -5392,9 +5356,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
         aux->push_back(make_selp(ptr_t, valid_pred, data_ptr, original_ptr,
             global_wo_reg));
         if (offsetof(metadata_chunk, v_data)) {
-            aux->push_back(make_add(uptr_t, validity_ptr_dst,
-                validity_ptr_dst, operand_t::make_iconstant(
-                offsetof(metadata_chunk, v_data))));
+            aux->push_back(make_add(uptr_t, validity_ptr_dst, validity_ptr_dst,
+                offsetof(metadata_chunk, v_data)));
         }
         aux->push_back(make_selp(ptr_t, valid_pred, validity_ptr_dst,
             validity_ptr_dst, global_wo_reg));
@@ -5444,8 +5407,7 @@ void global_context_memcheck::instrument_testp(const statement_t & statement,
         const temp_operand tmp(*auxillary, btype);
 
         aux->push_back(make_cnot(btype, tmp, va));
-        aux->push_back(make_sub(stype, tmp, tmp,
-            operand_t::make_iconstant(1)));
+        aux->push_back(make_sub(stype, tmp, tmp, 1));
         aux->push_back(make_cvt(s16_type, stype, vd, tmp));
     }
 
