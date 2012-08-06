@@ -26,13 +26,21 @@
 /**
  * Loads a value from a hard-coded, constant address.
  */
-static __global__ void k_ld_const(int2 * out, int in) {
-    int2 _out;
+static __global__ void k_ld_const(int * out, int in) {
+    int _out;
     asm volatile(
         "{ .local .u32 l[1];\n"
-        "st.local.u32 [0], %2;\n"
-        "ld.local.u32 %0, [0];\n"
-        "ld.local.u32 %1, [4];\n}" : "=r"(_out.x), "=r"(_out.y) : "r"(in));
+        "st.local.u32 [0], %1;\n"
+        "ld.local.u32 %0, [0];}" : "=r"(_out) : "r"(in));
+    *out = _out;
+}
+
+static __global__ void k_ld_const_oob(int * out, int in) {
+    int _out;
+    asm volatile(
+        "{ .local .u32 l[1];\n"
+        "st.local.u32 [0], %1;\n"
+        "ld.local.u32 %0, [4];\n}" : "=r"(_out) : "r"(in));
     *out = _out;
 }
 
@@ -40,7 +48,7 @@ TEST(Load, Constant) {
     cudaError_t ret;
     cudaStream_t stream;
 
-    int2 * out;
+    int * out;
     ret = cudaMalloc((void **) &out, sizeof(*out));
     ASSERT_EQ(cudaSuccess, ret);
 
@@ -53,24 +61,43 @@ TEST(Load, Constant) {
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);
 
-    ret = cudaStreamDestroy(stream);
-    ASSERT_EQ(cudaSuccess, ret);
-
-    int2 hout;
+    int hout;
     ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaFree(out);
+    EXPECT_EQ(expected, hout);
+
+    uint32_t vout;
+    int vret = VALGRIND_GET_VBITS(&hout, &vout, sizeof(hout));
+    if (vret == 1) {
+        EXPECT_EQ(0x00000000, vout);
+    }
+
+    k_ld_const_oob<<<1, 1, 0, stream>>>(out, expected);
+
+    ret = cudaStreamSynchronize(stream);
+    if (ret == cudaErrorLaunchFailure) {
+        /* Panoptes turns this out of bounds error into a failed launch. */
+        ret = cudaDeviceReset();
+        ASSERT_EQ(cudaSuccess, ret);
+        return;
+    }
+
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
     ASSERT_EQ(cudaSuccess, ret);
 
-    EXPECT_EQ(expected, hout.x);
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
 
-    int2 vout;
-    const int vret = VALGRIND_GET_VBITS(&hout, &vout, sizeof(hout));
+    vret = VALGRIND_GET_VBITS(&hout, &vout, sizeof(hout));
     if (vret == 1) {
-        EXPECT_EQ(0x00000000, vout.x);
-        EXPECT_EQ(0xFFFFFFFF, vout.y);
+        EXPECT_EQ(0xFFFFFFFF, vout);
     }
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 int main(int argc, char **argv) {

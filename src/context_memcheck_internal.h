@@ -38,7 +38,13 @@ struct instrumentation_t {
         outofbounds_prefetch_global,
         outofbounds_prefetch_local,
         outofbounds_atomic_shared,
-        outofbounds_atomic_global
+        outofbounds_atomic_global,
+        outofbounds_ld_global,
+        outofbounds_ld_local,
+        outofbounds_ld_shared,
+        outofbounds_st_global,
+        outofbounds_st_local,
+        outofbounds_st_shared
     };
 
     struct error_desc_t {

@@ -3038,6 +3038,10 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
     const type_t ptr_t  = pointer_type();
     const type_t uptr_t = upointer_type();
 
+    const operand_t local_errors =
+        operand_t::make_identifier(__errors_register);
+
+    typedef internal::instrumentation_t inst_t;
     if (statement.space == param_space) {
         assert(src.identifier.size() == 1u);
         const std::string & id = src.identifier[0];
@@ -3192,6 +3196,18 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             const size_t ni = vdst.identifier.size();
             const operand_t negone = operand_t::make_iconstant(-1);
 
+            /* Flag the error condition if one exists. */
+            inst_t::error_desc_t desc_oob;
+            desc_oob.type = inst_t::outofbounds_ld_shared;
+            desc_oob.orig = statement;
+            auxillary->inst->errors.push_back(desc_oob);
+            const size_t error_oob = auxillary->inst->errors.size();
+            const operand_t op_oob =
+                operand_t::make_iconstant((int64_t) error_oob);
+
+            aux->push_back(make_selp(u32_type, not_valid_pred, local_errors,
+                op_oob, local_errors));
+
             /**
              * nvcc does not seem to generate byte-sized registers, so while
              * the load is a byte-wide, we don't get clued in on the size of
@@ -3278,6 +3294,17 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         /* If we don't do the load, invalidate on the not_valid_pred flag. */
         const size_t ni = vdst.identifier.size();
         const operand_t negone = operand_t::make_iconstant(-1);
+
+        /* Flag the error condition if one exists. */
+        inst_t::error_desc_t desc_oob;
+        desc_oob.type = inst_t::outofbounds_ld_local;
+        desc_oob.orig = statement;
+        auxillary->inst->errors.push_back(desc_oob);
+        const size_t error_oob = auxillary->inst->errors.size();
+        const operand_t op_oob = operand_t::make_iconstant((int64_t) error_oob);
+
+        aux->push_back(make_selp(u32_type, valid_pred, local_errors,
+            local_errors, op_oob));
 
         /**
          * nvcc does not seem to generate byte-sized registers, so while the
@@ -3369,6 +3396,17 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             operand_t::make_iconstant((1 << width) - 1)));
         aux->push_back(make_selp(ptr_t, valid_pred, data_ptr, original_ptr,
             global_ro_reg));
+
+        /* Flag the error condition if one exists. */
+        inst_t::error_desc_t desc_oob;
+        desc_oob.type = inst_t::outofbounds_ld_global;
+        desc_oob.orig = statement;
+        auxillary->inst->errors.push_back(desc_oob);
+        const size_t error_oob = auxillary->inst->errors.size();
+        const operand_t op_oob = operand_t::make_iconstant((int64_t) error_oob);
+
+        aux->push_back(make_selp(u32_type, valid_pred, local_errors,
+            local_errors, op_oob));
 
         if (offsetof(metadata_chunk, v_data)) {
             aux->push_back(make_add(uptr_t, validity_ptr_src, validity_ptr_src,
@@ -5114,6 +5152,10 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     const type_t ptr_t  = pointer_type();
     const type_t uptr_t = upointer_type();
 
+    const operand_t local_errors =
+        operand_t::make_identifier(__errors_register);
+
+    typedef internal::instrumentation_t inst_t;
     if (statement.space == param_space) {
         assert(dst.identifier.size() == 1u);
         new_dst  = dst;
@@ -5227,6 +5269,18 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             new_vstore.operands[1] =
                 make_validity_operand(new_vstore.operands[1], cwidth);
             aux->push_back(new_vstore);
+
+            /* Flag the error condition if one exists. */
+            inst_t::error_desc_t desc_oob;
+            desc_oob.type = inst_t::outofbounds_st_shared;
+            desc_oob.orig = statement;
+            auxillary->inst->errors.push_back(desc_oob);
+            const size_t error_oob = auxillary->inst->errors.size();
+            const operand_t op_oob =
+                operand_t::make_iconstant((int64_t) error_oob);
+
+            aux->push_back(make_selp(u32_type, valid_pred, local_errors,
+                local_errors, op_oob));
         }
     } else if (statement.space == local_space) {
         const operand_t limit = operand_t::make_identifier(__local_reg);
@@ -5283,6 +5337,18 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
         new_vstore.operands[1] =
             make_validity_operand(new_vstore.operands[1], cwidth);
         aux->push_back(new_vstore);
+
+        /* Flag the error condition if one exists. */
+        inst_t::error_desc_t desc_oob;
+        desc_oob.type = inst_t::outofbounds_ld_local;
+        desc_oob.orig = statement;
+        auxillary->inst->errors.push_back(desc_oob);
+        const size_t error_oob = auxillary->inst->errors.size();
+        const operand_t op_oob =
+            operand_t::make_iconstant((int64_t) error_oob);
+
+        aux->push_back(make_selp(u32_type, valid_pred, local_errors,
+            local_errors, op_oob));
     } else {
         aux->push_back(make_mov(uptr_t, global_wo_reg, global_wo));
 
@@ -5352,6 +5418,18 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
         }
         aux->push_back(make_selp(ptr_t, valid_pred, validity_ptr_dst,
             validity_ptr_dst, global_wo_reg));
+
+        /* Flag the error condition if one exists. */
+        inst_t::error_desc_t desc_oob;
+        desc_oob.type = inst_t::outofbounds_ld_global;
+        desc_oob.orig = statement;
+        auxillary->inst->errors.push_back(desc_oob);
+        const size_t error_oob = auxillary->inst->errors.size();
+        const operand_t op_oob =
+            operand_t::make_iconstant((int64_t) error_oob);
+
+        aux->push_back(make_selp(u32_type, valid_pred, local_errors,
+            local_errors, op_oob));
 
         new_dst  = data_ptr;
         new_vdst = validity_ptr_dst;

@@ -326,6 +326,60 @@ cudaError_t internal::check_t::check(cudaError_t r) {
 
                     ret = cudaErrorLaunchFailure;
                     break;
+                case instrumentation_t::outofbounds_ld_global:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds global load at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
+                case instrumentation_t::outofbounds_ld_local:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds local load at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
+                case instrumentation_t::outofbounds_ld_shared:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds local load at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
+                case instrumentation_t::outofbounds_st_global:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds global store at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
+                case instrumentation_t::outofbounds_st_local:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds local store at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
+                case instrumentation_t::outofbounds_st_shared:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Out of bounds local store at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+
+                    ret = cudaErrorLaunchFailure;
+                    break;
             }
         }
 
