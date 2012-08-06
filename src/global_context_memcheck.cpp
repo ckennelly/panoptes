@@ -284,8 +284,8 @@ static statement_t make_cnot(type_t type, const operand_t & dst,
     return ret;
 }
 
-static statement_t make_isspacep(space_t space,
-        const operand_t & dst, const operand_t & src) {
+static statement_t make_isspacep(space_t space, const operand_t & dst,
+        const operand_t & src) {
     statement_t ret;
     ret.op = op_isspacep;
     ret.space = space;
@@ -295,8 +295,8 @@ static statement_t make_isspacep(space_t space,
     return ret;
 }
 
-static statement_t make_ld(type_t type, space_t space,
-        const operand_t & dst, const operand_t & src) {
+static statement_t make_ld(type_t type, space_t space, const operand_t & dst,
+        const operand_t & src) {
     statement_t ret;
     ret.op = op_ld;
     ret.space = space;
@@ -399,9 +399,8 @@ static statement_t make_setp(type_t type, op_set_cmp_t cmp,
     return ret;
 }
 
-static statement_t make_slct(type_t type, type_t type2,
-        const operand_t & d, const operand_t & a,
-        const operand_t & b, const operand_t & c) {
+static statement_t make_slct(type_t type, type_t type2, const operand_t & d,
+        const operand_t & a, const operand_t & b, const operand_t & c) {
     statement_t ret;
     ret.op    = op_slct;
     ret.type  = type;
@@ -624,8 +623,7 @@ static void analyze_block(size_t * fixed_shared_memory,
             vn = scope.variables.size();
             for (size_t i = 0; i < vn; i++) {
                 const variable_t & v = scope.variables[i];
-                if (v.space == shared_space &&
-                        !(v.array_flexible)) {
+                if (v.space == shared_space && !(v.array_flexible)) {
                     *fixed_shared_memory += v.size();
                 } else if (v.space == local_space) {
                     *local_memory += v.size();
@@ -682,9 +680,7 @@ void global_context_memcheck::analyze_entry(function_t * entry) {
     e.user_param_size = offset;
 
     analyze_block(&e.fixed_shared_memory, &e.local_memory, &entry->scope);
-
-    entry_info_.insert(entry_info_map_t::value_type(
-        entry->entry_name, e));
+    entry_info_.insert(entry_info_map_t::value_type(entry->entry_name, e));
 }
 
 void global_context_memcheck::instrument_entry(function_t * entry) {
@@ -833,15 +829,8 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
         block_t * b = new block_t();
         b->block_type   = block_statement;
         b->parent       = &entry->scope;
-        b->statement    = new statement_t();
-        b->statement->op    = op_mov;
-        b->statement->type  = u32_type;
-
-        operand_t dst = operand_t::make_identifier(__errors_register);
-        b->statement->operands.push_back(dst);
-
-        operand_t src = operand_t::make_iconstant(0);
-        b->statement->operands.push_back(src);
+        b->statement    = new statement_t(make_mov(u32_type,
+            operand_t::make_identifier(__errors_register), 0));
 
         entry->scope.scope->blocks.push_front(b);
         }
@@ -851,16 +840,10 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
         block_t * b = new block_t();
         b->block_type   = block_statement;
         b->parent       = &entry->scope;
-        b->statement    = new statement_t();
-        b->statement->op    = op_ld;
-        b->statement->space = param_space;
-        b->statement->type  = pointer_type();
-
-        operand_t dst = operand_t::make_identifier(__reg_error_count);
-        b->statement->operands.push_back(dst);
-
-        operand_t src = operand_t::make_identifier(__param_error_count);
-        b->statement->operands.push_back(src);
+        b->statement    =
+            new statement_t(make_ld(pointer_type(), param_space,
+                operand_t::make_identifier(__reg_error_count),
+                operand_t::make_identifier(__param_error_count)));
 
         entry->scope.scope->blocks.push_front(b);
         }
@@ -870,16 +853,10 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
         block_t * b = new block_t();
         b->block_type   = block_statement;
         b->parent       = &entry->scope;
-        b->statement    = new statement_t();
-        b->statement->op    = op_ld;
-        b->statement->space = param_space;
-        b->statement->type  = pointer_type();
-
-        operand_t dst = operand_t::make_identifier(__errors_address);
-        b->statement->operands.push_back(dst);
-
-        operand_t src = operand_t::make_identifier(__param_error);
-        b->statement->operands.push_back(src);
+        b->statement    =
+            new statement_t(make_ld(pointer_type(), param_space,
+                operand_t::make_identifier(__errors_address),
+                operand_t::make_identifier(__param_error)));
 
         entry->scope.scope->blocks.push_front(b);
         }
@@ -1125,11 +1102,11 @@ void global_context_memcheck::instrument_abs(const statement_t & statement,
              * const int mask = x >> (sizeof(x) * CHAR_BIT - 1)
              * abs(x) = (x + mask) ^ mask
              *
-             * Since we are shifting in the validity bits of the
-             * sign, we have two cases for mask (assuming int32_t):
-             * 0xFFFFFFFF and 0x00000000.  xor with an all
-             * invalid bits value produces a completely invalid
-             * result, so we can simplify our validity tracking to
+             * Since we are shifting in the validity bits of the sign, we have
+             * two cases for mask (assuming int32_t): 0xFFFFFFFF and
+             * 0x00000000.  xor with an all invalid bits value produces a
+             * completely invalid result, so we can simplify our validity
+             * tracking to
              *
              * vabs(x) = vx | (vx >> (sizeof(vx) * CHAR_BIT - 1))
              */
@@ -1347,9 +1324,8 @@ void global_context_memcheck::instrument_and(const statement_t & statement,
     switch (type) {
         case pred_type:
             /**
-             * For simplicity, we assume the worst case and OR the
-             * validity bits without regard for the underlying
-             * data.
+             * For simplicity, we assume the worst case and OR the validity
+             * bits without regard for the underlying data.
              */
             if (va.is_constant() && vb.is_constant()) {
                 aux->push_back(make_mov(b16_type, vd, va));
@@ -1944,8 +1920,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             local_errors, op_oob));
 
         /* Apply atomic operation to global_wo if invalid */
-        const operand_t global_wo =
-            operand_t::make_identifier(__global_wo);
+        const operand_t global_wo = operand_t::make_identifier(__global_wo);
         aux->push_back(make_mov(ptr_t, ptr0, global_wo));
         aux->push_back(make_selp(ptr_t, valid_atomic, ptr0, addr, ptr0));
 
@@ -2193,8 +2168,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             /**
              * Mix-in global_valid into is_good.
              */
-            aux->push_back(make_and(pred_type, is_good, is_good,
-                global_valid));
+            aux->push_back(make_and(pred_type, is_good, is_good, global_valid));
 
             /**
              * Mix-in vbits for global
@@ -2345,8 +2319,7 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
 
     if (aconstant && immed_constant) {
         /**
-         * Result is constant.  We already have initialized immed
-         * to zero.
+         * Result is constant.  We already have initialized immed to zero.
          */
         aux->push_back(make_mov(btype, vd, immed));
         return;
@@ -2354,8 +2327,8 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
 
     if (aconstant) {
         /**
-         * We've computed all that we need to validity-bitwise
-         * in computing immed.
+         * We've computed all that we need to validity-bitwise in computing
+         * immed.
          */
         if (width == 4u) {
             aux->push_back(make_mov(btype, vd, immed));
@@ -2375,15 +2348,14 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
         /**
          * Extract the validity bits using b and c.
          *
-         * TODO:  This does not properly take into account the
-         * propagation of the sign bit.
+         * TODO:  This does not properly take into account the propagation of
+         * the sign bit.
          */
         aux->push_back(make_bfe(statement.type, vd, va,
             statement.operands[2], statement.operands[3]));
     } else {
         /**
-         * Extract, then OR with worst case validity results
-         * due to b and c.
+         * Extract, then OR with worst case validity results due to b and c.
          */
         assert((width == 4u || width == 8u) && "Unsupported width.");
 
@@ -2416,9 +2388,8 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
     *keep = true;
 
     /**
-     * If either c or d have any invalid bits above their mask
-     * (0xFF), we assume the worst and consider the entire
-     * result invalid.
+     * If either c or d have any invalid bits above their mask (0xFF), we
+     * assume the worst and consider the entire result invalid.
      */
     bool immed_constant;
     operand_t immed;
@@ -2488,8 +2459,7 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
     const operand_t   vb = make_validity_operand(b, 0);
     const bool bconstant = vb.is_constant();
 
-    const operand_t & vd = make_validity_operand(
-        statement.operands[0], 0);
+    const operand_t & vd = make_validity_operand(statement.operands[0], 0);
 
     const bool data_constant = aconstant && bconstant;
 
@@ -2576,12 +2546,11 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
     }
 
     /**
-     * Suppose we compute the popc of the valid data bits, e.g.
-     * AND(d, NOT(v)), and label this result "ret."  The invalid
-     * bits make a contribution of 0 to popc(v) to ret to obtain
-     * the popc in the result.  Per our rules for addition, since
-     * the least significant bit is invalid, we must left propagate
-     * it as it could carry to more significant bits.
+     * Suppose we compute the popc of the valid data bits, e.g.  AND(d,
+     * NOT(v)), and label this result "ret."  The invalid bits make a
+     * contribution of 0 to popc(v) to ret to obtain the popc in the result.
+     * Per our rules for addition, since the least significant bit is invalid,
+     * we must left propagate it as it could carry to more significant bits.
      */
     const temp_operand tmp(*auxillary, btype);
     operand_t ntmp;
@@ -2632,8 +2601,8 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
     switch (statement.op) {
         case op_bfind:
             /**
-             * bfind can return a value between 0 and mret - 1
-             * inclusive or it can return 0xFFFFFFFF.
+             * bfind can return a value between 0 and mret - 1 inclusive or it
+             * can return 0xFFFFFFFF.
              */
             has_mask = false;
             break;
@@ -2650,8 +2619,8 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
 
     if (has_mask) {
         /*
-         * The bits above those needed to represent the maximum
-         * result will be zero.
+         * The bits above those needed to represent the maximum result will be
+         * zero.
          */
         aux->push_back(make_and(b32_type, vd, ntmp,
             operand_t::make_iconstant(mask)));
@@ -2707,9 +2676,8 @@ void global_context_memcheck::instrument_brev(const statement_t & statement,
 void global_context_memcheck::instrument_cnot(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     /**
-     * We cannot reuse the popc codepath for cnot as it reduces
-     * the width of its output to a u32 regardless of the
-     * instruction datatype.
+     * We cannot reuse the popc codepath for cnot as it reduces the width of
+     * its output to a u32 regardless of the instruction datatype.
      */
     assert(statement.operands.size() == 2u);
     *keep = true;
@@ -2761,14 +2729,14 @@ void global_context_memcheck::instrument_copysign(
     const type_t btype = bitwise_type(statement.type);
 
     /**
-     * bfi and copysign both appear as part of sm_20 so bfi should
-     * be fair game to use.
+     * bfi and copysign both appear as part of sm_20 so bfi should be fair game
+     * to use.
      */
     if (va.is_constant() && vb.is_constant()) {
         aux->push_back(make_mov(btype, vd, va));
     } else {
-        /* One or both of the validity values is nonconstant,
-         * insert the sign bit into the rest of the data. */
+        /* One or both of the validity values is nonconstant, insert the sign
+         * bit into the rest of the data. */
         aux->push_back(make_bfi(btype, vd, va, vb,
             operand_t::make_iconstant(
                 (int) sizeof_type(statement.type) * CHAR_BIT - 1),
@@ -2920,8 +2888,8 @@ void global_context_memcheck::instrument_fp3(const statement_t & statement,
         /* No nonconstant arguments, so result is valid. */
         aux->push_back(make_mov(btype, vd, 0));
     } else {
-        /* One or more nonconstant arguments, fold into a
-         * temporary variable, then spread invalid bits. */
+        /* One or more nonconstant arguments, fold into a temporary variable,
+         * then spread invalid bits. */
         const temp_operand tmp(*auxillary, btype);
         if (vargs == 1u) {
             /* Move directly into temporary variable. */
@@ -2930,8 +2898,7 @@ void global_context_memcheck::instrument_fp3(const statement_t & statement,
             aux->push_back(make_or(btype, tmp,
                 source_validity[0], source_validity[1]));
             for (size_t i = 2; i < vargs; i++) {
-                aux->push_back(make_or(btype, tmp,
-                    tmp, source_validity[i]));
+                aux->push_back(make_or(btype, tmp, tmp, source_validity[i]));
             }
         }
 
@@ -3026,33 +2993,26 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
     const temp_ptr global_ro_reg(*auxillary);
     const temp_ptr vidx(*auxillary);
 
-    const operand_t master =
-        operand_t::make_identifier(__master_symbol);
-    const operand_t a_data_ptr =
-        operand_t::make_addressable(chunk_ptr,
+    const operand_t master = operand_t::make_identifier(__master_symbol);
+    const operand_t a_data_ptr = operand_t::make_addressable(chunk_ptr,
         offsetof(metadata_chunk, a_data));
-    const operand_t validity_ptr =
-        operand_t::make_addressable(validity_ptr_src,
+    const operand_t validity_ptr = operand_t::make_addressable(validity_ptr_src,
         offsetof(metadata_chunk, v_data));
-    const operand_t global_ro =
-        operand_t::make_identifier(__global_ro);
+    const operand_t global_ro = operand_t::make_identifier(__global_ro);
 
     const temp_operand valid_pred(*auxillary, pred_type);
 
     const size_t chunk_size = 1u << lg_chunk_bytes;
-    const size_t max_chunks =
-        (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
+    const size_t max_chunks = (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
     const size_t width = sizeof_type(statement.type) *
         (unsigned) statement.vector;
     const type_t read_t = unsigned_of(width);
     const temp_operand a_data(*auxillary, read_t);
 
-    const type_t wread_t =
-        width <= 8 ? u16_type : read_t;
+    const type_t wread_t = width <= 8 ? u16_type : read_t;
     const temp_operand a_wdata(*auxillary, u16_type);
     const temp_operand a_data32(*auxillary, u32_type);
-    const operand_t a_cdata =
-        width <= 8 ? a_wdata : a_data;
+    const operand_t a_cdata = width <= 8 ? a_wdata : a_data;
 
     operand_t new_src, new_vsrc;
 
@@ -3071,8 +3031,10 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
     if (statement.space == param_space) {
         assert(src.identifier.size() == 1u);
-        /* Verify that this is a parameter to us and not a
-         * call-level parameter. */
+        const std::string & id = src.identifier[0];
+
+        /* Verify that this is a parameter to us and not a call-level
+         * parameter. */
         const block_t    * b = auxillary->block;
         const function_t * f = NULL;
         while (b) {
@@ -3083,17 +3045,15 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
         bool found = false;
         for (function_t::param_vt::const_iterator jit =
-                f->params.begin(); jit != f->params.end();
-                ++jit) {
-            if (jit->name == src.identifier[0]) {
+                f->params.begin(); jit != f->params.end(); ++jit) {
+            if (jit->name == id) {
                 found = true;
             }
         }
 
         if (found) {
             new_src  = src;
-            new_vsrc = operand_t::make_identifier(
-                make_validity_symbol(src.identifier[0]));
+            new_vsrc = operand_t::make_identifier(make_validity_symbol(id));
             if (src.op_type == operand_addressable) {
                 new_vsrc.op_type = operand_addressable;
                 new_vsrc.offset  = src.offset;
@@ -3122,8 +3082,8 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         const size_t size     = found ? v->size() : 0;
 
         if (found && !(flexible)) {
-            /* We found a fixed symbol, verify we do not
-             * statically overrun it. */
+            /* We found a fixed symbol, verify we do not statically overrun
+             * it. */
             const size_t end = width + (size_t) src.offset;
 
             if (src.offset < 0) {
@@ -3134,8 +3094,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 int ret = snprintf(msg, sizeof(msg),
                     "Shared load of %zu bytes at offset "
                     "%ld will underrun buffer:\n"
-                    "Disassembly: %s\n", width,
-                    src.offset, ss.str().c_str());
+                    "Disassembly: %s\n", width, src.offset, ss.str().c_str());
 
                 assert(ret < (int) sizeof(msg) - 1);
                 logger::instance().print(msg);
@@ -3151,8 +3110,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 int ret = snprintf(msg, sizeof(msg),
                     "Shared load of %zu bytes at offset "
                     "%ld will overrun buffer:\n"
-                    "Disassembly: %s\n", width,
-                    src.offset, ss.str().c_str());
+                    "Disassembly: %s\n", width, src.offset, ss.str().c_str());
 
                 assert(ret < (int) sizeof(msg) - 1);
                 logger::instance().print(msg);
@@ -3166,18 +3124,15 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
                 new_vsrc = src;
                 new_vsrc.identifier.clear();
-                new_vsrc.identifier.push_back(
-                    make_validity_symbol(id));
+                new_vsrc.identifier.push_back(make_validity_symbol(id));
                 new_vsrc.field.clear();
                 new_vsrc.field.push_back(field_none);
             }
         } else {
-            /* Verify address against the shared size
-             * parameter. TODO:  Verify we don't overrun
-             * the buffer. */
+            /* Verify address against the shared size parameter. TODO:  Verify
+             * we don't overrun the buffer. */
 
-            const operand_t limit =
-                operand_t::make_identifier(__shared_reg);
+            const operand_t limit = operand_t::make_identifier(__shared_reg);
 
             drop_load = true;
             invalidate = false;
@@ -3198,8 +3153,8 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
             statement_t new_load = statement;
             /**
-             * TODO:  We need to propagate the predicate
-             * flags of predicated loads.
+             * TODO:  We need to propagate the predicate flags of predicated
+             * loads.
              */
             assert(!(new_load.has_predicate));
             new_load.has_predicate = true;
@@ -3210,11 +3165,9 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 operand_t::make_identifier(
                 "__panoptes_ptr1");
 
-            aux->push_back(make_add(uptr_t,
-                vsrc, original_ptr, limit));
+            aux->push_back(make_add(uptr_t, vsrc, original_ptr, limit));
 
-            const type_t btype =
-                bitwise_type(statement.type);
+            const type_t btype = bitwise_type(statement.type);
 
             const operand_t vdst = make_validity_operand(
                 statement.operands[0], 0);
@@ -3227,22 +3180,18 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             new_vload.operands[1] = vsrc;
             aux->push_back(new_vload);
 
-            /* If we don't do the load, invalidate on the
-             * not_valid_pred flag. */
+            /* If we don't do the load, invalidate on the not_valid_pred
+             * flag. */
             const size_t ni = vdst.identifier.size();
-            const operand_t negone =
-                operand_t::make_iconstant(-1);
+            const operand_t negone = operand_t::make_iconstant(-1);
 
             /**
-             * nvcc does not seem to generate byte-sized
-             * registers, so while the load is a byte-wide,
-             * we don't get clued in on the size of our
-             * target register.  For now, widen the
-             * register (and hope this behavior doesn't
-             * change).
+             * nvcc does not seem to generate byte-sized registers, so while
+             * the load is a byte-wide, we don't get clued in on the size of
+             * our target register.  For now, widen the register (and hope this
+             * behavior doesn't change).
              */
-            const type_t bwtype = (btype == b8_type) ?
-                b16_type : btype;
+            const type_t bwtype = (btype == b8_type) ?  b16_type : btype;
 
             for (size_t i = 0; i < ni; i++) {
                 operand_t o;
@@ -3261,10 +3210,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             }
         }
     } else if (statement.space == local_space) {
-        const operand_t limit =
-            operand_t::make_identifier(__local_reg);
-        const operand_t local_errors =
-            operand_t::make_identifier(__errors_register);
+        const operand_t limit = operand_t::make_identifier(__local_reg);
 
         drop_load = true;
         invalidate = false;
@@ -3303,8 +3249,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
         statement_t new_load = statement;
         /**
-         * TODO:  We need to propagate the predicate
-         * flags of predicated loads.
+         * TODO:  We need to propagate the predicate flags of predicated loads.
          */
         assert(!(new_load.has_predicate));
         new_load.has_predicate = true;
@@ -3327,22 +3272,17 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         new_vload.operands[1] = vsrc;
         aux->push_back(new_vload);
 
-        /* If we don't do the load, invalidate on the
-         * not_valid_pred flag. */
+        /* If we don't do the load, invalidate on the not_valid_pred flag. */
         const size_t ni = vdst.identifier.size();
-        const operand_t negone =
-            operand_t::make_iconstant(-1);
+        const operand_t negone = operand_t::make_iconstant(-1);
 
         /**
-         * nvcc does not seem to generate byte-sized
-         * registers, so while the load is a byte-wide,
-         * we don't get clued in on the size of our
-         * target register.  For now, widen the
-         * register (and hope this behavior doesn't
-         * change).
+         * nvcc does not seem to generate byte-sized registers, so while the
+         * load is a byte-wide, we don't get clued in on the size of our target
+         * register.  For now, widen the register (and hope this behavior
+         * doesn't change).
          */
-        const type_t bwtype = (btype == b8_type) ?
-            b16_type : btype;
+        const type_t bwtype = (btype == b8_type) ?  b16_type : btype;
 
         for (size_t i = 0; i < ni; i++) {
             operand_t o;
@@ -3395,20 +3335,18 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
         aux->push_back(make_add(uptr_t, validity_ptr_src, chunk_ptr, vidx));
         aux->push_back(make_add(uptr_t, chunk_ptr, chunk_ptr, inidx));
-        aux->push_back(make_ld(read_t, global_space,
-            a_data, a_data_ptr));
+        aux->push_back(make_ld(read_t, global_space, a_data, a_data_ptr));
         if (width <= 8) {
             /* We cannot setp on a u8 */
             aux->push_back(make_cvt(wread_t, read_t, a_wdata, a_data));
 
             /**
-             * Since we load a byte at a time (the address bits
-             * for 8 bytes) even if we are performing a load of
-             * less than 8 bytes, we need to shift and mask.
+             * Since we load a byte at a time (the address bits for 8 bytes)
+             * even if we are performing a load of less than 8 bytes, we need
+             * to shift and mask.
              *
-             * Grab lower bits of the address and shift
-             * accordingly.  Shifts take u32's as their
-             * shift argument.
+             * Grab lower bits of the address and shift accordingly.  Shifts
+             * take u32's as their shift argument.
              */
             const type_t bwread_t = bitwise_type(wread_t);
             switch (sizeof(void *)) {
@@ -3433,11 +3371,10 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
                 (1 << width) - 1)));
         }
 
-        aux->push_back(make_setp(wread_t, cmp_eq, valid_pred,
-            a_cdata,
+        aux->push_back(make_setp(wread_t, cmp_eq, valid_pred, a_cdata,
             operand_t::make_iconstant((1 << width) - 1)));
-        aux->push_back(make_selp(ptr_t, valid_pred,
-            data_ptr, original_ptr, global_ro_reg));
+        aux->push_back(make_selp(ptr_t, valid_pred, data_ptr, original_ptr,
+            global_ro_reg));
 
         if (offsetof(metadata_chunk, v_data)) {
             aux->push_back(make_add(uptr_t, validity_ptr_src,
@@ -3451,8 +3388,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
     assert(!(invalidate) || !(validate));
     if (invalidate) {
         /**
-         * TODO:  We may want to actually fill in the data with
-         * some data.
+         * TODO:  We may want to actually fill in the data with some data.
          *
          * Mark destinations as invalid.
          */
@@ -3461,8 +3397,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         const type_t btype = bitwise_type(statement.type);
         const operand_t negone = operand_t::make_iconstant(-1);
         for (size_t i = 0; i < ni; i++) {
-            aux->push_back(make_mov(btype,
-                operand_t::make_identifier(
+            aux->push_back(make_mov(btype, operand_t::make_identifier(
                     make_validity_symbol(dst.identifier[i])), -1));
         }
     } else if (validate) {
@@ -3471,8 +3406,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         const type_t btype = bitwise_type(statement.type);
         const operand_t zero = operand_t::make_iconstant(0);
         for (size_t i = 0; i < ni; i++) {
-            aux->push_back(make_mov(btype,
-                operand_t::make_identifier(
+            aux->push_back(make_mov(btype, operand_t::make_identifier(
                     make_validity_symbol(dst.identifier[i])), 0));
         }
     }
@@ -3765,8 +3699,8 @@ void global_context_memcheck::instrument_mov(const statement_t & statement,
                             break;
                         }
 
-                        /* TODO: Consider marking off variables
-                         * that we've resolved to registers. */
+                        /* TODO: Consider marking off variables that we've
+                         * resolved to registers. */
                     }
                 }
             }
@@ -3853,11 +3787,11 @@ void global_context_memcheck::instrument_neg(const statement_t & statement,
             /**
              * TODO:  Do not ignore ftz.
              *
-             * The resulting validity is the same as the source
-             * validity as we are only flipping the sign bit.
+             * The resulting validity is the same as the source validity as we
+             * are only flipping the sign bit.
              *
-             * For now, we ignore that NaN's produce unspecified
-             * NaNs (per PTX ISA 3.0).
+             * For now, we ignore that NaN's produce unspecified NaNs (per PTX
+             * ISA 3.0).
              */
 
             aux->push_back(make_mov(btype, vd, va));
@@ -4125,26 +4059,22 @@ void global_context_memcheck::instrument_prefetch(
     /**
      * From the vtest_k_prefetch test, we make the following
      * observations:
-     * 1.  Prefetch operations in explicit spaces do not seem to
-     *     cause faults when they are out of bounds.
-     * 2.  There is some amount of slack:  Prefetch operations at
-     *     the bounds of a memory allocation succeed without
-     *     errors (even after accounting for cache line size).
-     *     For local operations, there seems to be 2k of slack.
-     *     For global operations, there can be up to 1M of slack
-     *     (from empirical experiments with the
-     *     Prefetch.GlobalEdgeOfBounds test).  Since allocations
-     *     are commonly aligned, Panoptes permits 1k of slack.
-     * 3.  Misaligned global accesses in the generic space with
-     *     prefetch (but not prefetchu) fail.  Misaligned local
-     *     accesses in the generic space fail with either prefetch
-     *     operation.
+     * 1.  Prefetch operations in explicit spaces do not seem to cause faults
+     *     when they are out of bounds.
+     * 2.  There is some amount of slack:  Prefetch operations at the bounds of
+     *     a memory allocation succeed without errors (even after accounting for
+     *     cache line size).  For local operations, there seems to be 2k of
+     *     slack.  For global operations, there can be up to 1M of slack (from
+     *     empirical experiments with the Prefetch.GlobalEdgeOfBounds test).
+     *     Since allocations are commonly aligned, Panoptes permits 1k of slack.
+     * 3.  Misaligned global accesses in the generic space with prefetch (but
+     *     not prefetchu) fail.  Misaligned local accesses in the generic space
+     *     fail with either prefetch operation.
      *
      *     Misaligned accesses in explicit spaces succeed.
      *
      * From this, we implement the following checks.
-     * 1.  Operations with explicit space specifications are not
-     *     checked.
+     * 1.  Operations with explicit space specifications are not checked.
      * 2.  Generic operations are checked for alignment and bounds.
      */
     if (statement.space == generic_space) {
@@ -4190,8 +4120,7 @@ void global_context_memcheck::instrument_prefetch(
         aux->push_back(make_setp(ptr_t,
             good ? cmp_eq : cmp_ne, op0, ptr, zero));
 
-        /* If prefetchu and the address is global, suppress this
-         * error. */
+        /* If prefetchu and the address is global, suppress this error. */
         if (statement.op == op_prefetchu) {
             aux->push_back(make_isspacep(global_space, op2, clean_a));
             if (good) {
@@ -4267,8 +4196,7 @@ void global_context_memcheck::instrument_prefetch(
              *
              *    t + N == 0xFFFCA0.
              *
-             * TODO: Panoptes currently does not consider
-             *       underflow.
+             * TODO: Panoptes currently does not consider underflow.
              */
             statement_t s;
             s.has_predicate  = true;
@@ -4322,10 +4250,10 @@ void global_context_memcheck::instrument_prefetch(
         aux->back().has_predicate = true;
         aux->back().predicate     = op2;
 
-        /* Check for global bounds.  Panoptes predicates costlier
-         * instructions on !(p2), e.g., loads.  While the other
-         * instructions are unnecessary as well, shuffling bits
-         * around that will discarded later harms nothing.
+        /* Check for global bounds.  Panoptes predicates costlier instructions
+         * on !(p2), e.g., loads.  While the other instructions are unnecessary
+         * as well, shuffling bits around that will discarded later harms
+         * nothing.
          */
         {
             const size_t chunk_size = 1u << lg_chunk_bytes;
@@ -4541,8 +4469,8 @@ void global_context_memcheck::instrument_prmt(const statement_t & statement,
     assert(!(vd.is_constant()));
 
     /**
-     * If c is constant, then we can just select the validity
-     * with c from va and vb.
+     * If c is constant, then we can just select the validity with c from va
+     * and vb.
      */
     if (vc.is_constant()) {
         if (va.is_constant() && vb.is_constant()) {
@@ -4600,9 +4528,8 @@ void global_context_memcheck::instrument_prmt(const statement_t & statement,
         immed2 = vd;
         just_convert = true;
     } else {
-        /* We need two more intermediate values, one to hold the
-         * result of selecting and one to hold the converted
-         * contents of immed. */
+        /* We need two more intermediate values, one to hold the result of
+         * selecting and one to hold the converted contents of immed. */
         just_convert = false;
 
         temp_operand t2(*auxillary, b32_type);
@@ -4635,14 +4562,13 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
            statement.type == s64_type);
 
     /**
-     * We first need to consider the validity bits of the
-     * intermediate abs(a-b).  The invalid bits of a and b
-     * propagate to the left; abs propagates the invalidity of the
-     * sign bit to the right.  Therefore, if any bits of a or b are
-     * invalid, the result abs(a-b) is wholly invalid.
+     * We first need to consider the validity bits of the intermediate
+     * abs(a-b).  The invalid bits of a and b propagate to the left; abs
+     * propagates the invalidity of the sign bit to the right.  Therefore, if
+     * any bits of a or b are invalid, the result abs(a-b) is wholly invalid.
      *
-     * We place the result of the intermediate validity bits in
-     * the operand immed.
+     * We place the result of the intermediate validity bits in the operand
+     * immed.
      */
     bool immed_constant;
     operand_t immed;
@@ -4709,8 +4635,7 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
 
     if (cconstant && immed_constant) {
         /**
-         * Result is constant.  We already have initialized immed
-         * to zero.
+         * Result is constant.  We already have initialized immed to zero.
          */
         aux->push_back(make_mov(btype, vd, immed));
         return;
@@ -4718,8 +4643,8 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
 
     if (cconstant) {
         /**
-         * We've computed all that we need to validity-bitwise
-         * in computing immed.
+         * We've computed all that we need to validity-bitwise in computing
+         * immed.
          */
         aux->push_back(make_mov(btype, vd, immed));
         return;
@@ -4735,8 +4660,8 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
         /**
          * OR result and then left propgate.
          *
-         * We need the temporary variable for immed and another
-         * to compute our left propagation.
+         * We need the temporary variable for immed and another to compute our
+         * left propagation.
          */
         const temp_operand tmp1(*auxillary, btype);
 
@@ -5056,8 +4981,7 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
             intermediate = tmp1;
         }
 
-        /* OR the result from shifting and from spreading b's
-         * invalid bits. */
+        /* OR the result from shifting and from spreading b's invalid bits. */
         aux->push_back(make_or(btype, vd, tmp0, intermediate));
     }
 }
@@ -5083,8 +5007,8 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
     assert(!(vd.is_constant()));
 
     /**
-     * If c is constant, then we can just select the validity
-     * with c from va and vb.
+     * If c is constant, then we can just select the validity with c from va
+     * and vb.
      */
     const type_t btype = bitwise_type(statement.type);
     if (vc.is_constant()) {
@@ -5116,8 +5040,8 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
     }
 
     /**
-     * We spread the invalid bits of c according to the type
-     * of the operation, we then narrow to the destination type.
+     * We spread the invalid bits of c according to the type of the operation,
+     * we then narrow to the destination type.
      */
     if (statement.type2 == f32_type) {
         /* An invalid bit anywhere corrupts the output. */
@@ -5125,8 +5049,7 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
         aux->push_back(make_sub(s32_type, immed, tmp,
             operand_t::make_iconstant(1)));
     } else if (statement.type2 == s32_type) {
-        /* The sign bit governs whether the output is
-         * invalid */
+        /* The sign bit governs whether the output is invalid */
         aux->push_back(make_shr(s32_type, immed, vd,
             operand_t::make_iconstant(31)));
     }
@@ -5143,9 +5066,8 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
         immed2 = vd;
         just_convert = true;
     } else {
-        /* We need two more intermediate values, one to hold the
-         * result of selecting and one to hold the converted
-         * contents of immed. */
+        /* We need two more intermediate values, one to hold the result of
+         * selecting and one to hold the converted contents of immed. */
         just_convert = false;
 
         const temp_operand t2(*auxillary, btype);
@@ -5182,40 +5104,32 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     const temp_ptr inidx(*auxillary);
     const temp_ptr chunk(*auxillary);
     const temp_ptr chunk_ptr(*auxillary);
-    const operand_t a_data_ptr =
-        operand_t::make_addressable(chunk_ptr,
+    const operand_t a_data_ptr = operand_t::make_addressable(chunk_ptr,
         offsetof(metadata_chunk, a_data));
     const temp_ptr data_ptr(*auxillary);
     const temp_ptr validity_ptr_dst(*auxillary);
-    const operand_t validity_ptr =
-        operand_t::make_addressable(validity_ptr_dst,
+    const operand_t validity_ptr = operand_t::make_addressable(validity_ptr_dst,
         offsetof(metadata_chunk, v_data));
     const temp_ptr chidx(*auxillary);
     const temp_ptr global_wo_reg(*auxillary);
     const temp_ptr vidx(*auxillary);
 
-    const operand_t master =
-        operand_t::make_identifier(__master_symbol);
-    const operand_t global_ro =
-        operand_t::make_identifier(__global_ro);
-    const operand_t global_wo =
-        operand_t::make_identifier(__global_wo);
+    const operand_t master = operand_t::make_identifier(__master_symbol);
+    const operand_t global_ro = operand_t::make_identifier(__global_ro);
+    const operand_t global_wo = operand_t::make_identifier(__global_wo);
 
     const temp_operand valid_pred(*auxillary, pred_type);
 
     const size_t chunk_size = 1u << lg_chunk_bytes;
-    const size_t max_chunks =
-        (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
+    const size_t max_chunks = (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
     const size_t cwidth = sizeof_type(statement.type);
     const size_t width  = cwidth * (unsigned) statement.vector;
     const type_t read_t = unsigned_of(width);
     const temp_operand a_data(*auxillary, read_t);
 
-    const type_t wread_t =
-        width <= 8 ? u16_type : read_t;
+    const type_t wread_t = width <= 8 ? u16_type : read_t;
     const temp_operand a_wdata(*auxillary, u16_type);
-    const operand_t a_cdata =
-        width <= 8 ? a_wdata : a_data;
+    const operand_t a_cdata = width <= 8 ? a_wdata : a_data;
     const temp_operand a_data32(*auxillary, u32_type);
 
     operand_t new_dst, new_vdst;
@@ -5295,8 +5209,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
 
                 new_vdst = dst;
                 new_vdst.identifier.clear();
-                new_vdst.identifier.push_back(
-                    make_validity_symbol(id));
+                new_vdst.identifier.push_back(make_validity_symbol(id));
                 new_vdst.field.clear();
                 new_vdst.field.push_back(field_none);
             }
@@ -5309,8 +5222,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             drop_store = true;
 
             aux->push_back(make_mov(ptr_t, original_ptr,
-                operand_t::make_identifier(
-                    dst.identifier[0])));
+                operand_t::make_identifier(dst.identifier[0])));
             if (dst.op_type == operand_addressable &&
                     dst.offset != 0) {
                 aux->push_back(make_add(uptr_t, original_ptr,
@@ -5327,8 +5239,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
 
             statement_t new_store = statement;
             /**
-             * TODO:  We need to propagate the predicate
-             * flags of predicated stores.
+             * TODO:  We need to propagate the predicate flags of predicated
+             * stores.
              */
             assert(!(new_store.has_predicate));
             new_store.has_predicate = true;
@@ -5344,8 +5256,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             statement_t new_vstore = statement;
             new_vstore.has_predicate = true;
             new_vstore.predicate = valid_pred;
-            new_vstore.type = bitwise_type(
-                new_vstore.type);
+            new_vstore.type = bitwise_type(new_vstore.type);
             new_vstore.operands[0] = vdst;
             new_vstore.operands[1] =
                 make_validity_operand(new_vstore.operands[1], cwidth);
@@ -5389,8 +5300,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
 
         statement_t new_store = statement;
         /**
-         * TODO:  We need to propagate the predicate
-         * flags of predicated stores.
+         * TODO:  We need to propagate the predicate flags of predicated
+         * stores.
          */
         assert(!(new_store.has_predicate));
         new_store.has_predicate = true;
@@ -5405,8 +5316,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
         statement_t new_vstore = statement;
         new_vstore.has_predicate = true;
         new_vstore.predicate = valid_pred;
-        new_vstore.type = bitwise_type(
-            new_vstore.type);
+        new_vstore.type = bitwise_type(new_vstore.type);
         new_vstore.operands[0] = vdst;
         new_vstore.operands[1] =
             make_validity_operand(new_vstore.operands[1], cwidth);
@@ -5452,9 +5362,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
 
             /* See explaination under op_ld.
              *
-             * Grab lower bits of the address and shift
-             * accordingly.  Shifts take u32's as their
-             * shift argument.
+             * Grab lower bits of the address and shift accordingly.  Shifts
+             * take u32's as their shift argument.
              */
             const type_t bwread_t = bitwise_type(wread_t);
             switch (sizeof(void *)) {
@@ -5506,8 +5415,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     assert(vsrc.op_type == operand_identifier);
     assert(vsrc.identifier.size() == vsrc.field.size());
     for (size_t i = 0; i < vsrc.identifier.size(); i++) {
-        vsrc.identifier[i] = make_validity_symbol(
-            vsrc.identifier[i]);
+        vsrc.identifier[i] = make_validity_symbol(vsrc.identifier[i]);
     }
 
     if (!(drop_store)) {
@@ -5564,10 +5472,10 @@ void global_context_memcheck::instrument_vote(const statement_t & statement,
         case vote_any:
         case vote_uniform:
             /**
-             * Panoptes adopts a slightly less precise approach:
-             * If any inputs are invalid, the result is invalid.
-             * (In principle, it is possible for say, vote.any, to
-             * be valid if at least one true input is valid.)
+             * Panoptes adopts a slightly less precise approach: If any inputs
+             * are invalid, the result is invalid.  (In principle, it is
+             * possible for say, vote.any, to be valid if at least one true
+             * input is valid.)
              */
             if (va.is_constant()) {
                 aux->push_back(make_mov(b16_type, vd, 0));
@@ -5687,8 +5595,7 @@ void global_context_memcheck::instrument_block(block_t * block,
             inst_t::sset_t::iterator jit =
                 inst->unchecked.find(statement.predicate);
             if (jit != inst->unchecked.end()) {
-                /* We haven't checked this predicate lately, insert
-                 * a check. */
+                /* We haven't checked this predicate lately, insert a check. */
                 const operand_t vp = operand_t::make_identifier(
                     make_validity_symbol(statement.predicate));
                 const temp_operand tmpp(temps, pred_type);
@@ -5820,8 +5727,8 @@ void global_context_memcheck::instrument_block(block_t * block,
             case op_bfind:
             case op_clz:
                 /**
-                 * This approximation is less precise than it could be, but
-                 * it is likely good enough for our purposes.
+                 * This approximation is less precise than it could be, but it
+                 * is likely good enough for our purposes.
                  *
                  * Fall through.
                  */
@@ -5902,8 +5809,7 @@ void global_context_memcheck::instrument_block(block_t * block,
         v.type = bitwise_of(1u << i);
 
         char sym[16];
-        int ret = snprintf(sym, sizeof(sym), "__panoptes_b%d_",
-            8u << i);
+        int ret = snprintf(sym, sizeof(sym), "__panoptes_b%d_", 8u << i);
         assert(ret < (int) sizeof(sym));
 
         v.name = sym;
@@ -5925,8 +5831,7 @@ void global_context_memcheck::instrument_block(block_t * block,
         v.type = signed_of(1u << i);
 
         char sym[16];
-        int ret = snprintf(sym, sizeof(sym), "__panoptes_s%d_",
-            8u << i);
+        int ret = snprintf(sym, sizeof(sym), "__panoptes_s%d_", 8u << i);
         assert(ret < (int) sizeof(sym));
 
         v.name = sym;
@@ -5948,8 +5853,7 @@ void global_context_memcheck::instrument_block(block_t * block,
         v.type = unsigned_of(8u << i);
 
         char sym[16];
-        int ret = snprintf(sym, sizeof(sym), "__panoptes_u%d_",
-            8u << i);
+        int ret = snprintf(sym, sizeof(sym), "__panoptes_u%d_", 8u << i);
         assert(ret < (int) sizeof(sym));
 
         v.name = sym;
@@ -6028,9 +5932,8 @@ void global_context_memcheck::cudaRegisterVar(void **fatCubinHandle,
     variable_definition_map_t::iterator it =
         variable_definitions_.find(h);
     if (it == variable_definitions_.end()) {
-        /* Attempting to register a variable that does not exist.
-         * This should have been caught at the cuda_context level, so return
-         * quietly. */
+        /* Attempting to register a variable that does not exist.  This should
+         * have been caught at the cuda_context level, so return quietly. */
         return;
     }
 
