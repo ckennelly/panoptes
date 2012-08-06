@@ -3170,9 +3170,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
             new_load.predicate = valid_pred;
             aux->push_back(new_load);
 
-            const operand_t vsrc =
-                operand_t::make_identifier(
-                "__panoptes_ptr1");
+            const temp_ptr vsrc(*auxillary);
 
             aux->push_back(make_add(uptr_t, vsrc, original_ptr, limit));
 
@@ -3227,10 +3225,10 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         operand_t origin;
 
         /* Verify address against the local size parameter. */
+        const temp_ptr tmp(*auxillary);
         if (src.is_constant()) {
             origin = src;
 
-            const temp_ptr tmp(*auxillary);
             aux->push_back(make_add(uptr_t, tmp, origin, (int) width));
             aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred, limit, tmp));
             /* TODO:  Check for underrun. */
@@ -3248,7 +3246,6 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
             origin = original_ptr;
 
-            const temp_ptr tmp(*auxillary);
             aux->push_back(make_add(uptr_t, tmp, origin, (int) width));
             aux->push_back(make_setp(uptr_t, cmp_ge, valid_pred,
                 operand_t::make_iconstant(0xFFFCA0), tmp));
@@ -3263,8 +3260,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         new_load.predicate = valid_pred;
         aux->push_back(new_load);
 
-        const operand_t vsrc =
-            operand_t::make_identifier("__panoptes_ptr1");
+        const temp_ptr vsrc(*auxillary);
 
         aux->push_back(make_add(uptr_t, vsrc, origin, limit));
 
@@ -4272,8 +4268,7 @@ void global_context_memcheck::instrument_prefetch(
              * uintptr_t ptr1 = clean_a >> lg_chunk_bytes;
              * ptr1 &= max_chunks;
              */
-            const operand_t ptr1 = operand_t::make_identifier(
-                "__panoptes_ptr1");
+            const temp_ptr ptr1(*auxillary);
             statement_t c;
             c.op    = op_cvta;
             c.is_to = true;
@@ -5220,9 +5215,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
             new_store.predicate = valid_pred;
             aux->push_back(new_store);
 
-            const operand_t vdst =
-                operand_t::make_identifier(
-                "__panoptes_ptr1");
+            const temp_ptr vdst(*auxillary);
 
             aux->push_back(make_add(uptr_t, vdst, original_ptr, limit));
 
@@ -5279,9 +5272,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
         new_store.predicate = valid_pred;
         aux->push_back(new_store);
 
-        const operand_t vdst =
-            operand_t::make_identifier("__panoptes_ptr1");
-
+        const temp_ptr vdst(*auxillary);
         aux->push_back(make_add(uptr_t, vdst, origin, limit));
 
         statement_t new_vstore = statement;
