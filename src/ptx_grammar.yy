@@ -1228,8 +1228,8 @@ rsqrt : OPCODE_RSQRT optionalApprox optionalFTZ floatingDataType
 };
 
 sad : OPCODE_SAD integerDataType identifierOperand TOKEN_COMMA
-        identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA
-        identifierOperand {
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
+        immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);

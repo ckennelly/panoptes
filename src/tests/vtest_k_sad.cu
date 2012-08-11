@@ -28,6 +28,41 @@ __global__ void k_sad(const int * x, const int * y, const unsigned int * z,
     }
 }
 
+__global__ void k_sad_allconst(unsigned int * out) {
+    unsigned int _out;
+    asm("sad.s32 %0, 1, 2, 3;\n" : "=r"(_out));
+    *out = _out;
+}
+
+TEST(kSAD, SADConstant) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    unsigned int * out;
+    ret = cudaMalloc((void **) &out, sizeof(*out));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    k_sad_allconst<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    EXPECT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    unsigned int hout;
+    ret = cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(4u, hout);
+}
+
 TEST(kSAD, SAD) {
     cudaError_t ret;
     cudaStream_t stream;
