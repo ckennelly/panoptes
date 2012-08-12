@@ -31,7 +31,7 @@ __global__ void k_sad(const int * x, const int * y, const unsigned int * z,
 
 __global__ void k_sad_allconst(unsigned int * out) {
     unsigned int _out;
-    asm("sad.s32 %0, 1, 2, 3;\n" : "=r"(_out));
+    asm("sad.u32 %0, 1, 2, 3;\n" : "=r"(_out));
     *out = _out;
 }
 
