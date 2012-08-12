@@ -148,3 +148,32 @@
    obj:/opt/cuda/lib64/libcudart.so.4.1.28
    fun:cudaDeviceEnablePeerAccess
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   fun:__run_exit_handlers
+   fun:exit
+   fun:(below main)
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.2.5
+   obj:/usr/lib64/libcuda.so.295.53
+   obj:/usr/lib64/libcuda.so.295.53
+   obj:/usr/lib64/libcuda.so.295.53
+   obj:/usr/lib64/libcuda.so.295.53
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+}
