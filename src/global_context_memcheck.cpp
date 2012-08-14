@@ -360,6 +360,18 @@ static statement_t make_mov(type_t type, const operand_t & dst, int64_t src) {
     return ret;
 }
 
+static statement_t make_mul(type_t type, const op_mul_width_t width,
+        const operand_t & dst, const operand_t & a, const operand_t & b) {
+    statement_t ret;
+    ret.op    = op_mul;
+    ret.type  = type;
+    ret.width = width;
+    ret.operands.push_back(dst);
+    ret.operands.push_back(a);
+    ret.operands.push_back(b);
+    return ret;
+}
+
 static statement_t make_neg(type_t type, const operand_t & dst,
         const operand_t & src) {
     statement_t ret;
@@ -402,6 +414,20 @@ static statement_t make_setp(type_t type, op_set_cmp_t cmp,
     ret.ppredicate = pred;
     ret.operands.push_back(lhs);
     ret.operands.push_back(rhs);
+    return ret;
+}
+
+static statement_t make_setp(type_t type, op_set_cmp_t cmp,
+        const std::string & pred, const operand_t & lhs,
+        const int64_t rhs) {
+    statement_t ret;
+    ret.op   = op_setp;
+    ret.type = type;
+    ret.cmp  = cmp;
+    ret.has_ppredicate = true;
+    ret.ppredicate = pred;
+    ret.operands.push_back(lhs);
+    ret.operands.push_back(operand_t::make_iconstant(rhs));
     return ret;
 }
 
@@ -2234,21 +2260,137 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
 
 void global_context_memcheck::instrument_bar(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
-    (void) aux;
     *keep = true;
-    (void) auxillary;
 
-    return; /* TODO */
-    switch (statement.barrier) {
-        case barrier_sync:
-        case barrier_arrive:
-            /* No-op. */
+    if (statement.barrier == barrier_sync ||
+            statement.barrier == barrier_arrive) {
+        /* No-op. */
+        return;
+    } else if (statement.barrier != barrier_reduce) {
+        assert(0 && "Invalid barrier type.");
+        return;
+    }
+
+    assert(statement.barrier == barrier_reduce);
+    assert(statement.operands.size() >= 3u);
+    assert(statement.operands.size() <= 4u);
+
+    /*
+     * The 4 argument variety is prone to problems where b < blockSize,
+     * as we cannot use bar.red in succession and necessarily be
+     * operating on the same threads.
+     */
+    const bool four_argument = (statement.operands.size() == 4u);
+
+    const operand_t & d = statement.operands[0];
+    const operand_t & a = statement.operands[1];
+    /* If !(four_argument), b == c, but we do not access b. */
+    const operand_t & b = statement.operands[2];
+    const operand_t & c = statement.operands[four_argument ? 3 : 2];
+
+    const operand_t vd  = make_validity_operand(d, 0);
+    const operand_t vc  = make_validity_operand(c, 0);
+
+    /* If c is a constant, the destination will be a good value. */
+    if (vc.is_constant()) {
+        /* popc has a u32 as its destination; all others are pred type. */
+        const type_t vd_type =
+            (statement.bool_op == bool_popc) ? b32_type : b16_type;
+        aux->push_back(make_mov(vd_type, d, 0));
+        return;
+    }
+
+    /* Temporaries. */
+    const temp_operand tmp_pred(*auxillary, pred_type);
+
+    /* Determine if c is valid. */
+    aux->push_back(make_setp(u16_type, cmp_eq, tmp_pred, vc, 0));
+
+    /**
+     * OR across all vc's.  If any is invalid, the entirety of the
+     * popc is invalid.
+     */
+    statement_t s;
+    s.op      = op_bar;
+    s.barrier = barrier_reduce;
+    s.bool_op = bool_or;
+    s.type    = pred_type;
+    s.operands.push_back(tmp_pred);
+    s.operands.push_back(a);
+    if (four_argument) {
+        s.operands.push_back(b);
+    }
+    s.operands.push_back(tmp_pred);
+    aux->push_back(s);
+
+    switch (statement.bool_op) {
+        case bool_and:
+        case bool_or:
+            /**
+             * If any bit is invalid, the resulting predicate is invalid.
+             * We can mix in the actual value of c for an increase in
+             * precision.  If any 0 input is valid to AND (for example), the
+             * entire result is valid.
+             */
+            aux->push_back(make_selp(u16_type, tmp_pred, vd,
+                operand_t::make_iconstant(0xFFFF),
+                operand_t::make_iconstant(0)));
             break;
-        case barrier_reduce:
-            assert(0 && "TODO bar.red not supported.");
+        case bool_popc:
+            if (four_argument) {
+                assert(b.is_constant() &&
+                    "Number of thread in reduction must be constant.");
+                uint32_t mask = static_cast<uint32_t>(b.offset);
+                mask |= (mask - 1u);
+
+                aux->push_back(make_selp(b32_type, tmp_pred, vd,
+                    operand_t::make_iconstant(mask),
+                    operand_t::make_iconstant(0)));
+            } else {
+                /**
+                 * Determine the number of threads in the block and thus the
+                 * maximum value of popc.  We cannot load special registers
+                 * directly into the operands of mul, so we create several
+                 * temporaries.
+                 */
+                const temp_operand block_size(*auxillary, u32_type);
+                const temp_operand x(*auxillary, u32_type);
+                const temp_operand y(*auxillary, u32_type);
+                const temp_operand z(*auxillary, u32_type);
+
+                aux->push_back(make_mov(u32_type, x,
+                    operand_t::make_identifier("%ntid.x")));
+                aux->push_back(make_mov(u32_type, y,
+                    operand_t::make_identifier("%ntid.y")));
+                aux->push_back(make_mov(u32_type, z,
+                    operand_t::make_identifier("%ntid.z")));
+
+                aux->push_back(make_mul(u32_type, width_lo, block_size, x, y));
+                aux->push_back(make_mul(u32_type, width_lo, block_size,
+                    block_size, z));
+
+                /**
+                 * Subtract 1 from the block_size to reduce it to all 1's, then
+                 * OR this back into the block_size to determine which bits of
+                 * the popc result will be invalid (as high bits corresponding
+                 * to powers of 2 well in excess of the number of threads will
+                 * always be 0).
+                 */
+                const temp_operand minus_one(*auxillary, u32_type);
+                aux->push_back(make_sub(u32_type, minus_one, block_size, 1));
+                aux->push_back(make_or(b32_type, block_size, block_size, minus_one));
+
+                /**
+                 * Map result of validity reduction to block_size or 0.
+                 */
+                aux->push_back(make_selp(b32_type, tmp_pred, vd, block_size,
+                    operand_t::make_iconstant(0)));
+            }
+
             break;
-        case barrier_invalid:
-            assert(0 && "Invalid barrier type.");
+        case bool_none:
+        case bool_xor:
+            assert(0 && "Invalid boolean operation.");
             break;
     }
 }
