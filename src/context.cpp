@@ -552,7 +552,15 @@ cudaError_t cuda_context::cudaFuncGetAttributes(
     }
 
     if (!(func)) {
-        return cudaErrorUnknown;
+        /**
+         * If CUDA 4.2, return cudaErrorInvalidDeviceFunction. Otherwise, for
+         * CUDA 4.1 and older, return cudaErrorUnknown.
+         */
+        if (runtime_version_ >= 4020) {
+            return cudaErrorInvalidDeviceFunction;
+        } else {
+            return cudaErrorUnknown;
+        }
     }
 
     /**

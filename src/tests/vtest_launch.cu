@@ -89,10 +89,19 @@ TEST(Launch, LaunchNull) {
     EXPECT_EQ(cudaSuccess, ret);
 
     /**
-     * As of CUDA 4.1, cudaErrorUnknown is returned.
+     * For CUDA 4.2, cudaErrorInvalidDeviceFunction is returned.  For CUDA 4.1
+     * and older, cudaErrorUnknown is returned.
      */
+    int runtimeVersion;
+    ret = cudaRuntimeGetVersion(&runtimeVersion);
+    ASSERT_EQ(cudaSuccess, ret);
+
     ret = cudaLaunch(NULL);
-    EXPECT_EQ(cudaErrorUnknown, ret);
+    if (runtimeVersion >= 4020) {
+        EXPECT_EQ(cudaErrorInvalidDeviceFunction, ret);
+    } else {
+        EXPECT_EQ(cudaErrorUnknown, ret);
+    }
 
     ret = cudaStreamSynchronize(cs);
     EXPECT_EQ(cudaSuccess, ret);

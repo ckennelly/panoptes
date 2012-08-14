@@ -3483,7 +3483,15 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
      * If the entry name is invalid, fail.
      */
     if (entry == NULL) {
-        return cudaErrorUnknown;
+        /**
+         * CUDA 4.2 returns cudaErrorInvalidDeviceFunction.  CUDA 4.1 and older
+         * returns cudaErrorUnknown.
+         */
+        if (runtime_version_ >= 4020) {
+            return cudaErrorInvalidDeviceFunction;
+        } else {
+            return cudaErrorUnknown;
+        }
     }
 
     scoped_lock lock(mx_);

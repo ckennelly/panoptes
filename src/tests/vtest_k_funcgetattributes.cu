@@ -57,8 +57,20 @@ TEST(FuncGetAttributes, NullArguments) {
     ret = cudaFuncGetAttributes(NULL, NULL);
     ASSERT_EQ(cudaErrorInvalidValue, ret);
 
+    int runtimeVersion;
+    ret = cudaRuntimeGetVersion(&runtimeVersion);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /**
+     * If CUDA 4.2, we expect cudaErrorInvalidDeviceFunction.  Otherwise, we
+     * expect cudaErrorUnknown.
+     */
     ret = cudaFuncGetAttributes(&attr, NULL);
-    ASSERT_EQ(cudaErrorUnknown, ret);
+    if (runtimeVersion >= 4020) {
+        ASSERT_EQ(cudaErrorInvalidDeviceFunction, ret);
+    } else {
+        ASSERT_EQ(cudaErrorUnknown, ret);
+    }
 }
 
 int main(int argc, char **argv) {

@@ -177,3 +177,24 @@
    obj:/opt/cuda/lib64/libcudart.so.4.2.9
    obj:/opt/cuda/lib64/libcudart.so.4.2.9
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   fun:__nptl_deallocate_tsd
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   obj:/usr/lib64/libcuda.so.295.53
+   obj:/usr/lib64/libcuda.so.295.53
+   fun:cuCtxEnablePeerAccess
+   obj:/opt/cuda/lib64/libcudart.so.4.2.9
+   fun:cudaDeviceEnablePeerAccess
+}
