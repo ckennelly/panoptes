@@ -5482,7 +5482,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
 
         /* Flag the error condition if one exists. */
         inst_t::error_desc_t desc_oob;
-        desc_oob.type = inst_t::outofbounds_ld_local;
+        desc_oob.type = inst_t::outofbounds_st_local;
         desc_oob.orig = statement;
         auxillary->inst->errors.push_back(desc_oob);
         const size_t error_oob = auxillary->inst->errors.size();
@@ -5563,7 +5563,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
 
         /* Flag the error condition if one exists. */
         inst_t::error_desc_t desc_oob;
-        desc_oob.type = inst_t::outofbounds_ld_global;
+        desc_oob.type = inst_t::outofbounds_st_global;
         desc_oob.orig = statement;
         auxillary->inst->errors.push_back(desc_oob);
         const size_t error_oob = auxillary->inst->errors.size();
