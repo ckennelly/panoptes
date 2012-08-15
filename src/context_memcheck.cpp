@@ -1960,7 +1960,7 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
         amap_t::const_iterator uit =
             device_allocations_.upper_bound(device_ptr);
         if (!(uit == device_allocations_.end() ||
-                ptr + size < reinterpret_cast<uintptr_t>(lit->first))) {
+                ptr + size <= reinterpret_cast<uintptr_t>(lit->first))) {
             const void * const new_start  = device_ptr;
             const void * const new_end    =
                 static_cast<const uint8_t *>(device_ptr) + size;
