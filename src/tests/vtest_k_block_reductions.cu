@@ -74,7 +74,7 @@ TEST(kSyncThreads, AllEvens) {
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
-    k_all_evens<<<block_size, n_blocks, 0, stream>>>(in, out, N);
+    k_all_evens<<<n_blocks, block_size, 0, stream>>>(in, out, N);
 
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);
@@ -109,7 +109,7 @@ TEST(kSyncThreads, AnyEvens) {
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
-    k_any_evens<<<block_size, n_blocks, 0, stream>>>(in, out, N);
+    k_any_evens<<<n_blocks, block_size, 0, stream>>>(in, out, N);
 
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);
