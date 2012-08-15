@@ -1127,8 +1127,9 @@ void global_context_memcheck::instrument(
         variable_data_t d;
         d.ptx            = target->variables[i];
         d.hostVar        = NULL;
-        variable_definitions_.insert(variable_definition_map_t::value_type(
-            h, d));
+        d.parent_ptx     = target;
+        variable_definitions_.insert(
+            variable_definition_map_t::value_type(h, d));
     }
 
     const size_t entries = target->entries.size();

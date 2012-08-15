@@ -772,8 +772,14 @@ cuda_context_memcheck::cuda_context_memcheck(
         add_device_allocation(ptr, true_size, false);
 
         const variable_t & variable = it->second.ptx;
-        if (variable.has_initializer) {
-            assert(!(variable.is_array && variable.array_flexible));
+        const ptx_t * parent_ptx    = it->second.parent_ptx;
+        /**
+         * In PTX 2.3 and later, variables are initialized to 0 by default.
+         */
+        const bool ptx_23 = parent_ptx->version_major > 2 ||
+            (parent_ptx->version_major == 2 && parent_ptx->version_minor >= 3);
+        if ((variable.has_initializer || ptx_23) &&
+                !((variable.is_array && variable.array_flexible))) {
             validity_set(ptr, variable.size(), NULL);
         }
     }

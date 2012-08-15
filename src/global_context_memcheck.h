@@ -175,6 +175,7 @@ private:
     struct variable_data_t {
         variable_t ptx;
         char * hostVar;
+        const ptx_t * parent_ptx;
     };
     typedef boost::unordered_map<variable_handle_t, variable_data_t>
         variable_definition_map_t;
