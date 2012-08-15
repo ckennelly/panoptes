@@ -53,16 +53,16 @@ TEST(kMinMax, ExplicitStream) {
     ret = cudaMalloc((void **) &data, sizeof(*data) * N);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaMalloc((void **) &max_values, n_blocks);
+    ret = cudaMalloc((void **) &max_values, sizeof(*max_values) * n_blocks);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaMalloc((void **) &min_values, n_blocks);
+    ret = cudaMalloc((void **) &min_values, sizeof(*min_values) * n_blocks);
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
-    k_minmax<<<256, n_blocks, 0, stream>>>(data, N, max_values, min_values);
+    k_minmax<<<n_blocks, 256, 0, stream>>>(data, N, max_values, min_values);
 
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);
