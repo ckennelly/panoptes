@@ -2616,7 +2616,7 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
 
     const operand_t & vd = make_validity_operand(statement.operands[0], 0);
 
-    const bool data_constant = aconstant && bconstant;
+    const bool data_constant = aconstant & bconstant;
 
     if (data_constant && immed_constant) {
         /**
