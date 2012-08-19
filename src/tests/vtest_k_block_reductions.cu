@@ -25,7 +25,7 @@ extern "C" __global__ void k_all_evens(const int * in, bool * out,
 
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x; idx < N;
             idx += blockDim.x * gridDim.x) {
-        local = local && (in[idx] % 2 == 0);
+        local = local & (in[idx] % 2 == 0);
     }
 
     out[blockIdx.x] = __syncthreads_and(local);
@@ -37,7 +37,7 @@ extern "C" __global__ void k_any_evens(const int * in, bool * out,
 
     for (int idx = threadIdx.x + blockDim.x * blockIdx.x; idx < N;
             idx += blockDim.x * gridDim.x) {
-        local = local && (in[idx] % 2 == 0);
+        local = local & (in[idx] % 2 == 0);
     }
 
     out[blockIdx.x] = __syncthreads_or(local);
