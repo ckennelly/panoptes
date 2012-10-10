@@ -3501,26 +3501,22 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
     }
 
     scoped_lock lock(mx_);
-    internal::check_t * checker = new internal::check_t(this,
-        get_entry_name(entry));
     /**
      * Go over call stack, pass in validity information and other auxillary
      * information.
      */
     const char * entry_name = get_entry_name(entry);
-    global_t::entry_info_map_t::const_iterator it;
     global_t * g = global();
 
     if (entry_name == NULL) {
         /* Try the now depreciated interpretation of entry as the entry name
          * itself. */
-        it = g->entry_info_.find(entry);
-    } else {
-        it = g->entry_info_.find(entry_name);
+        entry_name = entry;
     }
 
+    global_t::entry_info_map_t::const_iterator it =
+        g->entry_info_.find(entry_name);
     if (it == g->entry_info_.end()) {
-        delete checker;
         return setLastError(cudaErrorInvalidDeviceFunction);
     }
 
@@ -3529,7 +3525,6 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
          * This isn't a specified return value in the CUDA 4.x documentation
          * for cudaLaunch, but this has been experimentally validated.
          */
-        delete checker;
         return cudaErrorInvalidConfiguration;
     }
 
@@ -3537,6 +3532,7 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
     size_t offset = it->second.user_param_size;
 
     internal::call_t * call = call_stack().top();
+    internal::check_t * checker = new internal::check_t(this, entry_name);
 
     /* Check validity of launch parameters. */
     VALGRIND_CHECK_VALUE_IS_DEFINED(call->gridDim.x);
