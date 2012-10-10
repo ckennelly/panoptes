@@ -3538,6 +3538,15 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
 
     internal::call_t * call = call_stack().top();
 
+    /* Check validity of launch parameters. */
+    VALGRIND_CHECK_VALUE_IS_DEFINED(call->gridDim.x);
+    VALGRIND_CHECK_VALUE_IS_DEFINED(call->gridDim.y);
+    VALGRIND_CHECK_VALUE_IS_DEFINED(call->gridDim.z);
+    VALGRIND_CHECK_VALUE_IS_DEFINED(call->gridDim.x);
+    VALGRIND_CHECK_VALUE_IS_DEFINED(call->gridDim.y);
+    VALGRIND_CHECK_VALUE_IS_DEFINED(call->gridDim.z);
+    VALGRIND_CHECK_VALUE_IS_DEFINED(call->sharedMem);
+
     { /* Shared memory */
     uintptr_t shared = call->sharedMem;
     offset = (offset + sizeof(shared) - 1u) & ~(sizeof(shared) - 1u);
