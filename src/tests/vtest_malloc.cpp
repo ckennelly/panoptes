@@ -75,6 +75,55 @@ TEST(MallocFree, Validity) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+TEST(MallocFree, FreeValidity) {
+    /**
+     * Allocate a piece of memory on the device and initialize it.  Free and
+     * reallocate.  Verify that if we obtain that piece of memory again, it is
+     * no longer initialized.
+     */
+    cudaError_t ret;
+    int32_t * ptr;
+
+    ret = cudaMalloc((void **) &ptr, sizeof(*ptr));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    int32_t in = 5;
+    ret = cudaMemcpy(ptr, &in, sizeof(in), cudaMemcpyHostToDevice);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    int32_t tmp;
+    ret = cudaMemcpy(&tmp, ptr, sizeof(tmp), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+    EXPECT_EQ(in, tmp);
+
+    uint32_t vtmp;
+    const bool valgrind = (VALGRIND_GET_VBITS(&tmp, &vtmp, sizeof(tmp)) == 1);
+    if (valgrind) {
+        EXPECT_EQ(0, vtmp);
+    }
+
+    ret = cudaFree(ptr);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    int32_t * new_ptr;
+    ret = cudaMalloc((void **) &new_ptr, sizeof(*new_ptr));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    EXPECT_EQ(ptr, new_ptr);
+    if (valgrind && ptr == new_ptr) {
+        VALGRIND_MAKE_MEM_UNDEFINED(&tmp, sizeof(tmp));
+        ret = cudaMemcpy(&tmp, new_ptr, sizeof(tmp), cudaMemcpyDeviceToHost);
+        ASSERT_EQ(cudaSuccess, ret);
+
+        vtmp = 0;
+        VALGRIND_GET_VBITS(&tmp, &vtmp, sizeof(tmp));
+        EXPECT_EQ(0xFFFFFFFF, vtmp);
+    }
+
+    ret = cudaFree(new_ptr);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
