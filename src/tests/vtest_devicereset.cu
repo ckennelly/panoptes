@@ -69,6 +69,17 @@ TEST(DeviceReset, Simple) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+TEST(DeviceReset, Alias) {
+    /*
+     * cudaThreadExit aliases cudaDeviceReset.  Calling it should not be
+     * harmful.
+     */
+    (void) cudaGetLastError();
+
+    const cudaError_t ret = cudaThreadExit();
+    EXPECT_EQ(cudaSuccess, ret);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
