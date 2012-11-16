@@ -46,7 +46,8 @@ struct error_buffer_t {
 
 class cuda_context_memcheck : public cuda_context {
 public:
-    typedef gpu_pool<metadata_chunk> pool_t;
+    typedef gpu_pool<adata_chunk> apool_t;
+    typedef gpu_pool<vdata_chunk> vpool_t;
 
     explicit cuda_context_memcheck(
         global_context_memcheck * g, int device, unsigned int flags);
@@ -294,7 +295,8 @@ protected:
     /**
      * Initializes the chunk handle to be no access, no validity.
      */
-    void initialize_chunk(pool_t::handle_t * handle) const;
+    void initialize_achunk(apool_t::handle_t * handle) const;
+    void initialize_vchunk(vpool_t::handle_t * handle) const;
 
     /**
      * Cleans up the previously bound texture.
@@ -309,8 +311,9 @@ private:
      * Master list pointing into chunks by their corresponding upper address
      * bits
      */
-    host_gpu_vector<metadata_chunk *> master_;
-    std::vector<pool_t::handle_t   *> chunks_;
+    host_gpu_vector<metadata_ptrs>    master_;
+    std::vector<apool_t::handle_t *>  achunks_;
+    std::vector<vpool_t::handle_t *>  vchunks_;
     state_ptr_t                       state_;
 
     /* Storage for auxillary chunk info (host-based) */
@@ -343,13 +346,21 @@ private:
     /**
      * Allocated chunk vectors.
      */
-    pool_t pool_;
+    apool_t apool_;
+    vpool_t vpool_;
 
     /**
      * We keep a single immutable handle as the default target for uninitialized
      * blocks.
      */
-    pool_t::handle_t * default_chunk_;
+    apool_t::handle_t * default_achunk_;
+    vpool_t::handle_t * default_vchunk_;
+
+    /**
+     * We keep an immutable handle as the default target for fully addressable
+     * chunks.
+     */
+    apool_t::handle_t * initialized_achunk_;
 
     struct device_aux_t {
         size_t size;

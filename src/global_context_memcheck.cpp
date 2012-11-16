@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/integer/static_log2.hpp>
 #include "context_memcheck.h"
 #include "context_memcheck_internal.h"
 #include <cstdio>
@@ -54,6 +55,8 @@ static const char * __param_error     = "__panoptes_errors";
 static const char * __param_error_count = "__panoptes_error_count";
 
 static const size_t metadata_size     = 3u * sizeof(void *);
+static const size_t metadata_ptrs_lg  =
+    boost::static_log2<sizeof(metadata_ptrs)>::value;
 
 static type_t pointer_type() {
     switch (sizeof(void *)) {
@@ -318,7 +321,7 @@ static statement_t make_isspacep(space_t space, const operand_t & dst,
 }
 
 static statement_t make_ld(type_t type, space_t space, const operand_t & dst,
-        const operand_t & src) {
+        const operand_t & src, int offset = 0) {
     statement_t ret;
     ret.op = op_ld;
     ret.space = space;
@@ -326,6 +329,15 @@ static statement_t make_ld(type_t type, space_t space, const operand_t & dst,
 
     ret.operands.push_back(dst);
     ret.operands.push_back(src);
+
+    if (offset != 0) {
+        operand_t & back = ret.operands.back();
+        assert(back.op_type == operand_identifier ||
+            back.op_type == operand_addressable);
+
+        back.op_type = operand_addressable;
+        back.offset  = offset;
+    }
 
     return ret;
 }
@@ -1866,30 +1878,36 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             operand_t::make_iconstant(chunk_mask)));
 
         /**
-         * ptr1 *= sizeof(void *);
+         * ptr1 *= sizeof(metadata_ptrs);
          */
-        if (sizeof(void *) == 8) {
-            aux->push_back(make_shl(ptr_t, ptr1, ptr1, 3));
-        } else {
-            aux->push_back(make_shl(ptr_t, ptr1, ptr1, 2));
-        }
+        aux->push_back(make_shl(ptr_t, ptr1, ptr1, metadata_ptrs_lg));
 
         /**
-         * ptr0 += ptr1;
+         * metadata_ptr = ptr0 + ptr1;
          */
-        aux->push_back(make_add(uptr_t, ptr0, ptr0, ptr1));
+        const temp_ptr metadata_ptr(*auxillary);
+        aux->push_back(make_add(uptr_t, metadata_ptr, ptr0, ptr1));
 
         /**
-         * chunk * ptr0 = *ptr0;
+         * adata_chunk * ptr0 = metadata_ptr->adata;
          */
-        aux->push_back(make_ld(uptr_t, global_space, ptr0, ptr0));
+        const temp_ptr aptr(*auxillary);
+        aux->push_back(make_ld(uptr_t, global_space, aptr, metadata_ptr,
+            offsetof(metadata_ptrs, adata)));
+
+        /**
+         * vdata_chunk * vptr = metadata_ptr->vdata;
+         */
+        const temp_ptr vptr(*auxillary);
+        aux->push_back(make_ld(uptr_t, global_space, vptr, metadata_ptr,
+            offsetof(metadata_ptrs, vdata)));
 
         /*
          * Align:
          * ptr1 = addr & ~(sizeof(void *) - 1)
          *             & ~(chunk_size - 1);
          *
-         * ptr2 = ptr0 + offset(vbits) + ptr1
+         * vptr += ptr1
          *
          * Ignore lower bits.
          * ptr1  >>= 3;
@@ -1897,23 +1915,19 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
         assert(chunk_size >= sizeof(void *));
         aux->push_back(make_and(ptr_t, ptr1, addr, (int64_t) chunk_size - 1));
 
-        const temp_ptr ptr2(*auxillary);
-        aux->push_back(make_add(uptr_t, ptr2, ptr0, ptr1));
-        aux->push_back(make_add(uptr_t, ptr2, ptr2,
-            offsetof(metadata_chunk, v_data)));
-
+        aux->push_back(make_add(uptr_t, vptr, vptr, ptr1));
         aux->push_back(make_shr(ptr_t, ptr1, ptr1, 3));
 
         /**
-         * uint8_t * ptr0 += ptr1;
+         * uint8_t * aptr += ptr1;
          */
-        aux->push_back(make_add(uptr_t, ptr0, ptr0, ptr1));
+        aux->push_back(make_add(uptr_t, aptr, aptr, ptr1));
 
         /**
-         * shift_ptr = ptr0 & 0x1;
+         * shift_ptr = aptr & 0x1;
          */
         const temp_ptr shift_ptr(*auxillary);
-        aux->push_back(make_and(ptr_t, shift_ptr, ptr0, 0x1));
+        aux->push_back(make_and(ptr_t, shift_ptr, aptr, 0x1));
 
         /**
          * uint32_t shift_ptr32 = shift_ptr;
@@ -1942,15 +1956,15 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
         }
 
         /**
-         * ptr0 &= ~0x1;
+         * aptr &= ~0x1;
          */
-        aux->push_back(make_and(ptr_t, shift_ptr, ptr0, ~((int64_t) 1)));
+        aux->push_back(make_and(ptr_t, shift_ptr, aptr, ~((int64_t) 1)));
 
         /**
          * uint16_t tmp = *ptr;
          */
         const temp_operand tmp(*auxillary, u16_type);
-        aux->push_back(make_ld(u16_type, global_space, tmp, ptr0));
+        aux->push_back(make_ld(u16_type, global_space, tmp, aptr));
 
         /**
          * Shift tmp accordingly, then mask.
@@ -1998,7 +2012,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
         if (!(reduce)) {
             vatomic.operands.push_back(vd);
         }
-        vatomic.operands.push_back(ptr2);
+        vatomic.operands.push_back(vptr);
         vatomic.operands.push_back(mix_in);
         aux->push_back(vatomic);
     } else {
@@ -2101,10 +2115,10 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
         /* Check global. */
         {
             /**
-             * chunk ** ptr0 = *ptr0;
+             * metadata_ptrs * metadata_ptr = master;
              */
-            const temp_ptr ptr0(*auxillary);
-            aux->push_back(make_ld(uptr_t, const_space, ptr0, master));
+            const temp_ptr metadata_ptr(*auxillary);
+            aux->push_back(make_ld(uptr_t, const_space, metadata_ptr, master));
             aux->back().has_predicate = true;
             aux->back().is_negated    = true;
             aux->back().predicate     = is_shared;
@@ -2118,23 +2132,21 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             aux->push_back(make_and(ptr_t, ptr1, ptr1, chunk_mask));
 
             /**
-             * ptr1 *= sizeof(void *);
+             * ptr1 *= sizeof(metadata_ptrs);
              */
-            if (sizeof(void *) == 8) {
-                aux->push_back(make_shl(ptr_t, ptr1, ptr1, 3));
-            } else {
-                aux->push_back(make_shl(ptr_t, ptr1, ptr1, 2));
-            }
+            aux->push_back(make_shl(ptr_t, ptr1, ptr1, metadata_ptrs_lg));
 
             /**
-             * ptr0 += ptr1;
+             * metadata_ptr += ptr1;
              */
-            aux->push_back(make_add(uptr_t, ptr0, ptr0, ptr1));
+            aux->push_back(make_add(uptr_t, metadata_ptr, metadata_ptr, ptr1));
 
             /**
-             * chunk * ptr0 = *ptr0;
+             * adata_chunk * aptr = metadata_ptr->adata;
              */
-            aux->push_back(make_ld(uptr_t, global_space, ptr0, ptr0));
+            const temp_ptr aptr(*auxillary);
+            aux->push_back(make_ld(uptr_t, global_space, aptr, metadata_ptr,
+                offsetof(metadata_ptrs, adata)));
             aux->back().has_predicate = true;
             aux->back().is_negated    = true;
             aux->back().predicate     = is_shared;
@@ -2144,7 +2156,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
              * ptr1 = addr & ~(sizeof(void *) - 1)
              *             & ~(chunk_size - 1);
              *
-             * ptr2 = ptr0 + offset(vbits) + ptr1
+             * vptr = metadata_ptr->vdata + ptr1
              *
              * Ignore lower bits.
              * ptr1  >>= 3;
@@ -2153,10 +2165,10 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             aux->push_back(make_and(ptr_t, ptr1, addr,
                 (int64_t) chunk_size - 1));
 
-            const temp_ptr ptr2(*auxillary);
-            aux->push_back(make_add(uptr_t, ptr2, ptr0, ptr1));
-            aux->push_back(make_add(uptr_t, ptr2, ptr2,
-                offsetof(metadata_chunk, v_data)));
+            const temp_ptr vptr(*auxillary);
+            aux->push_back(make_ld(uptr_t, global_space, vptr, metadata_ptr,
+                offsetof(metadata_ptrs, vdata)));
+            aux->push_back(make_add(uptr_t, vptr, vptr, ptr1));
 
             const temp_ptr shift_ptr(*auxillary);
             if (sizeof(void *) == 8) {
@@ -2171,15 +2183,15 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             aux->push_back(make_cvt(u32_type, uptr_t, shift_ptr32, shift_ptr));
 
             /**
-             * uint8_t * ptr0 += ptr1;
+             * uint8_t * aptr += ptr1;
              */
-            aux->push_back(make_add(uptr_t, ptr0, ptr0, ptr1));
+            aux->push_back(make_add(uptr_t, aptr, aptr, ptr1));
 
             /**
-             * uint16_t tmp = *ptr;
+             * uint16_t tmp = *aptr;
              */
             const temp_operand tmp(*auxillary, u16_type);
-            aux->push_back(make_ld(u8_type, global_space, tmp, ptr0));
+            aux->push_back(make_ld(u8_type, global_space, tmp, aptr));
             aux->back().has_predicate = true;
             aux->back().is_negated    = true;
             aux->back().predicate     = is_shared;
@@ -2221,7 +2233,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             /**
              * Mix-in vbits for global
              */
-            aux->push_back(make_selp(ptr_t, is_shared, vbits, vbits, ptr2));
+            aux->push_back(make_selp(ptr_t, is_shared, vbits, vbits, vptr));
         }
 
         /**
@@ -3147,9 +3159,9 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
     const operand_t master = operand_t::make_identifier(__master_symbol);
     const operand_t a_data_ptr = operand_t::make_addressable(chunk_ptr,
-        offsetof(metadata_chunk, a_data));
+        offsetof(adata_chunk, a_data));
     const operand_t validity_ptr = operand_t::make_addressable(validity_ptr_src,
-        offsetof(metadata_chunk, v_data));
+        offsetof(vdata_chunk, v_data));
     const operand_t global_ro = operand_t::make_identifier(__global_ro);
 
     const temp_operand valid_pred(*auxillary, pred_type);
@@ -3489,19 +3501,39 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         aux->push_back(make_mov(ptr_t, inidx, chidx));
 
         aux->push_back(make_shr(ptr_t, chidx, chidx, lg_chunk_bytes));
-        aux->push_back(make_and(ptr_t, chidx, chidx, max_chunks - 1));
-        aux->push_back(make_shl(ptr_t, chidx, chidx, log_ptr));
+        aux->push_back(make_and(ptr_t, chidx, chidx, max_chunks));
+        aux->push_back(make_shl(ptr_t, chidx, chidx, metadata_ptrs_lg));
 
         aux->push_back(make_and(ptr_t, inidx, inidx, chunk_size - 1));
         aux->push_back(make_mov(ptr_t, vidx, inidx));
         aux->push_back(make_shr(ptr_t, inidx, inidx, 3));
 
+        /**
+         * metadata_ptrs * chunk = master;
+         */
         aux->push_back(make_ld(ptr_t, const_space, chunk, master));
-        aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
-        aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk));
 
-        aux->push_back(make_add(uptr_t, validity_ptr_src, chunk_ptr, vidx));
-        aux->push_back(make_add(uptr_t, chunk_ptr, chunk_ptr, inidx));
+        /**
+         * chunk += chidx;
+         */
+        aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
+
+        /**
+         * adata_chunk * aptr = chunk->adata;
+         */
+        const operand_t & aptr = chunk_ptr;
+        aux->push_back(make_ld(ptr_t, global_space, aptr, chunk,
+            offsetof(metadata_ptrs, adata)));
+
+        /**
+         * vdata_chunk * vptr = chunk->vdata;
+         */
+        const temp_ptr vptr(*auxillary);
+        aux->push_back(make_ld(ptr_t, global_space, vptr, chunk,
+            offsetof(metadata_ptrs, vdata)));
+
+        aux->push_back(make_add(uptr_t, validity_ptr_src, vptr, vidx));
+        aux->push_back(make_add(uptr_t, aptr, aptr, inidx));
         aux->push_back(make_ld(read_t, global_space, a_data, a_data_ptr));
         if (width <= 8) {
             /* We cannot setp on a u8 */
@@ -3551,9 +3583,9 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         aux->push_back(make_selp(u32_type, valid_pred, local_errors,
             local_errors, op_oob));
 
-        if (offsetof(metadata_chunk, v_data)) {
+        if (offsetof(vdata_chunk, v_data)) {
             aux->push_back(make_add(uptr_t, validity_ptr_src, validity_ptr_src,
-                offsetof(metadata_chunk, v_data)));
+                offsetof(vdata_chunk, v_data)));
         }
     }
 
@@ -4430,16 +4462,11 @@ void global_context_memcheck::instrument_prefetch(
                 (1u << (lg_max_memory - lg_chunk_bytes)) - 1u;
 
             /**
-             * chunk *** ptr = __master;
+             * metadata_ptrs * ptr = *__master;
              */
             const operand_t master =
                 operand_t::make_identifier(__master_symbol);
-
-            /**
-             * chunk ** ptr = *ptr;
-             */
-            aux->push_back(
-                make_ld(uptr_t, const_space, ptr, master));
+            aux->push_back(make_ld(uptr_t, const_space, ptr, master));
 
             aux->back().has_predicate = true;
             aux->back().is_negated    = true;
@@ -4463,13 +4490,9 @@ void global_context_memcheck::instrument_prefetch(
             aux->push_back(make_and(ptr_t, ptr1, ptr1, chunk_mask));
 
             /**
-             * ptr1 *= sizeof(void *);
+             * ptr1 *= sizeof(metadata_ptrs);
              */
-            if (sizeof(void *) == 8) {
-                aux->push_back(make_shl(ptr_t, ptr1, ptr1, 3));
-            } else {
-                aux->push_back(make_shl(ptr_t, ptr1, ptr1, 2));
-            }
+            aux->push_back(make_shl(ptr_t, ptr1, ptr1, metadata_ptrs_lg));
 
             /**
              * ptr += ptr1;
@@ -4477,9 +4500,11 @@ void global_context_memcheck::instrument_prefetch(
             aux->push_back(make_add(uptr_t, ptr, ptr, ptr1));
 
             /**
-             * chunk * ptr = *ptr;
+             * adata_chunk * ptr = ptr->adata;
              */
-            aux->push_back(make_ld(uptr_t, global_space, ptr, ptr));
+            const temp_ptr aptr(*auxillary);
+            aux->push_back(make_ld(uptr_t, global_space, aptr, ptr,
+                offsetof(metadata_ptrs, adata)));
 
             aux->back().has_predicate = true;
             aux->back().is_negated    = true;
@@ -4501,14 +4526,14 @@ void global_context_memcheck::instrument_prefetch(
             aux->push_back(make_shr(ptr_t, ptr1, ptr1, 3));
 
             /**
-             * uint8_t * ptr += ptr1;
+             * uint8_t * aptr += ptr1;
              */
-            aux->push_back(make_add(uptr_t, ptr, ptr, ptr1));
+            aux->push_back(make_add(uptr_t, aptr, aptr, ptr1));
 
             /**
-             * uintptr_t ptr = *ptr;
+             * uintptr_t ptr = *aptr;
              */
-            aux->push_back(make_ld(uptr_t, global_space, ptr, ptr));
+            aux->push_back(make_ld(uptr_t, global_space, aptr, aptr));
 
             aux->back().has_predicate = true;
             aux->back().is_negated    = true;
@@ -4523,7 +4548,7 @@ void global_context_memcheck::instrument_prefetch(
             s.cmp           = cmp_eq;
             s.has_ppredicate= true;
             s.ppredicate    = op1;
-            s.operands.push_back(ptr);
+            s.operands.push_back(aptr);
             s.operands.push_back(operand_t::make_iconstant(-1));
             aux->push_back(s);
         }
@@ -5254,12 +5279,11 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     const temp_ptr inidx(*auxillary);
     const temp_ptr chunk(*auxillary);
     const temp_ptr chunk_ptr(*auxillary);
-    const operand_t a_data_ptr = operand_t::make_addressable(chunk_ptr,
-        offsetof(metadata_chunk, a_data));
+    const operand_t a_data_ptr = operand_t::make_addressable(chunk_ptr, 0);
     const temp_ptr data_ptr(*auxillary);
     const temp_ptr validity_ptr_dst(*auxillary);
     const operand_t validity_ptr = operand_t::make_addressable(validity_ptr_dst,
-        offsetof(metadata_chunk, v_data));
+        offsetof(vdata_chunk, v_data));
     const temp_ptr chidx(*auxillary);
     const temp_ptr global_wo_reg(*auxillary);
     const temp_ptr vidx(*auxillary);
@@ -5506,8 +5530,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
         aux->push_back(make_mov(ptr_t, inidx, chidx));
 
         aux->push_back(make_shr(ptr_t, chidx, chidx, lg_chunk_bytes));
-        aux->push_back(make_and(ptr_t, chidx, chidx, max_chunks - 1));
-        aux->push_back(make_shl(ptr_t, chidx, chidx, log_ptr));
+        aux->push_back(make_and(ptr_t, chidx, chidx, max_chunks));
+        aux->push_back(make_shl(ptr_t, chidx, chidx, metadata_ptrs_lg));
 
         aux->push_back(make_and(ptr_t, inidx, inidx, chunk_size - 1));
         aux->push_back(make_mov(ptr_t, vidx, inidx));
@@ -5515,9 +5539,13 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
 
         aux->push_back(make_ld(ptr_t, const_space, chunk, master));
         aux->push_back(make_add(uptr_t, chunk, chidx, chunk));
-        aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk));
+        aux->push_back(make_ld(ptr_t, global_space, chunk_ptr, chunk,
+            offsetof(metadata_ptrs, adata)));
 
-        aux->push_back(make_add(uptr_t, validity_ptr_dst, chunk_ptr, vidx));
+        const temp_ptr vptr(*auxillary);
+        aux->push_back(make_ld(ptr_t, global_space, vptr, chunk,
+            offsetof(metadata_ptrs, vdata)));
+        aux->push_back(make_add(uptr_t, validity_ptr_dst, vptr, vidx));
 
         aux->push_back(make_add(uptr_t, chunk_ptr, chunk_ptr, inidx));
         aux->push_back(make_ld(read_t, global_space, a_data, a_data_ptr));
@@ -5555,10 +5583,6 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
 
         aux->push_back(make_selp(ptr_t, valid_pred, data_ptr, original_ptr,
             global_wo_reg));
-        if (offsetof(metadata_chunk, v_data)) {
-            aux->push_back(make_add(uptr_t, validity_ptr_dst, validity_ptr_dst,
-                offsetof(metadata_chunk, v_data)));
-        }
         aux->push_back(make_selp(ptr_t, valid_pred, validity_ptr_dst,
             validity_ptr_dst, global_wo_reg));
 

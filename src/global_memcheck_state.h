@@ -39,12 +39,12 @@ public:
     global_memcheck_state();
     ~global_memcheck_state();
 
-    typedef host_gpu_vector<metadata_chunk *> master_t;
-    void register_master(int device, metadata_chunk * default_chunk,
+    typedef host_gpu_vector<metadata_ptrs> master_t;
+    void register_master(int device, const metadata_ptrs & defaults,
         master_t * master);
     void unregister_master(int device);
 
-    typedef std::pair<size_t, metadata_chunk *> chunk_update_t;
+    typedef std::pair<size_t, metadata_ptrs> chunk_update_t;
     typedef std::vector<chunk_update_t> chunk_updates_t;
     void update_master(int device, bool add, const chunk_updates_t & updates);
 
@@ -62,7 +62,7 @@ private:
     struct master_data_t {
         master_data_t(int device);
 
-        metadata_chunk * default_chunk;
+        metadata_ptrs   defaults;
 
         typedef std::vector<int> ownership_t;
 

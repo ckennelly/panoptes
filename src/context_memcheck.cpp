@@ -722,27 +722,40 @@ cuda_context_memcheck::cuda_context_memcheck(
             global_context_memcheck * g, int device, unsigned int flags) :
         cuda_context(g, device, flags),
         master_(1 << (lg_max_memory - lg_chunk_bytes)),
-        chunks_    (1 << (lg_max_memory - lg_chunk_bytes)),
-        state_     (g->state()),
-        chunks_aux_(1 << (lg_max_memory - lg_chunk_bytes)), pool_(4, 16),
-        error_counts_(max_errors),
-        error_buffers_(max_errors),
+        achunks_   (1 << (lg_max_memory - lg_chunk_bytes)),
+        vchunks_   (1 << (lg_max_memory - lg_chunk_bytes)), state_(g->state()),
+        chunks_aux_(1 << (lg_max_memory - lg_chunk_bytes)), apool_(4, 16),
+        vpool_(4, 16), error_counts_(max_errors), error_buffers_(max_errors),
         valgrind_((unsigned) (RUNNING_ON_VALGRIND)),
         pagesize_((size_t) sysconf(_SC_PAGESIZE)) {
-    default_chunk_ = pool_.allocate();
-    initialize_chunk(default_chunk_);
+    default_achunk_ = apool_.allocate();
+    default_vchunk_ = vpool_.allocate();
+    initialize_achunk(default_achunk_);
+    initialize_vchunk(default_vchunk_);
+
+    /* Mark an adata_chunk as fully addressable. */
+    initialized_achunk_ = apool_.allocate();
+    memset(initialized_achunk_->host()->a_data, 0xFF,
+        sizeof(initialized_achunk_->host()->a_data));
 
     // Initialize master list to point at the default chunk
-    metadata_chunk ** const master = master_.host();
+    metadata_ptrs default_ptrs;
+    default_ptrs.adata = default_achunk_->gpu();
+    default_ptrs.vdata = default_vchunk_->gpu();
+
+    metadata_ptrs * const master = master_.host();
     for (size_t i = 0; i < (1u << (lg_max_memory - lg_chunk_bytes)); i++) {
-        master[i]  = default_chunk_->gpu();
-        chunks_[i] = default_chunk_;
+        master[i]   = default_ptrs;
+
+        achunks_[i] = default_achunk_;
+        vchunks_[i] = default_vchunk_;
     }
 
     // Copy pool to GPU
-    pool_.to_gpu();
+    apool_.to_gpu();
+    vpool_.to_gpu();
 
-    state_->register_master(device, default_chunk_->gpu(), &master_);
+    state_->register_master(device, default_ptrs, &master_);
 
     /**
      * Load any registered variables.
@@ -875,20 +888,31 @@ cuda_context_memcheck::~cuda_context_memcheck() {
     }
 
     for (size_t i = 0; i < 1 << (lg_max_memory - lg_chunk_bytes); i++) {
-        if (chunks_[i] != default_chunk_) {
-            pool_.free(chunks_[i]);
+        if (achunks_[i] != default_achunk_) {
+            apool_.free(achunks_[i]);
+        }
+
+        if (vchunks_[i] != default_vchunk_) {
+            vpool_.free(vchunks_[i]);
         }
     }
 
-    pool_.free(default_chunk_);
+    apool_.free(default_achunk_);
+    apool_.free(initialized_achunk_);
+    vpool_.free(default_vchunk_);
 }
 
-
-void cuda_context_memcheck::initialize_chunk(pool_t::handle_t * handle) const {
+void cuda_context_memcheck::initialize_achunk(
+        apool_t::handle_t * handle) const {
     /* Do work on host */
-    metadata_chunk * host = handle->host();
-
+    adata_chunk * host = handle->host();
     memset(host->a_data, 0,    sizeof(host->a_data));
+}
+
+void cuda_context_memcheck::initialize_vchunk(
+        vpool_t::handle_t * handle) const {
+    /* Do work on host */
+    vdata_chunk * host = handle->host();
     memset(host->v_data, 0xFF, sizeof(host->v_data));
 }
 
@@ -1767,17 +1791,17 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
     uintptr_t ptr = reinterpret_cast<uintptr_t>(device_ptr);
 
     const size_t chunk_bytes = 1 << lg_chunk_bytes;
-    const size_t first_chunk =  ptr         >> lg_chunk_bytes;
-    const size_t last_chunk  = (ptr + size) >> lg_chunk_bytes;
+    const size_t first_chunk =  ptr                           >> lg_chunk_bytes;
+    const size_t last_chunk  = (ptr + size + chunk_bytes - 1) >> lg_chunk_bytes;
     bool master_dirty        = false;
     bool synchronized        = false;
 
     typedef global_memcheck_state::chunk_updates_t updates_t;
     updates_t updates;
 
-    for (size_t i = first_chunk; i <= last_chunk; i++) {
+    for (size_t i = first_chunk; i < last_chunk; i++) {
         /* The host is authoritative for addressability data */
-        assert(chunks_[i] != default_chunk_);
+        assert(achunks_[i] != default_achunk_);
 
         /* Decrement usage */
         assert(chunks_aux_[i].allocations > 0);
@@ -1785,22 +1809,32 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
 
         if (chunks_aux_[i].allocations == 0) {
             /* Free */
+            if (achunks_[i] != initialized_achunk_) {
+                /* There cannot be anything touching the device */
+                if (!(synchronized)) {
+                    cudaError_t sret = callout::cudaDeviceSynchronize();
+                    if (sret != cudaSuccess) {
+                        return sret;
+                    }
 
-            /* There cannot be anything touching the device */
-            if (!(synchronized)) {
-                cudaError_t sret = callout::cudaDeviceSynchronize();
-                if (sret != cudaSuccess) {
-                    return sret;
+                    synchronized = true;
                 }
 
-                synchronized = true;
+                apool_.free(achunks_[i]);
             }
 
-            assert(chunks_[i] != default_chunk_);
-            pool_.free(chunks_[i]);
-            chunks_[i]          = default_chunk_;
-            updates.push_back(updates_t::value_type(i, default_chunk_->gpu()));
+            vpool_.free(vchunks_[i]);
+
+            achunks_[i] = default_achunk_;
+            vchunks_[i] = default_vchunk_;
+            metadata_ptrs ptrs;
+            ptrs.adata = achunks_[i]->gpu();
+            ptrs.vdata = vchunks_[i]->gpu();
+
+            updates.push_back(updates_t::value_type(i, ptrs));
             master_dirty = true;
+
+            continue;
         }
 
         /* Set addressability bits...
@@ -1834,7 +1868,7 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
             }
 
             /* Clear these bits */
-            chunks_[i]->host()->a_data[start / CHAR_BIT] &=
+            achunks_[i]->host()->a_data[start / CHAR_BIT] &=
                 static_cast<uint8_t>(~mask);
         } else {
             astart = start;
@@ -1843,7 +1877,7 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
         if (end > astart && (end & (CHAR_BIT - 1)) != 0) {
             uint8_t mask = static_cast<uint8_t>(~(0xFF <<
                 (end & (CHAR_BIT - 1))));
-            chunks_[i]->host()->a_data[end / CHAR_BIT] &=
+            achunks_[i]->host()->a_data[end / CHAR_BIT] &=
                 static_cast<uint8_t>(~mask);
             aend = end & ~((uintptr_t) CHAR_BIT - 1);
         } else {
@@ -1851,16 +1885,29 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
         }
 
         if (aend > astart) {
-            memset(static_cast<uint8_t *>(chunks_[i]->host()->a_data) +
+            memset(static_cast<uint8_t *>(achunks_[i]->host()->a_data) +
                 astart / CHAR_BIT, 0x0, (aend - astart) / CHAR_BIT);
         }
 
         /* Push to the device */
-        cudaError_t tret = callout::cudaMemcpy(chunks_[i]->gpu()->a_data,
-            chunks_[i]->host()->a_data, sizeof(chunks_[i]->host()->a_data),
+        cudaError_t tret = callout::cudaMemcpy(achunks_[i]->gpu()->a_data,
+            achunks_[i]->host()->a_data, sizeof(achunks_[i]->host()->a_data),
             cudaMemcpyHostToDevice);
         if (tret != cudaSuccess) {
             return tret;
+        }
+
+        if (valgrind_) {
+            /* Set vbits. */
+            assert(vchunks_[i] != default_vchunk_);
+            vdata_chunk * vdata = vchunks_[i]->gpu();
+            uint8_t * vptr = reinterpret_cast<uint8_t *>(vdata->v_data) + start;
+            assert(end - start <= sizeof(vdata->v_data));
+
+            tret = callout::cudaMemset(vptr, 0xFF, end - start);
+            if (tret != cudaSuccess) {
+                return tret;
+            }
         }
     }
 
@@ -1997,8 +2044,8 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
      * make any needed modifications and then push it.
      */
     const size_t chunk_bytes = 1 << lg_chunk_bytes;
-    const size_t first_chunk =  ptr         >> lg_chunk_bytes;
-    const size_t last_chunk  = (ptr + size) >> lg_chunk_bytes;
+    const size_t first_chunk =  ptr                           >> lg_chunk_bytes;
+    const size_t last_chunk  = (ptr + size + chunk_bytes - 1) >> lg_chunk_bytes;
     bool master_dirty        = false;
 
     typedef global_memcheck_state::chunk_updates_t updates_t;
@@ -2006,16 +2053,45 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
 
     /* bool existing_dirtied    = false; */
 
-    for (size_t i = first_chunk; i <= last_chunk; i++) {
-        if (chunks_[i] == default_chunk_) {
+    for (size_t i = first_chunk; i < last_chunk; i++) {
+        bool has_update = false;
+        const size_t first_bytes =
+            std::min(ptr, i * chunk_bytes) & (chunk_bytes - 1);
+        const size_t last_bytes =
+            std::min(ptr + size, (i + 1) * chunk_bytes) & (chunk_bytes - 1);
+
+        if (achunks_[i] == default_achunk_) {
+            if (first_bytes == 0 && last_bytes == 0) {
+                /* Reuse initialized chunk. */
+                achunks_[i] = initialized_achunk_;
+            } else {
+                assert(i == first_chunk || i == last_chunk - 1);
+                /* Allocate another chunk */
+                apool_t::handle_t * c = apool_.allocate();
+                achunks_[i] = c;
+            }
+
+            has_update = true;
+        }
+
+        if (vchunks_[i] == default_vchunk_) {
             /* Allocate another chunk */
-            pool_t::handle_t * c = pool_.allocate();
-            chunks_[i] = c;
-            updates.push_back(updates_t::value_type(i, c->gpu()));
-            master_dirty = true;
+            vpool_t::handle_t * c = vpool_.allocate();
+            vchunks_[i] = c;
+
+            has_update = true;
         } /* else {
             existing_dirtied = true;
         } */
+
+        if (has_update) {
+            metadata_ptrs tmp;
+            tmp.adata = achunks_[i]->gpu();
+            tmp.vdata = vchunks_[i]->gpu();
+
+            updates.push_back(updates_t::value_type(i, tmp));
+            master_dirty = true;
+        }
     }
 
     /**
@@ -2025,11 +2101,12 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
      * allocate a chunk out of an existing block.
      */
     /* if (existing_dirtied) { */
-        pool_.to_host(&chunks_[first_chunk], &chunks_[last_chunk + 1]);
+        apool_.to_host(&achunks_[first_chunk], &achunks_[last_chunk]);
+        vpool_.to_host(&vchunks_[first_chunk], &vchunks_[last_chunk]);
     /* } */
 
-    for (size_t i = first_chunk; i <= last_chunk; i++) {
-        assert(chunks_[i] != default_chunk_);
+    for (size_t i = first_chunk; i < last_chunk; i++) {
+        assert(achunks_[i] != default_achunk_);
         chunks_aux_[i].allocations++;
 
         /* Set addressability bits...
@@ -2067,7 +2144,7 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
             }
 
             /* Set this bit */
-            chunks_[i]->host()->a_data[start / CHAR_BIT] = mask;
+            achunks_[i]->host()->a_data[start / CHAR_BIT] = mask;
         } else {
             astart = start;
         }
@@ -2075,20 +2152,21 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
         if (end > astart && (end & (CHAR_BIT - 1)) != 0) {
             uint8_t mask = static_cast<uint8_t>(~(0xFF <<
                 (end & (CHAR_BIT - 1))));
-            chunks_[i]->host()->a_data[end / CHAR_BIT] = mask;
+            achunks_[i]->host()->a_data[end / CHAR_BIT] = mask;
             aend = end & ~((uintptr_t) CHAR_BIT - 1);
         } else {
             aend = end;
         }
 
         if (aend > astart) {
-            memset(static_cast<uint8_t *>(chunks_[i]->host()->a_data) +
+            memset(static_cast<uint8_t *>(achunks_[i]->host()->a_data) +
                 astart / CHAR_BIT, 0xFF, (aend - astart) / CHAR_BIT);
         }
 
         if (valgrind_) {
-            uint8_t * vptr = reinterpret_cast<uint8_t *>(
-                chunks_[i]->host()->v_data) + start;
+            vdata_chunk * vdata = vchunks_[i]->host();
+            uint8_t * vptr = reinterpret_cast<uint8_t *>(vdata->v_data) + start;
+            assert(end - start <= sizeof(vdata->v_data));
             memset(vptr, 0xFF, end - start);
         }
     }
@@ -2110,7 +2188,8 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
             break;
     }
 
-    pool_.to_gpu(&chunks_[first_chunk], &chunks_[last_chunk + 1]);
+    apool_.to_gpu(&achunks_[first_chunk], &achunks_[last_chunk]);
+    vpool_.to_gpu(&vchunks_[first_chunk], &vchunks_[last_chunk]);
     assert(master_dirty ^ updates.empty());
     if (master_dirty) {
         state_->update_master(device_, true, updates);
@@ -2951,13 +3030,13 @@ bool cuda_context_memcheck::validity_clear(const void * ptr, size_t len,
     const size_t chunk_bytes = 1 << lg_chunk_bytes;
 
     const uintptr_t upptr    = reinterpret_cast<uintptr_t>(ptr);
-    const size_t first_chunk =  upptr        >> lg_chunk_bytes;
-    const size_t last_chunk  = (upptr + len) >> lg_chunk_bytes;
+    const size_t first_chunk =  upptr                         >> lg_chunk_bytes;
+    const size_t last_chunk  = (upptr + len + chunk_bytes - 1)>> lg_chunk_bytes;
 
-    for (size_t i = first_chunk, voffset = 0; i <= last_chunk; i++) {
+    for (size_t i = first_chunk, voffset = 0; i < last_chunk; i++) {
         /* Since we got this far, no chunk should point at the
          * default chunk */
-        assert(chunks_[i] != default_chunk_);
+        assert(vchunks_[i] != default_vchunk_);
 
         const uintptr_t chunk_start = i * chunk_bytes;
         const uintptr_t chunk_mask  = chunk_bytes - 1;
@@ -2969,7 +3048,7 @@ bool cuda_context_memcheck::validity_clear(const void * ptr, size_t len,
 
         /* Copy validity bits onto device from buffer */
         uint8_t * const vptr =
-            reinterpret_cast<uint8_t *>(chunks_[i]->gpu()->v_data) + start;
+            reinterpret_cast<uint8_t *>(vchunks_[i]->gpu()->v_data) + start;
 
         cudaError_t ret;
         if (stream) {
@@ -3023,14 +3102,14 @@ bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
     const size_t chunk_bytes = 1 << lg_chunk_bytes;
 
     const uintptr_t upsrc    = reinterpret_cast<uintptr_t>(src);
-    const size_t first_chunk =  upsrc        >> lg_chunk_bytes;
-    const size_t last_chunk  = (upsrc + len) >> lg_chunk_bytes;
+    const size_t first_chunk =  upsrc                         >> lg_chunk_bytes;
+    const size_t last_chunk  = (upsrc + len + chunk_bytes - 1)>> lg_chunk_bytes;
 
-    for (size_t srcidx = first_chunk, voffset = 0; srcidx <= last_chunk;
+    for (size_t srcidx = first_chunk, voffset = 0; srcidx < last_chunk;
             srcidx++) {
         /* Since we got this far, no chunk should point at the
          * default chunk */
-        assert(chunks_[srcidx] != default_chunk_);
+        assert(vchunks_[srcidx] != default_vchunk_);
 
         const uintptr_t chunk_start = srcidx * chunk_bytes;
         const uintptr_t chunk_mask  = chunk_bytes - 1;
@@ -3048,7 +3127,7 @@ bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
          */
         const uintptr_t updst  = reinterpret_cast<uintptr_t>(dst) + voffset;
         const size_t    dstidx = updst >> lg_chunk_bytes;
-        assert(chunks_[dstidx] != default_chunk_);
+        assert(vchunks_[dstidx] != default_vchunk_);
         const uintptr_t dstoff = updst & (chunk_bytes - 1);
         /* dstrem: number of bytes remaining in this chunk (dstidx) */
         const uintptr_t dstrem = chunk_bytes - dstoff;
@@ -3056,18 +3135,18 @@ bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
         if (dstrem >= srcrem) {
             /* Single copy. */
             uint8_t * vdst =
-                reinterpret_cast<uint8_t *>(chunks_[dstidx]->gpu()->v_data);
+                reinterpret_cast<uint8_t *>(vchunks_[dstidx]->gpu()->v_data);
             uint8_t * vsrc =
-                reinterpret_cast<uint8_t *>(chunks_[srcidx]->gpu()->v_data);
+                reinterpret_cast<uint8_t *>(vchunks_[srcidx]->gpu()->v_data);
 
             callout::cudaMemcpyAsync(vdst + dstoff, vsrc + sstart, srcrem,
                 cudaMemcpyDeviceToDevice, cs);
         } else {
             /* First copy (remainder of first destination chunk) */
             uint8_t * vdst =
-                reinterpret_cast<uint8_t *>(chunks_[dstidx]->gpu()->v_data);
+                reinterpret_cast<uint8_t *>(vchunks_[dstidx]->gpu()->v_data);
             uint8_t * vsrc =
-                reinterpret_cast<uint8_t *>(chunks_[srcidx]->gpu()->v_data);
+                reinterpret_cast<uint8_t *>(vchunks_[srcidx]->gpu()->v_data);
 
             callout::cudaMemcpyAsync(vdst + dstoff, vsrc + sstart, dstrem,
                 cudaMemcpyDeviceToDevice, cs);
@@ -3079,8 +3158,8 @@ bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
              * right here.
              */
             const size_t nxtidx = dstidx + 1;
-            assert(chunks_[nxtidx] != default_chunk_);
-            callout::cudaMemcpyAsync(chunks_[nxtidx]->gpu()->v_data,
+            assert(vchunks_[nxtidx] != default_vchunk_);
+            callout::cudaMemcpyAsync(vchunks_[nxtidx]->gpu()->v_data,
                 vsrc + sstart + dstrem, srcrem - dstrem,
                 cudaMemcpyDeviceToDevice, cs);
         }
@@ -3131,18 +3210,18 @@ bool cuda_context_memcheck::validity_copy(void * dst,
     const size_t chunk_bytes = 1 << lg_chunk_bytes;
 
     const uintptr_t upsrc    = reinterpret_cast<uintptr_t>(src);
-    const size_t first_chunk =  upsrc          >> lg_chunk_bytes;
-    const size_t last_chunk  = (upsrc + count) >> lg_chunk_bytes;
+    const size_t first_chunk =  upsrc                        >> lg_chunk_bytes;
+    const size_t last_chunk  = (upsrc + count +chunk_bytes-1)>> lg_chunk_bytes;
 
     const int dstDevice = static_cast<int>(dstCtx->device_);
     const int srcDevice = static_cast<int>(srcCtx->device_);
 
-    for (size_t srcidx = first_chunk, voffset = 0; srcidx <= last_chunk;
+    for (size_t srcidx = first_chunk, voffset = 0; srcidx < last_chunk;
             srcidx++) {
         /* Since we got this far, no chunk should point at the
          * default chunk */
-        const pool_t::handle_t * const srcChunk = srcCtx->chunks_[srcidx];
-        assert(srcChunk != srcCtx->default_chunk_);
+        const vpool_t::handle_t * const srcChunk = srcCtx->vchunks_[srcidx];
+        assert(srcChunk != srcCtx->default_vchunk_);
 
         const uintptr_t chunk_start = srcidx * chunk_bytes;
         const uintptr_t chunk_mask  = chunk_bytes - 1;
@@ -3161,8 +3240,8 @@ bool cuda_context_memcheck::validity_copy(void * dst,
         const uintptr_t updst  = reinterpret_cast<uintptr_t>(dst) + voffset;
         const size_t    dstidx = updst >> lg_chunk_bytes;
 
-        pool_t::handle_t * const dstChunk = dstCtx->chunks_[dstidx];
-        assert(dstChunk != dstCtx->default_chunk_);
+        vpool_t::handle_t * const dstChunk = dstCtx->vchunks_[dstidx];
+        assert(dstChunk != dstCtx->default_vchunk_);
         const uintptr_t dstoff = updst & (chunk_bytes - 1);
         /* dstrem: number of bytes remaining in this chunk (dstidx) */
         const uintptr_t dstrem = chunk_bytes - dstoff;
@@ -3193,8 +3272,8 @@ bool cuda_context_memcheck::validity_copy(void * dst,
              * right here.
              */
             const size_t nxtidx = dstidx + 1;
-            pool_t::handle_t * const nxtChunk = dstCtx->chunks_[nxtidx];
-            assert(nxtChunk != dstCtx->default_chunk_);
+            vpool_t::handle_t * const nxtChunk = dstCtx->vchunks_[nxtidx];
+            assert(nxtChunk != dstCtx->default_vchunk_);
             callout::cudaMemcpyPeerAsync(nxtChunk->gpu()->v_data, dstDevice,
                 vsrc + sstart + dstrem, srcDevice, srcrem - dstrem, cs);
         }
@@ -3241,14 +3320,14 @@ bool cuda_context_memcheck::validity_download(void * host, const void *
     }
 
     const uintptr_t upgpu    = reinterpret_cast<uintptr_t>(gpu);
-    const size_t first_chunk =  upgpu        >> lg_chunk_bytes;
-    const size_t last_chunk  = (upgpu + len) >> lg_chunk_bytes;
+    const size_t first_chunk =  upgpu                         >> lg_chunk_bytes;
+    const size_t last_chunk  = (upgpu + len + chunk_bytes - 1)>> lg_chunk_bytes;
 
     /** TODO:  Pipeline */
-    for (size_t i = first_chunk, voffset = 0; i <= last_chunk; i++) {
+    for (size_t i = first_chunk, voffset = 0; i < last_chunk; i++) {
         /* Since we got this far, no chunk should point at the
          * default chunk */
-        assert(chunks_[i] != default_chunk_);
+        assert(vchunks_[i] != default_vchunk_);
 
         const uintptr_t chunk_start = i * chunk_bytes;
         const uintptr_t chunk_mask  = chunk_bytes - 1;
@@ -3260,7 +3339,7 @@ bool cuda_context_memcheck::validity_download(void * host, const void *
 
         /* Copy validity bits off device into buffer */
         uint8_t * const vptr =
-            reinterpret_cast<uint8_t *>(chunks_[i]->gpu()->v_data) + start;
+            reinterpret_cast<uint8_t *>(vchunks_[i]->gpu()->v_data) + start;
 
         cudaError_t ret;
         if (stream) {
@@ -3325,8 +3404,8 @@ bool cuda_context_memcheck::validity_set(const void * ptr, size_t len,
     const size_t chunk_bytes = 1 << lg_chunk_bytes;
 
     const uintptr_t upptr    = reinterpret_cast<uintptr_t>(ptr);
-    const size_t first_chunk =  upptr        >> lg_chunk_bytes;
-    const size_t last_chunk  = (upptr + len) >> lg_chunk_bytes;
+    const size_t first_chunk =  upptr                      >> lg_chunk_bytes;
+    const size_t last_chunk  = (upptr + len+chunk_bytes-1) >> lg_chunk_bytes;
 
     cudaStream_t cs;
     if (stream) {
@@ -3340,10 +3419,10 @@ bool cuda_context_memcheck::validity_set(const void * ptr, size_t len,
         }
     }
 
-    for (size_t i = first_chunk, voffset = 0; i <= last_chunk; i++) {
+    for (size_t i = first_chunk, voffset = 0; i < last_chunk; i++) {
         /* Since we got this far, no chunk should point at the
          * default chunk */
-        assert(chunks_[i] != default_chunk_);
+        assert(vchunks_[i] != default_vchunk_);
 
         const uintptr_t chunk_start = i * chunk_bytes;
         const uintptr_t chunk_mask  = chunk_bytes - 1;
@@ -3355,7 +3434,7 @@ bool cuda_context_memcheck::validity_set(const void * ptr, size_t len,
 
         /* Write validity bits onto device */
         uint8_t * const chunk_ptr =
-            reinterpret_cast<uint8_t *>(chunks_[i]->gpu()->v_data) + start;
+            reinterpret_cast<uint8_t *>(vchunks_[i]->gpu()->v_data) + start;
         const cudaError_t ret = callout::cudaMemsetAsync(chunk_ptr,
             0x0, end - start, cs);
         if (ret != cudaSuccess) {
@@ -3413,13 +3492,13 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
     }
 
     const uintptr_t upgpu    = reinterpret_cast<uintptr_t>(gpu);
-    const size_t first_chunk =  upgpu        >> lg_chunk_bytes;
-    const size_t last_chunk  = (upgpu + len) >> lg_chunk_bytes;
+    const size_t first_chunk =  upgpu                        >> lg_chunk_bytes;
+    const size_t last_chunk  = (upgpu + len + chunk_bytes-1) >> lg_chunk_bytes;
 
-    for (size_t i = first_chunk, voffset = 0; i <= last_chunk; i++) {
+    for (size_t i = first_chunk, voffset = 0; i < last_chunk; i++) {
         /* Since we got this far, no chunk should point at the
          * default chunk */
-        assert(chunks_[i] != default_chunk_);
+        assert(vchunks_[i] != default_vchunk_);
 
         const uintptr_t chunk_start = i * chunk_bytes;
         const uintptr_t chunk_mask  = chunk_bytes - 1;
@@ -3438,7 +3517,7 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
 
         /* Copy validity bits onto device from buffer */
         uint8_t * const chunk_ptr =
-            reinterpret_cast<uint8_t *>(chunks_[i]->gpu()->v_data) + start;
+            reinterpret_cast<uint8_t *>(vchunks_[i]->gpu()->v_data) + start;
 
         cudaError_t ret;
         if (stream) {

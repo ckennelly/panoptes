@@ -26,15 +26,15 @@ global_memcheck_state::master_data_t::master_data_t(int device) :
         ownership(1 << (lg_max_memory - lg_chunk_bytes), device) { }
 
 void global_memcheck_state::register_master(int device,
-        metadata_chunk * default_chunk, master_t * master) {
+        const metadata_ptrs & defaults, master_t * master) {
     scoped_lock lock(mx_);
 
     /**
      * TODO:  Check that this is not an existing device.
      */
     master_data_t data(device);
-    data.default_chunk = default_chunk;
-    data.master        = master;
+    data.defaults   = defaults;
+    data.master     = master;
     data.peers.insert(device);
 
     masters_.insert(masters_t::value_type(device, data));
@@ -67,10 +67,10 @@ void global_memcheck_state::disable_peers_impl(int device, int peer) {
     }
 
     master_data_t & data = it->second;
-    const size_t N = data.ownership.size();
-    master_t       * data_master  = data.master;
-    metadata_chunk ** const host  = data_master->host();
-    metadata_chunk * data_default = data.default_chunk;
+    const size_t N                      = data.ownership.size();
+          master_t       * data_master  = data.master;
+          metadata_ptrs  * const host   = data_master->host();
+    const metadata_ptrs  & data_default = data.defaults;
 
     bool dirty = false;
     for (size_t i = 0; i < N; i++) {
@@ -107,16 +107,16 @@ void global_memcheck_state::enable_peers_impl(int device, int peer) {
      * device. */
     const size_t N = peer_data.ownership.size();
     assert(N == device_data.ownership.size());
-    metadata_chunk ** const phost = peer_data.master->host();
-    metadata_chunk ** const dhost = device_data.master->host();
+    metadata_ptrs       * const phost = peer_data.master->host();
+    metadata_ptrs       * const dhost = device_data.master->host();
 
-    metadata_chunk * const  pdefault = peer_data.default_chunk;
-    metadata_chunk * const  ddefault = device_data.default_chunk;
+    const metadata_ptrs & pdefault    = peer_data.defaults;
+    const metadata_ptrs & ddefault    = device_data.defaults;
 
     bool dirty = false;
     for (size_t i = 0; i < N; i++) {
         if (peer_data.ownership[i] == peer) {
-            metadata_chunk * chunk = phost[i];
+            const metadata_ptrs & chunk = phost[i];
             if (chunk != pdefault) {
                 assert(dhost[i] == ddefault && "Shared chunks not supported.");
                 dhost[i] = chunk;
@@ -176,7 +176,7 @@ void global_memcheck_state::update_master(int device, bool add,
         }
 
         master_t *        const master    = kit->second.master;
-        metadata_chunk ** const host      = master->host();
+        metadata_ptrs   * const host      = master->host();
         master_data_t::ownership_t & ownership = kit->second.ownership;
 
         const int owner = add ? device : peer;
@@ -185,11 +185,13 @@ void global_memcheck_state::update_master(int device, bool add,
             const chunk_update_t & update = updates[i];
             const size_t index = update.first;
 
-            metadata_chunk * fill = NULL;
+            metadata_ptrs fill;
+            fill.adata = NULL;
+            fill.vdata = NULL;
             if (add) {
                 fill = update.second;
             } else {
-                fill = kit->second.default_chunk;
+                fill = kit->second.defaults;
             }
 
             host[index] = fill;

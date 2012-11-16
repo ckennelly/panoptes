@@ -24,6 +24,7 @@ test_streamsynchronize
 test_streamwaitevent
 vtest_bindtexture
 vtest_bindtexturetoarray
+vtest_deallocate
 vtest_devicecacheconfig
 vtest_devicereset
 vtest_devicesynchronize

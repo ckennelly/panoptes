@@ -19,6 +19,7 @@
 #ifndef __PANOPTES__METADATA_H_
 #define __PANOPTES__METADATA_H_
 
+#include <climits>
 #include <stdint.h>
 
 namespace panoptes {
@@ -31,15 +32,25 @@ enum {
 /**
  * Contains metadata pertaining to memory initialization.
  */
-struct metadata_chunk {
+struct adata_chunk {
     /* a bit -> accessibility */
     uint8_t  a_data[(1 << lg_chunk_bytes) / (sizeof(uint8_t ) * CHAR_BIT)];
+};
 
+struct vdata_chunk {
     /* v bits -> validity
      *
      * Stored as: vvvvvvvv vvvvvvvv vvvvvvvv vvvvvvvv
      */
     uint64_t v_data [(1 << lg_chunk_bytes) /  sizeof(uint64_t)];
+};
+
+struct metadata_ptrs {
+    adata_chunk * adata;
+    vdata_chunk * vdata;
+
+    bool operator==(const metadata_ptrs & rhs) const;
+    bool operator!=(const metadata_ptrs & rhs) const;
 };
 
 } // end namespace panoptes
