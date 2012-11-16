@@ -25,6 +25,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <valgrind/valgrind.h>
 
 namespace panoptes {
 
@@ -61,6 +62,7 @@ public:
         if (free_.size() == 0) {
             /* Actually allocate */
             storage_type * nblock = new storage_type(block_size_);
+            VALGRIND_CREATE_MEMPOOL(nblock->host(), 0, 0);
 
             /* Add to free list */
             for (size_t i = 0; i < block_size_; ++i) {
@@ -83,6 +85,7 @@ public:
         T * gpu     = block->gpu()  + index;
 
         /* Add to used list */
+        VALGRIND_MEMPOOL_ALLOC(block->host(), host, sizeof(*host));
         in_use_.insert(typename used_map_t::value_type(host, block));
 
         /* Make handle and return */
@@ -99,6 +102,8 @@ public:
         assert(it != in_use_.end());
         storage_type * block = it->second;
         in_use_.erase(it);
+
+        VALGRIND_MEMPOOL_FREE(block->host(), host);
 
         off_t          oindex = host - block->host();
         assert(oindex >= 0);
@@ -117,6 +122,7 @@ public:
             free_.erase(block);
             /* Deallocate */
             blocks_.erase(block);
+            VALGRIND_DESTROY_MEMPOOL(block->host());
             delete block;
         } else {
             /* Add back to free list */
@@ -193,6 +199,7 @@ public:
         for (typename block_set_t::iterator it = blocks_.begin();
                 it != blocks_.end(); ++it) {
             free_.erase(*it);
+            VALGRIND_DESTROY_MEMPOOL((*it)->host());
             delete *it;
         }
     }
