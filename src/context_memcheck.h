@@ -19,6 +19,7 @@
 #ifndef __PANOPTES__CONTEXT_MEMCHECK_H__
 #define __PANOPTES__CONTEXT_MEMCHECK_H__
 
+#include <boost/icl/interval_set.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_set.hpp>
 #include "context.h"
@@ -306,6 +307,13 @@ protected:
 
     global_context_memcheck * global();
     const global_context_memcheck * global() const;
+
+    /**
+     * Manipulates/queries recently freed list.
+     */
+    bool is_recently_freed(const void * ptr) const;
+    void add_recent_free(const void * ptr, size_t size);
+    void remove_recent_free(const void * ptr, size_t size);
 private:
     /**
      * Master list pointing into chunks by their corresponding upper address
@@ -377,6 +385,12 @@ private:
     amap_t device_allocations_;
     typedef std::map<const void *, size_t> aumap_t;
     aumap_t udevice_allocations_;
+
+    /**
+     * List of recently freed device allocations.
+     */
+    typedef boost::icl::interval_set<const uint8_t *> free_map_t;
+    free_map_t recent_frees_;
 
     /**
      * Storage for auxillary host allocation information

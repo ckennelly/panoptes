@@ -133,6 +133,7 @@ vtest_memset
 vtest_memsetasync
 vtest_peeraccess
 vtest_pointergetattributes
+vtest_recently_freed
 vtest_registervar
 vtest_runtimegetversion
 vtest_setdevice

@@ -675,12 +675,22 @@ bool cuda_context_memcheck::check_access_device(const void * ptr,
     if (offset != len) {
         if (offset == 0) {
             // Invalid read starts at usrc + offset
-            // TODO CHECK FOR RECENTLY FREED
             char msg[128];
-            int ret = snprintf(msg, sizeof(msg),
-                "Invalid device read of size %zu\n"
-                " Address %p is not malloc'd or (recently) free'd.\n"
-                " Possible host pointer?", len, ptr);
+            int ret;
+
+            if (is_recently_freed(ptr)) {
+                ret = snprintf(msg, sizeof(msg),
+                    "Invalid device read of size %zu\n"
+                    " Address %p is part of (recently) free'd allocation.",
+                    len, ptr);
+                signal = false;
+            } else {
+                ret = snprintf(msg, sizeof(msg),
+                    "Invalid device read of size %zu\n"
+                    " Address %p is not malloc'd or (recently) free'd.\n"
+                    " Possible host pointer?", len, ptr);
+            }
+
             // sizeof(msg) is small, so the cast is safe.
             assert(ret < (int) sizeof(msg) - 1);
             logger::instance().print(msg);
@@ -1788,6 +1798,11 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
     device_allocations_.erase(it);
     udevice_allocations_.erase(uit);
 
+    /**
+     * Add to recently freed list.
+     */
+    add_recent_free(device_ptr, size);
+
     uintptr_t ptr = reinterpret_cast<uintptr_t>(device_ptr);
 
     const size_t chunk_bytes = 1 << lg_chunk_bytes;
@@ -2039,6 +2054,11 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
             static_cast<const uint8_t *>(device_ptr) + size,
             size));
     }
+
+    /**
+     * Remove this block from the recently freed list (if needed).
+     */
+    remove_recent_free(device_ptr, size);
 
     /* The authoritative copy of master_ is always kept on the host, so we can
      * make any needed modifications and then push it.
@@ -2672,9 +2692,9 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
             return cudaErrorInvalidValue;
         }
     case cudaMemcpyDeviceToHost: {
-        check_access_device(src, size, true);
-
-        if (!(check_access_host(dst, size))) {
+        if (!(check_access_device(src, size, true))) {
+            /* Fallthrough to return. */
+        } else if (!(check_access_host(dst, size))) {
             /* Valgrind is running and it found an error */
             raise(SIGSEGV);
         } else {
@@ -2718,9 +2738,9 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
         return cudaErrorInvalidValue;
     }
     case cudaMemcpyHostToDevice:
-        check_access_device(dst, size, true);
-
-        if (!(check_access_host(src, size))) {
+        if (!(check_access_device(dst, size, true))) {
+            /* Fallthrough to return. */
+        } else if (!(check_access_host(src, size))) {
             /* Valgrind is running and it found an error */
             raise(SIGSEGV);
         } else {
@@ -3814,12 +3834,20 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
     if (coffset != size) {
         if (coffset == 0) {
             // Invalid read starts at usrc + coffset
-            // TODO CHECK FOR RECENTLY FREED
             char msg[256];
-            int pret = snprintf(msg, sizeof(msg), "Invalid device pointer "
-                " of size %zu bound to texture.\n"
-                " Address %p is not malloc'd or (recently) free'd.\n"
-                " Possible host pointer?", size, devPtr);
+            int pret;
+            if (is_recently_freed(devPtr)) {
+                pret = snprintf(msg, sizeof(msg), "Invalid device pointer "
+                    " of size %zu bound to texture.\n"
+                    " Address %p is part of (recently) free'd allocation.",
+                    size, devPtr);
+            } else {
+                pret = snprintf(msg, sizeof(msg), "Invalid device pointer "
+                    " of size %zu bound to texture.\n"
+                    " Address %p is not malloc'd or (recently) free'd.\n"
+                    " Possible host pointer?", size, devPtr);
+            }
+
             // sizeof(msg) is small, so the cast is safe.
             assert(pret < (int) sizeof(msg) - 1);
             logger::instance().print(msg);
@@ -4062,4 +4090,30 @@ cudaError_t cuda_context_memcheck::cudaMemcpyPeerImplementation(void *dst,
     }
 
     return ret;
+}
+
+bool cuda_context_memcheck::is_recently_freed(const void * ptr) const {
+    return boost::icl::intersects(recent_frees_,
+        static_cast<const uint8_t *>(ptr));
+}
+
+void cuda_context_memcheck::add_recent_free(const void * ptr, size_t size) {
+    /**
+     * Remove any overlapping allocations, then add to list.
+     */
+    remove_recent_free(ptr, size);
+
+    const uint8_t * start = static_cast<const uint8_t *>(ptr);
+    const uint8_t * end   = start + size;
+    recent_frees_.insert(
+        boost::icl::interval<free_map_t::domain_type>::right_open(start, end));
+}
+
+void cuda_context_memcheck::remove_recent_free(const void * ptr, size_t size) {
+    const uint8_t * start = static_cast<const uint8_t *>(ptr);
+    const uint8_t * end   = start + size;
+
+    std::pair<free_map_t::iterator, free_map_t::iterator> range =
+        recent_frees_.equal_range(free_map_t::key_type(start, end));
+    recent_frees_.erase(range.first, range.second);
 }
