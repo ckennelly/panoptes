@@ -73,6 +73,7 @@ vtest_k_explog
 vtest_k_fma
 vtest_k_funcgetattributes
 vtest_k_global_reductions
+vtest_k_irregular
 vtest_k_isspacep
 vtest_k_ld
 vtest_k_local

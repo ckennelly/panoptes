@@ -2383,21 +2383,47 @@ void global_context_memcheck::instrument_bar(const statement_t & statement,
                     block_size, z));
 
                 /**
-                 * Subtract 1 from the block_size to reduce it to all 1's, then
-                 * OR this back into the block_size to determine which bits of
-                 * the popc result will be invalid (as high bits corresponding
-                 * to powers of 2 well in excess of the number of threads will
-                 * always be 0).
+                 * Fuse rounding up to the next power of two with creating a
+                 * mask: power_of_two | (power_of_two - 1).
                  */
-                const temp_operand minus_one(*auxillary, u32_type);
-                aux->push_back(make_sub(u32_type, minus_one, block_size, 1));
-                aux->push_back(make_or(b32_type, block_size, block_size, minus_one));
+                const temp_operand tmp(*auxillary, u32_type);
+                /* block_size--; */
+                aux->push_back(make_sub(u32_type, block_size, block_size,
+                    operand_t::make_iconstant(1)));
+                /*
+                 * block_size |= block_size >> 1;
+                 * block_size |= block_size >> 2;
+                 * block_size |= block_size >> 4;
+                 * block_size |= block_size >> 8;
+                 *
+                 * If the maximum block size exceeds 2^16, another round must be
+                 * added:
+                 *
+                 * block_size |= block_size >> 16;
+                 */
+                for (int i = 1; i <= 8; i *= 2) {
+                    aux->push_back(make_shr(u32_type, tmp, block_size,
+                        operand_t::make_iconstant(i)));
+                    aux->push_back(make_or(b32_type, block_size, tmp, block_size));
+                }
+
+                /**
+                 * power_of_two = block_size + 1;
+                 * mask         = power_of_two | block_size
+                 *              = power_of_two | (power_of_two - 1);
+                 */
+                const operand_t power_of_two(tmp);
+                const operand_t mask(block_size);
+                aux->push_back(make_add(u32_type, power_of_two, block_size,
+                    operand_t::make_iconstant(1)));
+                aux->push_back(make_or(b32_type, mask, power_of_two,
+                    block_size));
 
                 /**
                  * Map result of validity reduction to block_size or 0.
                  */
-                aux->push_back(make_selp(b32_type, tmp_pred, vd, block_size,
-                    operand_t::make_iconstant(0)));
+                aux->push_back(make_selp(b32_type, tmp_pred, vd,
+                    operand_t::make_iconstant(0), block_size));
             }
 
             break;
