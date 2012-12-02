@@ -3206,12 +3206,6 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
 
     operand_t new_src, new_vsrc;
 
-    unsigned log_ptr;
-    switch (sizeof(void *)) {
-        case 4u: log_ptr = 2; break;
-        case 8u: log_ptr = 3; break;
-    }
-
     bool drop_load = false;
     bool invalidate = false;
     bool validate = false;
@@ -5333,12 +5327,6 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     const temp_operand a_data32(*auxillary, u32_type);
 
     operand_t new_dst, new_vdst;
-
-    unsigned log_ptr;
-    switch (sizeof(void *)) {
-        case 4u: log_ptr = 2; break;
-        case 8u: log_ptr = 3; break;
-    }
 
     bool drop_store = false;
 
