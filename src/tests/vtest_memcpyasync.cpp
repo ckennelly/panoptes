@@ -259,6 +259,108 @@ TEST(MemcpyAsync, Pinned) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+class MemcpyAsync : public ::testing::TestWithParam<int> {
+    // Empty Fixture
+};
+
+TEST_P(MemcpyAsync, D2DTransfers) {
+    const size_t param = GetParam();
+    const size_t alloc = 1 << param;
+
+    cudaError_t ret;
+    void *d1, *d2;
+    ret = cudaMalloc(&d1, alloc);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMalloc(&d2, alloc);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpyAsync(d2, d1, alloc, cudaMemcpyDeviceToDevice, stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(d1);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(d2);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
+TEST_P(MemcpyAsync, D2HTransfers) {
+    const size_t param = GetParam();
+    const size_t alloc = 1 << param;
+
+    cudaError_t ret;
+    void *d1, *h1;
+    ret = cudaMalloc(&d1, alloc);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaHostAlloc(&h1, alloc, cudaHostAllocMapped);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpyAsync(h1, d1, alloc, cudaMemcpyDeviceToHost, stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(d1);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFreeHost(h1);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
+TEST_P(MemcpyAsync, H2DTransfers) {
+    const size_t param = GetParam();
+    const size_t alloc = 1 << param;
+
+    cudaError_t ret;
+    void *d1, *h1;
+    ret = cudaMalloc(&d1, alloc);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaHostAlloc(&h1, alloc, cudaHostAllocMapped);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpyAsync(d1, h1, alloc, cudaMemcpyHostToDevice, stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(d1);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFreeHost(h1);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
+INSTANTIATE_TEST_CASE_P(MemcpyAsyncInst, MemcpyAsync, ::testing::Range(1, 24));
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
