@@ -493,7 +493,8 @@ void global_context::load_ptx(internal::modules_t * target) {
             const int dim = reg->dim;
 
             if (!(reg->has_texref)) {
-                ret = cuTexRefCreate(&reg->texref);
+                ret = cuModuleGetTexRef(&reg->texref, module->module,
+                    reg->deviceName);
                 assert(ret == CUDA_SUCCESS);
                 reg->has_texref = true;
             }
