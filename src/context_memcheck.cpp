@@ -3338,6 +3338,7 @@ bool cuda_context_memcheck::validity_download(void * host, const void *
         if (ret != cudaSuccess) {
             return false;
         }
+        VALGRIND_MALLOCLIKE_BLOCK(buffer, chunk_bytes, 0, 0);
     }
 
     const uintptr_t upgpu    = reinterpret_cast<uintptr_t>(gpu);
@@ -3406,6 +3407,7 @@ bool cuda_context_memcheck::validity_download(void * host, const void *
     }
 
     {
+        VALGRIND_FREELIKE_BLOCK(buffer, 0);
         cudaError_t ret = callout::cudaFreeHost(buffer);
         if (ret != cudaSuccess) {
             return false;
@@ -3510,6 +3512,7 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
         if (ret != cudaSuccess) {
             return false;
         }
+        VALGRIND_MALLOCLIKE_BLOCK(buffer, chunk_bytes, 0, 0);
     }
 
     const uintptr_t upgpu    = reinterpret_cast<uintptr_t>(gpu);
@@ -3573,6 +3576,7 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
     }
 
     {
+        VALGRIND_FREELIKE_BLOCK(buffer, 0);
         cudaError_t ret = callout::cudaFreeHost(buffer);
         if (ret != cudaSuccess) {
             return false;
