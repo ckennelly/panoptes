@@ -2076,7 +2076,7 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
     for (size_t i = first_chunk; i < last_chunk; i++) {
         bool has_update = false;
         const size_t first_bytes =
-            std::min(ptr, i * chunk_bytes) & (chunk_bytes - 1);
+            std::max(ptr, i * chunk_bytes) & (chunk_bytes - 1);
         const size_t last_bytes =
             std::min(ptr + size, (i + 1) * chunk_bytes) & (chunk_bytes - 1);
 
@@ -2178,7 +2178,8 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
             aend = end;
         }
 
-        if (aend > astart) {
+        if (aend > astart && (aend < chunk_bytes || astart > 0)) {
+            assert(achunks_[i] != initialized_achunk_);
             memset(static_cast<uint8_t *>(achunks_[i]->host()->a_data) +
                 astart / CHAR_BIT, 0xFF, (aend - astart) / CHAR_BIT);
         }
