@@ -49,9 +49,9 @@ public:
 
         storage_type * containing_block() const { return cb_; }
     private:
-        T * host_;
-        T * gpu_;
-        storage_type * cb_;
+        T * const host_;
+        T * const gpu_;
+        storage_type * const cb_;
     };
 public:
     /**
