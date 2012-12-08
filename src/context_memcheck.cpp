@@ -3533,8 +3533,6 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
         const uint8_t * host_chunk =
             static_cast<const uint8_t *>(host) + voffset;
         (void) VALGRIND_GET_VBITS(host_chunk, buffer, diff);
-        memset(static_cast<uint8_t *>(buffer) + chunk_bytes - diff, 0,
-            chunk_bytes - diff);
 
         /* Copy validity bits onto device from buffer */
         uint8_t * const chunk_ptr =
@@ -3542,7 +3540,7 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
 
         cudaError_t ret;
         if (stream) {
-            callout::cudaMemcpyAsync(chunk_ptr, buffer, end - start,
+            callout::cudaMemcpyAsync(chunk_ptr, buffer, diff,
                 cudaMemcpyHostToDevice, stream->stream);
 
             /**
@@ -3551,8 +3549,8 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
              */
             ret = stream->synchronize();
         } else {
-            ret = callout::cudaMemcpy(chunk_ptr,
-                buffer, end - start, cudaMemcpyHostToDevice);
+            ret = callout::cudaMemcpy(chunk_ptr, buffer, diff,
+                cudaMemcpyHostToDevice);
         }
 
         if (ret != cudaSuccess) {
