@@ -69,11 +69,7 @@ struct module_t {
     struct texture_t : boost::noncopyable {
         texture_t() : has_texref(false), bound(false) { }
 
-        ~texture_t() {
-            if (has_texref) {
-                (void) cuTexRefDestroy(texref);
-            }
-        }
+        ~texture_t() { }
 
         bool has_texref;
         CUtexref texref;
