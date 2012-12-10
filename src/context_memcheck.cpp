@@ -4299,7 +4299,7 @@ cudaError_t cuda_context_memcheck::cudaMemcpyPeerImplementation(void *dst,
         ret = callout::cudaMemcpyPeerAsync(dst, dstDevice_, src, srcDevice_,
             count, cs->stream);
     } else {
-        ret = callout::cudaMemcpyPeer(dst, dstDevice_, src, srcDevice_, count); 
+        ret = callout::cudaMemcpyPeer(dst, dstDevice_, src, srcDevice_, count);
     }
 
     if (ret == cudaSuccess) {
