@@ -2627,14 +2627,28 @@ bool cuda_context_memcheck::check_host_pinned(const void * ptr, size_t len,
             }
 
             return false;
-        } /* else: p >= lb */
+        } else if (p == it->first) {
+            ahmap_t::const_iterator jit = host_allocations_.find(p);
+            if (jit == host_allocations_.end()) {
+                if (offset) {
+                    *offset = checked;
+                }
 
-        /**
-         * Advance for length of containing block beyond p.
-         */
-        checked += it->second - (size_t)
-            (static_cast<const uint8_t *>(p) -
-             static_cast<const uint8_t *>(lb));
+                return false;
+            }
+
+            checked += jit->second.size;
+        } else { /* else: p > lb */
+            /**
+             *
+             * Advance for length of containing block beyond p.
+             */
+            size_t old_checked = checked;
+            checked += it->second - (size_t)
+                (static_cast<const uint8_t *>(p) -
+                 static_cast<const uint8_t *>(lb));
+            assert(checked > old_checked);
+        }
     }
 
     return true;

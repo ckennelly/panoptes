@@ -126,6 +126,7 @@ vtest_mallocpitch
 vtest_memcpy
 vtest_memcpyasync
 vtest_memcpyfromsymbol
+vtest_memcpyhost
 vtest_memcpypeer
 vtest_memcpypeerasync
 vtest_memcpytosymbol
