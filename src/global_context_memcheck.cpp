@@ -1578,43 +1578,34 @@ static bool find_variable(const std::string & id, space_t space,
         *f_ = f;
     }
 
-    if (found && v_) {
-        *v_ = vr;
-    }
+    if (!(found) && f) {
+        /* Search global space. */
+        const ptx_t * ptx = f->parent;
+        assert(ptx);
 
-    return found;
-}
+        const size_t vn = ptx->variables.size();
+        for (size_t vi = 0; vi < vn; vi++) {
+            const variable_t & v = ptx->variables[vi];
+            if (v.space != space) {
+                continue;
+            }
 
-/**
- * Like find_variable but conducts its search in the global scope.
- */
-static bool find_variable_global(const std::string & id, space_t space,
-        const ptx_t * ptx, const variable_t ** v_) {
-    bool found = false;
-    const variable_t * vr = NULL;
-
-    const size_t vn = ptx->variables.size();
-    const size_t isize = id.size();
-    for (size_t vi = 0; vi < vn; vi++) {
-        const variable_t & v = ptx->variables[vi];
-        if (v.space != space) {
-            continue;
-        }
-
-        const size_t vsize = v.name.size();
-        const size_t msize = std::min(vsize, isize);
-        if (v.has_suffix && memcmp(v.name.c_str(), id.c_str(), msize) == 0) {
-            /* Matched the prefix, now parse the suffix.*/
-            int s;
-            int p = sscanf(id.c_str() + msize, "%d", &s);
-            if (p == 1 && s >= 0 && s <= v.suffix) {
+            const size_t vsize = v.name.size();
+            const size_t msize = std::min(vsize, isize);
+            if (v.has_suffix &&
+                    memcmp(v.name.c_str(), id.c_str(), msize) == 0) {
+                /* Matched the prefix, now parse the suffix.*/
+                int s;
+                int p = sscanf(id.c_str() + msize, "%d", &s);
+                if (p == 1 && s >= 0 && s <= v.suffix) {
+                    found = true;
+                    vr = &v;
+                }
+            } else if (!(v.has_suffix) && id == v.name) {
                 found = true;
                 vr = &v;
+                break;
             }
-        } else if (!(v.has_suffix) && id == v.name) {
-            found = true;
-            vr = &v;
-            break;
         }
     }
 
@@ -1752,12 +1743,8 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
         /* Walk up scopes for identifiers. */
         const function_t * f = NULL;
         const variable_t * v = NULL;
-        bool found = find_variable(id, shared_space, auxillary->block, &f, &v);
-
-        if (!(found)) {
-            assert(f);
-            found = find_variable_global(id, shared_space, f->parent, &v);
-        }
+        const bool found =
+            find_variable(id, shared_space, auxillary->block, &f, &v);
 
         const size_t size = found ? v->size() : 0u;
         if (found && !(v->array_flexible)) {
@@ -3300,12 +3287,8 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
         /* Walk up scopes for identifiers. */
         const function_t * f = NULL;
         const variable_t * v = NULL;
-        bool found = find_variable(id, shared_space, auxillary->block, &f, &v);
-
-        if (!(found)) {
-            assert(f);
-            found = find_variable_global(id, shared_space, f->parent, &v);
-        }
+        const bool found =
+            find_variable(id, shared_space, auxillary->block, &f, &v);
 
         const bool   flexible = found ? v->array_flexible : false;
         const size_t size     = found ? v->size() : 0;
@@ -5390,12 +5373,8 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
         /* Walk up scopes for identifiers. */
         const function_t * f = NULL;
         const variable_t * v = NULL;
-        bool found = find_variable(id, shared_space, auxillary->block, &f, &v);
-
-        if (!(found)) {
-            assert(f);
-            found = find_variable_global(id, shared_space, f->parent, &v);
-        }
+        const bool found =
+            find_variable(id, shared_space, auxillary->block, &f, &v);
 
         const bool   flexible = found ? v->array_flexible : false;
         const size_t size     = found ? v->size() : 0u;
