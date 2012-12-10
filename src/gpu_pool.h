@@ -43,6 +43,9 @@ public:
         const T * host() const { return host_; }
         T * gpu() { return gpu_; }
         const T * gpu() const { return gpu_; }
+
+        handle_t(T* host__, T* gpu__) : host_(host__), gpu_(gpu__),
+            cb_(NULL) { }
     protected:
         handle_t(T* host__, T* gpu__, storage_type * cb) :
             host_(host__), gpu_(gpu__), cb_(cb) { }
@@ -144,7 +147,13 @@ public:
     void to_gpu(Iter first, Iter last) {
         block_set_t blocks;
         for (Iter it = first; it != last; ++it) {
-            blocks.insert((*it)->containing_block());
+            storage_type * container = (*it)->containing_block();
+            if (container) {
+                blocks.insert(container);
+            } else {
+                callout::cudaMemcpy((*it)->gpu(), (*it)->host(), sizeof(T),
+                    cudaMemcpyHostToDevice);
+            }
         }
 
         for (typename block_set_t::iterator it = blocks.begin();
@@ -168,7 +177,13 @@ public:
     void to_host(Iter first, Iter last) {
         block_set_t blocks;
         for (Iter it = first; it != last; ++it) {
-            blocks.insert((*it)->containing_block());
+            storage_type * container = (*it)->containing_block();
+            if (container) {
+                blocks.insert(container);
+            } else {
+                callout::cudaMemcpy((*it)->host(), (*it)->gpu(), sizeof(T),
+                    cudaMemcpyDeviceToHost);
+            }
         }
 
         for (typename block_set_t::iterator it = blocks.begin();

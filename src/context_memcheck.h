@@ -304,6 +304,12 @@ protected:
      */
     void release_texture(internal::texture_t * texture,
         const struct textureReference * texref);
+    void load_validity_texref(internal::texture_t * texture,
+        const struct textureReference * texref);
+    void bind_validity_texref(internal::texture_t * texture,
+        const struct textureReference * texref,
+        const struct cudaChannelFormatDesc *desc,
+        const void * validity_ptr, size_t size);
 
     global_context_memcheck * global();
     const global_context_memcheck * global() const;
@@ -326,11 +332,18 @@ private:
 
     /* Storage for auxillary chunk info (host-based) */
     struct chunk_aux_t {
-        chunk_aux_t() : allocations(0) { }
+        chunk_aux_t() : allocations(0), large_chunk(false) { }
         ~chunk_aux_t() { }
 
         /* Number of outstanding allocations for a chunk */
         unsigned allocations;
+
+        /* Metadata for tracking large chunks. */
+        bool large_chunk;
+        size_t owner_index;
+        vdata_chunk * hroot;
+        vdata_chunk * groot;
+        vpool_t::handle_t * handle;
     };
     /* We can have at most 1 << lg_chunk_bytes allocations at 1 byte each
      * in use for a chunk.  Debugging this overflow would be painful.

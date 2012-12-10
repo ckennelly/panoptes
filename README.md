@@ -66,8 +66,8 @@ currently include:
   that there are untested edge cases that would only be exposed by use of
   inline PTX.
 
-  * Textures/Surfaces:  Texture/surface support is currently being tested, but
-                        is not released.
+  * Surfaces:           Surface support is currently being tested, but is not
+                        released.
 
   * Video instructions: The video instructions (vadd, vsub, vabsdiff, vmin,
                         vmax, vshl, vshr, vmad, vset) are currently not

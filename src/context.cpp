@@ -348,12 +348,16 @@ cudaError_t cuda_context::cudaBindTexture(size_t *offset,
     }
 
     CUarray_format format;
+    unsigned int flags =
+        (texref->normalized ? CU_TRSF_NORMALIZED_COORDINATES : 0);
 
     switch (desc->f) {
         case cudaChannelFormatKindSigned:
+            flags |= CU_TRSF_READ_AS_INTEGER;
             format = CU_AD_FORMAT_SIGNED_INT32;
             break;
         case cudaChannelFormatKindUnsigned:
+            flags |= CU_TRSF_READ_AS_INTEGER;
             format = CU_AD_FORMAT_UNSIGNED_INT32;
             break;
         case cudaChannelFormatKindFloat:
@@ -364,8 +368,46 @@ cudaError_t cuda_context::cudaBindTexture(size_t *offset,
             return cudaErrorInvalidValue;
     }
 
-    ret = cuTexRefSetFormat(jit->second->texref, format,
-        (desc->x + desc->y + desc->z + desc->w + 31) / 32);
+    ret = cuTexRefSetFlags(jit->second->texref, flags);
+    switch (ret) {
+        case CUDA_SUCCESS:
+            break;
+        case CUDA_ERROR_INVALID_VALUE:
+            return cudaErrorInvalidValue;
+        case CUDA_ERROR_DEINITIALIZED:
+        case CUDA_ERROR_NOT_INITIALIZED:
+        case CUDA_ERROR_INVALID_CONTEXT:
+        default:
+            /* TODO */
+            return cudaErrorNotYetImplemented;
+    }
+
+    CUfilter_mode filter_mode;
+    switch (texref->filterMode) {
+        case cudaFilterModePoint:
+            filter_mode = CU_TR_FILTER_MODE_POINT;
+            break;
+        case cudaFilterModeLinear:
+            filter_mode = CU_TR_FILTER_MODE_LINEAR;
+            break;
+    }
+
+    ret = cuTexRefSetFilterMode(jit->second->texref, filter_mode);
+    switch (ret) {
+        case CUDA_SUCCESS:
+            break;
+        case CUDA_ERROR_INVALID_VALUE:
+            return cudaErrorInvalidValue;
+        case CUDA_ERROR_DEINITIALIZED:
+        case CUDA_ERROR_NOT_INITIALIZED:
+        case CUDA_ERROR_INVALID_CONTEXT:
+        default:
+            /* TODO */
+            return cudaErrorNotYetImplemented;
+    }
+
+    const int n_components = (desc->x + desc->y + desc->z + desc->w + 31) / 32;
+    ret = cuTexRefSetFormat(jit->second->texref, format, n_components);
     switch (ret) {
         case CUDA_SUCCESS:
             break;

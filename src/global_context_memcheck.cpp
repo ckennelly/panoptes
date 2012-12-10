@@ -28,13 +28,16 @@ using namespace panoptes;
 
 typedef boost::unique_lock<boost::mutex> scoped_lock;
 
-using internal::__master_symbol;
-const char * panoptes::internal::__master_symbol = "__panoptes_master_symbol";
+using namespace internal;
 
+namespace panoptes {
+namespace internal {
+
+       const char * __master_symbol   = "__panoptes_master_symbol";
 static const char * __global_ro       = "__panoptes_global_ro";
 static const char * __global_wo       = "__panoptes_global_wo";
 static const char * __validity_prefix = "__panoptes_v";
-static const char * __texture_prefix  = "__panoptes_t";
+       const char * __texture_prefix  = "__panoptes_t";
 static const char * __errors_register = "__panoptes_lerrors";
 static const char * __has_errors      = "__panoptes_haserrors";
 static const char * __vcarry          = "__panoptes_carry";
@@ -53,6 +56,9 @@ static const char * __local_reg       = "__panoptes_local_size";
 static const char * __param_shared    = "__panoptes_shared_sizep";
 static const char * __param_error     = "__panoptes_errors";
 static const char * __param_error_count = "__panoptes_error_count";
+
+}
+}
 
 static const size_t metadata_size     = 3u * sizeof(void *);
 static const size_t metadata_ptrs_lg  =
@@ -160,6 +166,38 @@ static type_t signed_type(type_t t) {
         case s64_type:
         case u64_type:
             return s64_type;
+        case pred_type:
+        case texref_type:
+        case invalid_type:
+            assert(0 && "Unsupported type.");
+            return invalid_type;
+    }
+
+    __builtin_unreachable();
+    return invalid_type;
+}
+
+static type_t unsigned_type(type_t t) {
+    switch (t) {
+        case b8_type:
+        case s8_type:
+        case u8_type:
+            return u8_type;
+        case b16_type:
+        case f16_type:
+        case s16_type:
+        case u16_type:
+            return u16_type;
+        case b32_type:
+        case f32_type:
+        case s32_type:
+        case u32_type:
+            return u32_type;
+        case b64_type:
+        case f64_type:
+        case s64_type:
+        case u64_type:
+            return u64_type;
         case pred_type:
         case texref_type:
         case invalid_type:
@@ -629,15 +667,18 @@ static operand_t make_validity_operand(const operand_t & in, size_t width) {
                             case 1:
                                 ret.identifier.push_back(__zero_register8);
                                 ret.field.push_back(field_none);
+                                ret.constness.push_back(true);
                                 break;
                             case 2:
                                 ret.identifier.push_back(__zero_register16);
                                 ret.field.push_back(field_none);
+                                ret.constness.push_back(true);
                                 break;
                             case 3:
                             case 4:
                                 ret.identifier.push_back(__zero_register32);
                                 ret.field.push_back(field_none);
+                                ret.constness.push_back(true);
                                 break;
                             case 5:
                             case 6:
@@ -645,6 +686,7 @@ static operand_t make_validity_operand(const operand_t & in, size_t width) {
                             case 8:
                                 ret.identifier.push_back(__zero_register64);
                                 ret.field.push_back(field_none);
+                                ret.constness.push_back(true);
                                 break;
                             case 0:
                             default:
@@ -655,6 +697,7 @@ static operand_t make_validity_operand(const operand_t & in, size_t width) {
                 } else {
                     ret.identifier.push_back(make_validity_symbol(id));
                     ret.field.push_back(f);
+                    ret.constness.push_back(false);
                 }
             }
 
@@ -1076,22 +1119,20 @@ void global_context_memcheck::instrument(
 
     const size_t tcount = target->textures.size();
     for (size_t i = 0; i < tcount; i++) {
-        const size_t ncount = target->textures[i].names.size();
-        for (size_t j = 0; j < ncount; j++) {
-            variable_t tv;
-            tv.space = const_space;
-            tv.type  = pointer_type();
-            tv.name = __texture_prefix + target->textures[i].names[j];
-            tv.has_initializer = true;
-            tv.initializer_vector = false;
+        const texture_t & t = target->textures[i];
+        const size_t ncount = t.names.size();
 
-            variant_t v;
-            v.type   = variant_integer;
-            v.data.u = 0;
-
-            tv.initializer.push_back(v);
-            new_globals.push_back(tv);
+        texture_t tv;
+        if (t.type == texref_type) {
+            tv.type = texref_type;
+        } else {
+            tv.type = unsigned_type(t.type);
         }
+
+        for (size_t j = 0; j < ncount; j++) {
+            tv.names.push_back(__texture_prefix + t.names[j]);
+        }
+        target->textures.push_back(tv);
     }
 
     {
@@ -5637,6 +5678,119 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     }
 }
 
+void global_context_memcheck::instrument_tex(const statement_t & statement,
+        statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
+    /*
+     * Query the validity texture.  This is a reasonable approximation for
+     * validity tracking, but it fails to account for interpolation.  TODO: On
+     * systems supporting sm_20, use the tld4 instruction to bypass
+     * interpolation.
+     */
+    statement_t vs = statement;
+    const size_t n_operands = vs.operands.size();
+    assert(n_operands >= 3u);
+    assert(n_operands <= 4u);
+
+    /* Convert destination to validity varieties. */
+    operand_t & dest = vs.operands[0];
+    dest = make_validity_operand(dest, 0);
+    vs.type = unsigned_type(vs.type);
+
+    /* Rename texture. */
+    operand_t & src_tex = vs.operands[1];
+    assert(src_tex.op_type == operand_identifier);
+    assert(src_tex.identifier.size() == 1);
+    src_tex.identifier[0] = __texture_prefix + src_tex.identifier[0];
+
+    aux->push_back(vs);
+    *keep = true;
+
+    /* The last operand addresses the texture.  Verify it is valid. */
+    const operand_t address_validity =
+        make_validity_operand(vs.operands[n_operands - 1],
+        sizeof_type(vs.type2));
+
+    const size_t n_ids = address_validity.identifier.size();
+    bool first_nonconst = true;
+    const temp_operand pred(*auxillary, pred_type);
+    const type_t bdata_type = bitwise_type(vs.type);
+    const type_t baddr_type = bitwise_type(vs.type2);
+
+    const operand_t local_errors =
+        operand_t::make_identifier(__errors_register);
+
+    switch (address_validity.op_type) {
+        case operand_identifier:
+        case operand_addressable:
+        case operand_indexed:
+            assert(n_ids == address_validity.constness.size());
+            for (size_t i = 0; i < n_ids; i++) {
+                if (!(address_validity.constness[i])) {
+                    const std::string & id = address_validity.identifier[i];
+                    /* Map validity to a predicate. */
+                    statement_t pred_map;
+                    pred_map.op             = op_setp;
+                    pred_map.cmp            = cmp_ne;
+                    pred_map.type           = baddr_type;
+                    pred_map.has_ppredicate = true;
+                    pred_map.ppredicate     = pred;
+                    pred_map.operands.push_back(
+                        operand_t::make_identifier(id));
+                    pred_map.operands.push_back(
+                        operand_t::make_iconstant(0));
+
+                    if (first_nonconst) {
+                        first_nonconst = false;
+                    } else {
+                        /* Fold in previous value of predicate. */
+                        pred_map.bool_op = bool_or;
+                        pred_map.operands.push_back(pred);
+                    }
+
+                    aux->push_back(pred_map);
+                }
+            }
+
+            /* Only warn about wild texture fetches/mix-in validity data if
+             * any part of the address was nonconst. */
+            if (!(first_nonconst)) {
+                /* Wild fetch. */
+                typedef internal::instrumentation_t inst_t;
+                inst_t::error_desc_t desc_wild;
+                desc_wild.type = inst_t::wild_texture;
+                desc_wild.orig = statement;
+                auxillary->inst->errors.push_back(desc_wild);
+                const size_t error_wild = auxillary->inst->errors.size();
+                const operand_t op_wild =
+                    operand_t::make_iconstant((int64_t) error_wild);
+
+                aux->push_back(make_selp(u32_type, pred, local_errors,
+                    op_wild, local_errors));
+
+                /* Mix-in. */
+                const temp_operand mix_in(*auxillary, bdata_type);
+                aux->push_back(make_selp(bdata_type, pred, mix_in,
+                    operand_t::make_iconstant(-1),
+                    operand_t::make_iconstant(0)));
+
+                const size_t n_dest = dest.identifier.size();
+                assert(n_dest > 0);
+                for (size_t i = 0; i < n_dest; i++) {
+                    const std::string & id = dest.identifier[i];
+                    const operand_t op_id  = operand_t::make_identifier(id);
+                    aux->push_back(make_or(bdata_type, op_id, mix_in, op_id));
+                }
+            }
+        case operand_constant:
+        case operand_double:
+        case operand_float:
+            break;
+        case invalid_operand:
+            assert(0 && "Unknown operand type.");
+            break;
+    }
+}
+
 void global_context_memcheck::instrument_testp(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
@@ -5862,6 +6016,9 @@ void global_context_memcheck::instrument_block(block_t * block,
             case op_brkpt: /* No-op */ break;
             case op_copysign:
                 instrument_copysign(statement, &aux, &keep, &temps);
+                break;
+            case op_tex:
+                instrument_tex(statement, &aux, &keep, &temps);
                 break;
             case op_testp:
                 instrument_testp(statement, &aux, &keep, &temps);

@@ -186,6 +186,9 @@ struct operand_t {
     typedef std::vector<std::string> string_vt;
     string_vt   identifier;
 
+    typedef std::vector<bool> constness_vt;
+    constness_vt constness;
+
     void push_field(int token);
     typedef std::vector<field_t> field_vt;
     field_vt    field;

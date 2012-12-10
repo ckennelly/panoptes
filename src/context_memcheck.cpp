@@ -380,6 +380,13 @@ cudaError_t internal::check_t::check(cudaError_t r) {
 
                     ret = cudaErrorLaunchFailure;
                     break;
+                case instrumentation_t::wild_texture:
+                    sret = snprintf(buf, sizeof(buf),
+                        "Error %u: Wild texture load at %s", i,
+                        ss.str().c_str());
+                    assert(sret < (int) sizeof(buf));
+                    buffer += buf;
+                    break;
             }
         }
 
@@ -452,6 +459,9 @@ struct internal::texture_t {
     bool array_bound;
     internal::array_t * bound_array;
 
+    bool has_validity_texref;
+    CUtexref validity_texref;
+
     size_t       bound_size;
     backtrace_t  binding;
 
@@ -460,7 +470,7 @@ struct internal::texture_t {
 };
 
 internal::texture_t::texture_t() : bound_pointer(NULL), array_bound(false),
-    bound_array(NULL) { }
+    bound_array(NULL), has_validity_texref(false) { }
 internal::texture_t::~texture_t() { }
 
 internal::event_t::event_t(event_type_t et, unsigned int flags_,
@@ -1838,7 +1848,22 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
                 apool_.free(achunks_[i]);
             }
 
-            vpool_.free(vchunks_[i]);
+            if (chunks_aux_[i].large_chunk) {
+                /* Only free if this is the owner. */
+                if (chunks_aux_[i].owner_index == i) {
+                    callout::cudaFree(chunks_aux_[i].groot);
+                    chunks_aux_[i].groot = NULL;
+
+                    callout::cudaFreeHost(chunks_aux_[i].hroot);
+                    chunks_aux_[i].hroot = NULL;
+                }
+
+                chunks_aux_[i].large_chunk = false;
+                delete chunks_aux_[i].handle;
+                chunks_aux_[i].handle = NULL;
+            } else {
+                vpool_.free(vchunks_[i]);
+            }
 
             achunks_[i] = default_achunk_;
             vchunks_[i] = default_vchunk_;
@@ -3757,6 +3782,50 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
 
 cuda_context_memcheck::td::~td() { }
 
+void cuda_context_memcheck::bind_validity_texref(internal::texture_t * texture,
+        const struct textureReference * texref,
+        const struct cudaChannelFormatDesc * desc, const void * validity_ptr,
+        size_t size) {
+    /* Bind validity pointer. */
+    size_t internal_offset;
+    CUresult curet = cuTexRefSetAddress(&internal_offset,
+        texture->validity_texref, (CUdeviceptr) validity_ptr, size);
+    if (curet != CUDA_SUCCESS) {
+        return;
+    }
+
+    const unsigned int flags =
+        (texref->normalized ? CU_TRSF_NORMALIZED_COORDINATES : 0) |
+        CU_TRSF_READ_AS_INTEGER;
+
+    curet = cuTexRefSetFlags(texture->validity_texref, flags);
+    if (curet != CUDA_SUCCESS) {
+        return;
+    }
+
+    CUfilter_mode filter_mode;
+    switch (texref->filterMode) {
+        case cudaFilterModePoint:
+            filter_mode = CU_TR_FILTER_MODE_POINT;
+            break;
+        case cudaFilterModeLinear:
+            filter_mode = CU_TR_FILTER_MODE_LINEAR;
+            break;
+    }
+
+    curet = cuTexRefSetFilterMode(texture->validity_texref, filter_mode);
+    if (curet != CUDA_SUCCESS) {
+        return;
+    }
+
+    CUarray_format format    = CU_AD_FORMAT_UNSIGNED_INT32;
+    const int n_components = (desc->x + desc->y + desc->z + desc->w + 31) / 32;
+    curet = cuTexRefSetFormat(texture->validity_texref, format, n_components);
+    if (curet != CUDA_SUCCESS) {
+        return;
+    }
+}
+
 cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
         const struct textureReference *texref, const void *devPtr,
         const struct cudaChannelFormatDesc *desc, size_t size) {
@@ -3779,6 +3848,8 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
     it->second->bound_pointer   = devPtr;
     it->second->bound_size      = size;
     it->second->binding         = backtrace_t::instance();
+
+    load_validity_texref(it->second, texref);
 
     /* Note which memory regions have been bound to this texture. */
     const uint8_t * const uptr = static_cast<const uint8_t *>(devPtr);
@@ -3870,6 +3941,103 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
         }
     }
 
+    const size_t chunk_bytes = 1u << lg_chunk_bytes;
+    const uintptr_t uiptr = reinterpret_cast<uintptr_t>(devPtr);
+    const size_t chunk_start =  uiptr                           >> lg_chunk_bytes;
+    const size_t chunk_end   = (uiptr + size + chunk_bytes - 1) >> lg_chunk_bytes;
+
+    void * validity_ptr;
+    if (chunk_start < chunk_end) {
+        /*
+         * Coalesce validity blocks.
+         *
+         * Verify that only a single allocation spans these chunks.
+         * TODO: Add support to merge adjacent blocks as necessary.
+         */
+        bool single_allocation = true;
+        size_t bad_chunk;
+        for (size_t i = chunk_start; i < chunk_end; i++) {
+            if (chunks_aux_[i].allocations != 1 ||
+                    chunks_aux_[i].large_chunk) {
+                single_allocation = false;
+                bad_chunk = i;
+            }
+        }
+
+        if (single_allocation) {
+            /* Nothing else can interact with this device. */
+            cudaError_t sret = callout::cudaDeviceSynchronize();
+            if (sret != cudaSuccess) {
+                return sret;
+            }
+
+            /* Allocate buffers spanning the range. */
+            const size_t chunks = chunk_end - chunk_start + 1;
+            chunk_aux_t & root = chunks_aux_[chunk_start];
+            sret = callout::cudaMalloc((void **) &root.groot,
+                sizeof(*root.groot) * chunks);
+            if (sret != cudaSuccess) {
+                return sret;
+            }
+
+            sret = callout::cudaMallocHost((void **) &root.hroot,
+                sizeof(*root.hroot) * chunks);
+            if (sret != cudaSuccess) {
+                return sret;
+            }
+
+            /* Copy current validity bits. */
+            typedef global_memcheck_state::chunk_updates_t updates_t;
+            updates_t updates;
+
+            for (size_t i = chunk_start; i < chunk_end; i++) {
+                chunk_aux_t & c = chunks_aux_[i];
+                c.large_chunk = true;
+                c.owner_index = chunk_start;
+
+                const size_t index_offset = i - chunk_start;
+                sret = callout::cudaMemcpy(root.groot + index_offset,
+                    vchunks_[i]->gpu(), sizeof(*root.groot),
+                    cudaMemcpyDeviceToDevice);
+                if (sret != cudaSuccess) {
+                    return sret;
+                }
+
+                c.handle = new vpool_t::handle_t(root.hroot + index_offset,
+                    root.groot + index_offset);
+                vpool_.free(vchunks_[i]);
+                vchunks_[i] = c.handle;
+
+                metadata_ptrs tmp;
+                tmp.adata = achunks_[i]->gpu();
+                tmp.vdata = vchunks_[i]->gpu();
+
+                updates.push_back(updates_t::value_type(i, tmp));
+            }
+
+            if (updates.size() > 0) {
+                state_->update_master(device_, true, updates);
+            }
+        } else {
+            char msg[128];
+            int pret = snprintf(msg, sizeof(msg), "Instrumentation limit "
+                "encountered.\nPointer %p spans chunks containing other "
+                "allocations (chunk index %zu).\n", uptr, bad_chunk);
+            // sizeof(msg) is small, so the cast is safe.
+            assert(pret < (int) sizeof(msg) - 1);
+            logger::instance().print(msg);
+        }
+    } else {
+        assert(chunk_start == chunk_end);
+    }
+
+    const size_t voffset = uiptr - chunk_start * chunk_bytes;
+    vpool_t::handle_t * vhandle = vchunks_[chunk_start];
+    assert(vhandle != default_vchunk_);
+    validity_ptr = reinterpret_cast<uint8_t *>(vhandle->gpu()->v_data) +
+        voffset;
+
+    bind_validity_texref(it->second, texref, desc, validity_ptr, size);
     return ret;
 }
 
@@ -3915,11 +4083,51 @@ cudaError_t cuda_context_memcheck::cudaBindTextureToArray(
     it->second->bound_array = internal_array;
     it->second->binding     = backtrace_t::instance();
 
+    load_validity_texref(it->second, texref);
+
     if (internal_array) {
         internal_array->bindings.insert(texref);
     }
 
+    bind_validity_texref(it->second, texref, desc, internal_array->validity,
+        internal_array->size());
     return ret;
+}
+
+void cuda_context_memcheck::load_validity_texref(internal::texture_t * texture,
+        const struct textureReference * texref) {
+    /* Retrieve the validity texture. */
+    if (texture->has_validity_texref) {
+        return;
+    }
+
+    internal::modules_t::texture_map_t::iterator jit =
+        modules_->textures.find(texref);
+    if (jit == modules_->textures.end()) {
+        assert(0 && "Inconsistent texture index state.");
+        return;
+    }
+
+    internal::module_t * const mod = jit->second;
+    internal::module_t::texture_map_t::iterator kit =
+        mod->textures.find(texref);
+    if (kit == mod->textures.end()) {
+        assert(0 && "Inconsistent texture index state.");
+        return;
+    }
+
+    internal::module_t::texture_t * tex = kit->second;
+
+    std::string s(internal::__texture_prefix);
+    s += tex->deviceName;
+
+    CUresult curet = cuModuleGetTexRef(&texture->validity_texref,
+        mod->module, s.c_str());
+    if (curet != CUDA_SUCCESS) {
+        return;
+    }
+
+    texture->has_validity_texref = true;
 }
 
 cudaError_t cuda_context_memcheck::cudaUnbindTexture(

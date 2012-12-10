@@ -162,6 +162,9 @@ private:
     void instrument_testp(const statement_t & statement,
         statement_vt * instrumentation, bool * keep,
         internal::auxillary_t * auxillary);
+    void instrument_tex(const statement_t & statement,
+        statement_vt * instrumentation, bool * keep,
+        internal::auxillary_t * auxillary);
     void instrument_vote(const statement_t & statement,
         statement_vt * instrumentation, bool * keep,
         internal::auxillary_t * auxillary);

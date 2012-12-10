@@ -26,6 +26,7 @@ namespace internal {
 
 static const size_t max_errors        = 1u << 8;
 extern const char * __master_symbol;
+extern const char * __texture_prefix;
 
 struct instrumentation_t {
     instrumentation_t();
@@ -44,7 +45,8 @@ struct instrumentation_t {
         outofbounds_ld_shared,
         outofbounds_st_global,
         outofbounds_st_local,
-        outofbounds_st_shared
+        outofbounds_st_shared,
+        wild_texture
     };
 
     struct error_desc_t {
