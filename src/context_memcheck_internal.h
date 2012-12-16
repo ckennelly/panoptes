@@ -72,7 +72,7 @@ class auxillary_t;
 
 class temp_operand : boost::noncopyable {
 public:
-    temp_operand(auxillary_t & parent, type_t type);
+    temp_operand(auxillary_t * parent, type_t type);
     ~temp_operand();
 
     operator const std::string &() const;
@@ -90,7 +90,7 @@ private:
 
 class temp_ptr : boost::noncopyable {
 public:
-    temp_ptr(auxillary_t & parent);
+    temp_ptr(auxillary_t * parent);
     ~temp_ptr();
 
     operator const std::string &() const;

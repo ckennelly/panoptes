@@ -60,8 +60,8 @@ static std::string make_temp_identifier(type_t type, unsigned id) {
     return buf;
 }
 
-temp_operand::temp_operand(auxillary_t & parent, type_t type) :
-        parent_(parent), type_(type), id_(parent_.allocate(type)),
+temp_operand::temp_operand(auxillary_t * parent, type_t type) :
+        parent_(*parent), type_(type), id_(parent_.allocate(type)),
         identifier_(make_temp_identifier(type, id_)),
         operand_(operand_t::make_identifier(identifier_)) { }
 
@@ -89,8 +89,8 @@ static std::string make_temp_pointer(unsigned id) {
     return buf;
 }
 
-temp_ptr::temp_ptr(auxillary_t & parent) :
-        parent_(parent), id_(parent_.allocate_ptr()),
+temp_ptr::temp_ptr(auxillary_t * parent) :
+        parent_(*parent), id_(parent_.allocate_ptr()),
         identifier_(make_temp_pointer(id_)),
         operand_(operand_t::make_identifier(identifier_)) { }
 
