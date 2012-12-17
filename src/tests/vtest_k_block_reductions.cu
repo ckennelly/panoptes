@@ -130,7 +130,7 @@ TEST(kSyncThreads, CountEvens) {
 
     const int N = 1 << 20;
     const int block_size = 256;
-    const int n_blocks = 32;
+    const int n_blocks = (N + block_size - 1) / block_size;
 
     int * in;
     int * out;
@@ -138,14 +138,13 @@ TEST(kSyncThreads, CountEvens) {
     ret = cudaMalloc((void **) &in, sizeof(*in) * N);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaMalloc((void **) &out, sizeof(*out) * N /
-        (sizeof(*out) * CHAR_BIT));
+    ret = cudaMalloc((void **) &out, 2 * sizeof(*out) * n_blocks);
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
-    k_count_evens<<<block_size, n_blocks, 0, stream>>>(in, out, N);
+    k_count_evens<<<n_blocks, block_size, 0, stream>>>(in, out, N);
 
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);
