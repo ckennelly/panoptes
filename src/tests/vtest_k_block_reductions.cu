@@ -16,8 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <cuda.h>
+#include <boost/static_assert.hpp>
 #include <gtest/gtest.h>
+#include <valgrind/memcheck.h>
 
 extern "C" __global__ void k_all_evens(const int * in, bool * out,
         const int N) {
@@ -108,8 +109,45 @@ TEST(kSyncThreads, AllEvens) {
     ret = cudaFree(in);
     ASSERT_EQ(cudaSuccess, ret);
 
+    /* Avoid the std::vector<bool> specialization. */
+    std::vector<char> hout(2 * n_blocks);
+    BOOST_STATIC_ASSERT(sizeof(hout[0]) == sizeof(*out));
+    ret = cudaMemcpy(&hout[0], out, 2 * sizeof(*out) * n_blocks,
+        cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
     ret = cudaFree(out);
     ASSERT_EQ(cudaSuccess, ret);
+
+    if (RUNNING_ON_VALGRIND) {
+        std::vector<unsigned char> vout(2 * n_blocks);
+        BOOST_STATIC_ASSERT(sizeof(hout[0]) == sizeof(vout[0]));
+        int v = VALGRIND_GET_VBITS(&hout[0], &vout[0],
+            2 * sizeof(hout[0]) * n_blocks);
+        ASSERT_EQ(1, v);
+
+        bool error = false;
+        for (int i = 0; i < n_blocks; i++) {
+            /**
+             * setp is imprecise and marks the validity bits to be entirely
+             * invalid, even when the propagation of uninitialized state may
+             * cause a single bitflip.
+             */
+            error |= vout[i] != 0xFF;
+        }
+        EXPECT_FALSE(error);
+
+        for (int i = n_blocks; i < 2 * n_blocks; i++) {
+            error |= vout[i] != 0x0;
+        }
+        EXPECT_FALSE(error);
+    }
+
+    bool error = false;
+    for (int i = n_blocks; i < 2 * n_blocks; i++) {
+        error |= hout[i] != 1;
+    }
+    EXPECT_FALSE(error);
 }
 
 TEST(kSyncThreads, AnyEvens) {
@@ -144,8 +182,45 @@ TEST(kSyncThreads, AnyEvens) {
     ret = cudaFree(in);
     ASSERT_EQ(cudaSuccess, ret);
 
+    /* Avoid the std::vector<bool> specialization. */
+    std::vector<char> hout(2 * n_blocks);
+    BOOST_STATIC_ASSERT(sizeof(hout[0]) == sizeof(*out));
+    ret = cudaMemcpy(&hout[0], out, 2 * sizeof(*out) * n_blocks,
+        cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
     ret = cudaFree(out);
     ASSERT_EQ(cudaSuccess, ret);
+
+    if (RUNNING_ON_VALGRIND) {
+        std::vector<unsigned char> vout(2 * n_blocks);
+        BOOST_STATIC_ASSERT(sizeof(hout[0]) == sizeof(vout[0]));
+        int v = VALGRIND_GET_VBITS(&hout[0], &vout[0],
+            2 * sizeof(hout[0]) * n_blocks);
+        ASSERT_EQ(1, v);
+
+        bool error = false;
+        for (int i = 0; i < n_blocks; i++) {
+            /**
+             * setp is imprecise and marks the validity bits to be entirely
+             * invalid, even when the propagation of uninitialized state may
+             * cause a single bitflip.
+             */
+            error |= vout[i] != 0xFF;
+        }
+        EXPECT_FALSE(error);
+
+        for (int i = n_blocks; i < 2 * n_blocks; i++) {
+            error |= vout[i] != 0x0;
+        }
+        EXPECT_FALSE(error);
+    }
+
+    bool error = false;
+    for (int i = n_blocks; i < 2 * n_blocks; i++) {
+        error |= hout[i] != 1;
+    }
+    EXPECT_FALSE(error);
 }
 
 TEST(kSyncThreads, CountEvens) {
@@ -180,8 +255,49 @@ TEST(kSyncThreads, CountEvens) {
     ret = cudaFree(in);
     ASSERT_EQ(cudaSuccess, ret);
 
+    std::vector<int> hout(2 * n_blocks);
+    ret = cudaMemcpy(&hout[0], out, 2 * sizeof(*out) * n_blocks,
+        cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
     ret = cudaFree(out);
     ASSERT_EQ(cudaSuccess, ret);
+
+    if (RUNNING_ON_VALGRIND) {
+        std::vector<unsigned> vout(2 * n_blocks);
+        BOOST_STATIC_ASSERT(sizeof(hout[0]) == sizeof(vout[0]));
+        int v = VALGRIND_GET_VBITS(&hout[0], &vout[0],
+            2 * sizeof(hout[0]) * n_blocks);
+        ASSERT_EQ(1, v);
+
+        /* Round block_size to next power of two. */
+        unsigned rbs = block_size;
+        rbs--;
+        rbs |= rbs >> 1;
+        rbs |= rbs >> 2;
+        rbs |= rbs >> 4;
+        rbs |= rbs >> 8;
+        rbs |= rbs >> 16;
+        const unsigned mask = (rbs + 1) | rbs;
+
+        bool error = false;
+        for (int i = 0; i < n_blocks; i++) {
+            EXPECT_EQ(mask, vout[i]);
+            error |= vout[i] != mask;
+        }
+        EXPECT_FALSE(error);
+
+        for (int i = n_blocks; i < 2 * n_blocks; i++) {
+            error |= vout[i] != 0;
+        }
+        EXPECT_FALSE(error);
+    }
+
+    bool error = false;
+    for (int i = n_blocks; i < 2 * n_blocks; i++) {
+        error |= hout[i] != block_size;
+    }
+    EXPECT_FALSE(error);
 }
 
 int main(int argc, char **argv) {
