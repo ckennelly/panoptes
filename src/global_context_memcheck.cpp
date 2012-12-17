@@ -2337,7 +2337,7 @@ void global_context_memcheck::instrument_bar(const statement_t & statement,
         /* popc has a u32 as its destination; all others are pred type. */
         const type_t vd_type =
             (statement.bool_op == bool_popc) ? b32_type : b16_type;
-        aux->push_back(make_mov(vd_type, d, 0));
+        aux->push_back(make_mov(vd_type, vd, 0));
         return;
     }
 

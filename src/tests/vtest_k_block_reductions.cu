@@ -31,6 +31,14 @@ extern "C" __global__ void k_all_evens(const int * in, bool * out,
     out[blockIdx.x] = __syncthreads_and(local);
 }
 
+extern "C" __global__ void k_const_all(bool * out) {
+    int tmp;
+    asm("{ .reg .pred %tmp;\n"
+        "bar.red.and.pred %tmp, 0, 1;\n"
+        "selp.s32 %0, 1, 0, %tmp;\n}" : "=r"(tmp));
+    out[blockIdx.x] = tmp;
+}
+
 extern "C" __global__ void k_any_evens(const int * in, bool * out,
         const int N) {
     bool local = true;
@@ -43,6 +51,14 @@ extern "C" __global__ void k_any_evens(const int * in, bool * out,
     out[blockIdx.x] = __syncthreads_or(local);
 }
 
+extern "C" __global__ void k_const_any(bool * out) {
+    int tmp;
+    asm("{ .reg .pred %tmp;\n"
+        "bar.red.or.pred %tmp, 0, 1;\n"
+        "selp.s32 %0, 1, 0, %tmp;\n}" : "=r"(tmp));
+    out[blockIdx.x] = tmp;
+}
+
 extern "C" __global__ void k_count_evens(const int * in, int * out,
         const int N) {
     const int idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -52,6 +68,12 @@ extern "C" __global__ void k_count_evens(const int * in, int * out,
     }
 
     out[blockIdx.x] = __syncthreads_count(val);
+}
+
+extern "C" __global__ void k_const_count(int * out) {
+    int tmp;
+    asm("bar.red.popc.u32 %0, 0, 1;" : "=r"(tmp));
+    out[blockIdx.x] = tmp;
 }
 
 TEST(kSyncThreads, AllEvens) {
@@ -68,13 +90,14 @@ TEST(kSyncThreads, AllEvens) {
     ret = cudaMalloc((void **) &in, sizeof(*in) * N);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaMalloc((void **) &out, sizeof(*out) * n_blocks);
+    ret = cudaMalloc((void **) &out, 2 * sizeof(*out) * n_blocks);
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
     k_all_evens<<<n_blocks, block_size, 0, stream>>>(in, out, N);
+    k_const_all<<<n_blocks, block_size, 0, stream>>>(out + n_blocks);
 
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);
@@ -103,13 +126,14 @@ TEST(kSyncThreads, AnyEvens) {
     ret = cudaMalloc((void **) &in, sizeof(*in) * N);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaMalloc((void **) &out, sizeof(*out) * n_blocks);
+    ret = cudaMalloc((void **) &out, 2 * sizeof(*out) * n_blocks);
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
     k_any_evens<<<n_blocks, block_size, 0, stream>>>(in, out, N);
+    k_const_any<<<n_blocks, block_size, 0, stream>>>(out + n_blocks);
 
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);
@@ -145,6 +169,7 @@ TEST(kSyncThreads, CountEvens) {
     ASSERT_EQ(cudaSuccess, ret);
 
     k_count_evens<<<n_blocks, block_size, 0, stream>>>(in, out, N);
+    k_const_count<<<n_blocks, block_size, 0, stream>>>(out + n_blocks);
 
     ret = cudaStreamSynchronize(stream);
     EXPECT_EQ(cudaSuccess, ret);

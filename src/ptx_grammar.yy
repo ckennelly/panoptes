@@ -579,7 +579,7 @@ barRedOpToken : TOKEN_POPC | TOKEN_AND | TOKEN_OR ;
 optionalIdentifier : /* */ | identifierOperand TOKEN_COMMA ;
 bar : OPCODE_BAR TOKEN_RED barRedOpToken dataType identifierOperand
         TOKEN_COMMA immedOrVarOperand optionalIdentifier TOKEN_COMMA
-        optionalNegatedOperand identifierOperand {
+        optionalNegatedOperand immedOrVarOperand {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.set_token($<vsigned>2);
     parser->function->top->instruction.set_token($<vsigned>3);
