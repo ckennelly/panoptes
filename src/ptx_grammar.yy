@@ -1293,14 +1293,16 @@ negatedOperand : TOKEN_NOT {
 optionalNegatedOperand : /* */ | negatedOperand ;
 optionalCpred : /* */ | TOKEN_COMMA optionalNegatedOperand singleOperand ;
 
-setp : OPCODE_SETP cmpOp optionalBoolOp optionalFTZ dataType TOKEN_IDENTIFIER
-        optionalQpred TOKEN_COMMA identifierOperand TOKEN_COMMA
-        immedOrVarOperand optionalCpred {
+setpFlags : cmpOp optionalBoolOp optionalFTZ dataType ;
+setpFlags : dataType optionalBoolOp optionalFTZ cmpOp ;
+
+setp : OPCODE_SETP setpFlags TOKEN_IDENTIFIER optionalQpred TOKEN_COMMA
+        immedOrVarOperand TOKEN_COMMA immedOrVarOperand optionalCpred {
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_token($<vsigned>1);
 
     parser->function->top->instruction.has_ppredicate = true;
-    parser->function->top->instruction.ppredicate     = $<text>6;
+    parser->function->top->instruction.ppredicate     = $<text>3;
 
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
