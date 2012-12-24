@@ -3158,7 +3158,18 @@ void global_context_memcheck::instrument_isspacep(
         aux->push_back(make_sub(s16_type, vp, tmp, one));
     }
 
-    *keep = true;
+    if (statement.space == global_space) {
+        /* global = !(local | shared) */
+        *keep = false;
+        const temp_operand tmp0(auxillary, pred_type);
+        const temp_operand tmp1(auxillary, pred_type);
+        aux->push_back(make_isspacep(local_space,  tmp0, a));
+        aux->push_back(make_isspacep(shared_space, tmp1, a));
+        aux->push_back(make_or(pred_type, tmp0, tmp0, tmp1));
+        aux->push_back(make_not(pred_type, p, tmp0));
+    } else {
+        *keep = true;
+    }
 }
 
 void global_context_memcheck::instrument_ld(const statement_t & statement,
@@ -4367,7 +4378,17 @@ void global_context_memcheck::instrument_prefetch(
 
         /* If prefetchu and the address is global, suppress this error. */
         if (statement.op == op_prefetchu) {
-            aux->push_back(make_isspacep(global_space, op2, clean_a));
+            /**
+             * As of the 310.19 CUDA driver, isspacep.global is not accurate.
+             * Instead, we compute !(local | shared).
+             */
+
+            const temp_operand t(auxillary, pred_type);
+            aux->push_back(make_isspacep(shared_space, op2, clean_a));
+            aux->push_back(make_isspacep(local_space,  t,   clean_a));
+            aux->push_back(make_or(pred_type, op2, t, op2));
+            aux->push_back(make_not(pred_type, op2, op2));
+
             if (good) {
                 aux->push_back(make_or(pred_type, op0, op0, op2));
             } else {
