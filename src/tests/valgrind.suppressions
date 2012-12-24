@@ -1324,6 +1324,68 @@
    obj:/usr/lib64/libcuda.so.310.19
    obj:/usr/lib64/libcuda.so.310.19
    obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   fun:cuModuleLoadDataEx
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   fun:cuModuleLoadDataEx
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   fun:cuModuleLoadDataEx
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   fun:cuModuleLoadDataEx
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
+   obj:/usr/lib64/libcuda.so.310.19
    fun:cuMemHostAlloc
    obj:/opt/cuda/lib64/libcudart.so.4.2.9
    obj:/opt/cuda/lib64/libcudart.so.4.2.9

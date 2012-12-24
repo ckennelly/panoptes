@@ -409,14 +409,34 @@ void global_context::load_ptx(internal::modules_t * target) {
         void ** const fatCubinHandle = it->first;
         std::stringstream ss;
         ss << it->second->ptx;
+        const std::string ptx = ss.str();
 
-        CUresult ret = cuModuleLoadData(&module->module, ss.str().c_str());
+        std::string error_output(1024, '\0');
 
-        /**
-         * TODO:  Handle this failure more gracefully.
-         */
-        assert(ret == CUDA_SUCCESS);
+        CUjit_option options[] =
+            {CU_JIT_ERROR_LOG_BUFFER, CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES};
+        void *       values [] = {&error_output[0], 0};
+
+        size_t & error_output_size = reinterpret_cast<size_t &>(values[1]);
+        error_output_size = error_output.size();
+
+        const unsigned n_options = sizeof(options) / sizeof(options[0]);
+        assert(n_options == sizeof(values) / sizeof(values[0]));
+
+        CUresult ret = cuModuleLoadDataEx(&module->module, ptx.c_str(),
+            n_options, options, values);
         if (ret != CUDA_SUCCESS) {
+            /* Update error_output size. */
+            error_output.resize(error_output_size);
+
+            std::stringstream es;
+            es << "An error occurred while loading PTX data:" << std::endl;
+            es << error_output << std::endl << std::endl;
+            es << "PTX:" << std::endl;
+            /* TODO:  Add line numbers. */
+            es << ptx << std::endl;
+
+            logger::instance().print(es.str().c_str());
             continue;
         }
 

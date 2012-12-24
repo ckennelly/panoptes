@@ -842,7 +842,11 @@ cuda_context_memcheck::cuda_context_memcheck(
             assert(rret == cudaSuccess);
         } // else ignore the error
     }
-    assert(found_somewhere || g->modules_.size() == 0);
+
+    if (!(found_somewhere || g->modules_.size() == 0)) {
+        char msg[] = "Unable to find master symbol.";
+        logger::instance().print(msg);
+    }
 
     // Insert the zero stream
     streams_.insert(stream_map_t::value_type(NULL,
