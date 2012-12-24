@@ -23,23 +23,39 @@ TEST(StreamSynchronize, InvalidStream) {
     ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
     cudaStream_t stream;
+    cudaError_t ret;
 
-    /**
-     * Without this compound statement, EXPECT_EXIT fails.
-     * Without the EXPECT_EXIT wrapper, SIGSEGV happens.
-     *
-     * From appearances, it seems that gtest does not properly execute
-     * both cudaStreamCreate and cudaStreamDestroy on stream when entering
-     * the death test for this lone statement as to properly "initialize"
-     * stream.
-     */
-    EXPECT_EXIT(
-        {
-            cudaStreamCreate(&stream);
-            cudaStreamDestroy(stream);
-            cudaStreamSynchronize(stream);
-        },
-        ::testing::KilledBySignal(SIGSEGV), "");
+    /* The CUDA 5.0 driver no longer segfaults. */
+    int driver;
+    ret = cudaDriverGetVersion(&driver);
+
+    if (driver >= 5000) {
+        ret = cudaStreamCreate(&stream);
+        ASSERT_EQ(cudaSuccess, ret);
+
+        ret = cudaStreamDestroy(stream);
+        ASSERT_EQ(cudaSuccess, ret);
+
+        ret = cudaStreamSynchronize(stream);
+        EXPECT_EQ(cudaErrorUnknown, ret);
+    } else {
+        /**
+         * Without this compound statement, EXPECT_EXIT fails.
+         * Without the EXPECT_EXIT wrapper, SIGSEGV happens.
+         *
+         * From appearances, it seems that gtest does not properly execute both
+         * cudaStreamCreate and cudaStreamDestroy on stream when entering the
+         * death test for this lone statement as to properly "initialize"
+         * stream.
+         */
+        EXPECT_EXIT(
+            {
+                cudaStreamCreate(&stream);
+                cudaStreamDestroy(stream);
+                cudaStreamSynchronize(stream);
+            },
+            ::testing::KilledBySignal(SIGSEGV), "");
+    }
 }
 
 int main(int argc, char **argv) {

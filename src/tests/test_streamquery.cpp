@@ -25,13 +25,25 @@ TEST(StreamQuery, InvalidStream) {
     cudaError_t ret;
     cudaStream_t stream;
 
-    EXPECT_EXIT({
-        ret = cudaStreamCreate(&stream);
-        ASSERT_EQ(cudaSuccess, ret);
-        ret = cudaStreamDestroy(stream);
-        EXPECT_EQ(cudaSuccess, ret);
-        cudaStreamQuery(stream); },
-        ::testing::KilledBySignal(SIGSEGV), "");
+    /* The CUDA 5.0 driver no longer segfaults. */
+    int driver;
+    ret = cudaDriverGetVersion(&driver);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    if (driver >= 5000) {
+        ret = cudaStreamQuery(stream);
+        EXPECT_EQ(cudaErrorUnknown, ret);
+    } else {
+        EXPECT_EXIT({
+            cudaStreamQuery(stream); },
+            ::testing::KilledBySignal(SIGSEGV), "");
+    }
 }
 
 int main(int argc, char **argv) {

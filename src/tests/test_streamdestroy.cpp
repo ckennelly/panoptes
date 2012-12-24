@@ -23,12 +23,27 @@ TEST(StreamDestroy, CreateDoubleDestroy) {
     ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
     cudaStream_t stream;
+    cudaError_t ret;
 
-    EXPECT_EXIT({
-        cudaStreamCreate(&stream);
-        cudaStreamDestroy(stream);
-        cudaStreamDestroy(stream);},
-        ::testing::KilledBySignal(SIGSEGV), "");
+    /* The CUDA 5.0 driver no longer segfaults. */
+    int driver;
+    ret = cudaDriverGetVersion(&driver);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    if (driver >= 5000) {
+        ret = cudaStreamDestroy(stream);
+        EXPECT_EQ(cudaErrorUnknown, ret);
+    } else {
+        EXPECT_EXIT({
+            cudaStreamDestroy(stream);},
+            ::testing::KilledBySignal(SIGSEGV), "");
+    }
 }
 
 int main(int argc, char **argv) {

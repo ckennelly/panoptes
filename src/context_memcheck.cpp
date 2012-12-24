@@ -2943,10 +2943,13 @@ cudaError_t cuda_context_memcheck::cudaStreamDestroy(cudaStream_t stream) {
         }
 
         /**
-         * CUDA segfaults here.
+         * CUDA segfaults here pre-CUDA 5.0.
          */
-        raise(SIGSEGV);
-        return cudaErrorInvalidResourceHandle;
+        if (driver_version_ < 5000) {
+            raise(SIGSEGV);
+        }
+
+        return cudaErrorUnknown;
     }
 
     internal::stream_t * stream_metadata = it->second;
@@ -2975,10 +2978,13 @@ cudaError_t cuda_context_memcheck::cudaStreamQuery(cudaStream_t stream) {
         }
 
         /**
-         * CUDA segfaults here.
+         * CUDA segfaults here pre-CUDA 5.0.
          */
-        raise(SIGSEGV);
-        return cudaErrorInvalidResourceHandle;
+        if (driver_version_ < 5000) {
+            raise(SIGSEGV);
+        }
+
+        return cudaErrorUnknown;
     }
 
     internal::stream_t * stream_metadata = it->second;
@@ -3002,10 +3008,13 @@ cudaError_t cuda_context_memcheck::cudaStreamSynchronize(cudaStream_t stream) {
         }
 
         /**
-         * CUDA segfaults here.
+         * CUDA segfaults here pre-CUDA 5.0.
          */
-        raise(SIGSEGV);
-        return cudaErrorInvalidResourceHandle;
+        if (driver_version_ < 5000) {
+            raise(SIGSEGV);
+        }
+
+        return cudaErrorUnknown;
     }
 
     internal::stream_t * stream_metadata = it->second;

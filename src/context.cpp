@@ -54,6 +54,9 @@ cuda_context::cuda_context(global_context * ctx, int device,
      */
     rret = callout::cudaRuntimeGetVersion(&runtime_version_);
     assert(rret == cudaSuccess);
+
+    rret = callout::cudaDriverGetVersion(&driver_version_);
+    assert(rret == cudaSuccess);
 }
 
 cuda_context::td::~td() {

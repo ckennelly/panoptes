@@ -319,6 +319,7 @@ protected:
      * The CUDA runtime version.
      */
     int runtime_version_;
+    int driver_version_;
 
     global_context * global() { return global_; }
     const global_context * global() const { return global_; }
