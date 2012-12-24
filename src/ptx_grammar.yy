@@ -577,9 +577,10 @@ bar : OPCODE_BAR TOKEN_SYNC decimalOrVarOperand optionalDecOrVarOperand {
 
 barRedOpToken : TOKEN_POPC | TOKEN_AND | TOKEN_OR ;
 optionalIdentifier : /* */ | identifierOperand TOKEN_COMMA ;
+optionalNegatedIdentifier: /* */ | TOKEN_COMMA optionalNegatedOperand identifierOperand ;
 bar : OPCODE_BAR TOKEN_RED barRedOpToken dataType identifierOperand
-        TOKEN_COMMA immedOrVarOperand optionalIdentifier TOKEN_COMMA
-        optionalNegatedOperand immedOrVarOperand {
+        TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand
+        optionalNegatedIdentifier {
     parser->function->top->instruction.set_token($<vsigned>1);
     parser->function->top->instruction.set_token($<vsigned>2);
     parser->function->top->instruction.set_token($<vsigned>3);

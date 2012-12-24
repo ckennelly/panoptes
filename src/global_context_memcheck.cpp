@@ -2354,7 +2354,7 @@ void global_context_memcheck::instrument_bar(const statement_t & statement,
     statement_t s;
     s.op      = op_bar;
     s.barrier = barrier_reduce;
-    s.bool_op = bool_or;
+    s.bool_op = bool_and;
     s.type    = pred_type;
     s.operands.push_back(tmp_pred);
     s.operands.push_back(a);
@@ -2385,8 +2385,8 @@ void global_context_memcheck::instrument_bar(const statement_t & statement,
                 mask |= (mask - 1u);
 
                 aux->push_back(make_selp(b32_type, tmp_pred, vd,
-                    operand_t::make_iconstant(mask),
-                    operand_t::make_iconstant(0)));
+                    operand_t::make_iconstant(0),
+                    operand_t::make_iconstant(mask)));
             } else {
                 /**
                  * Determine the number of threads in the block and thus the
