@@ -2376,9 +2376,7 @@ void global_context_memcheck::instrument_bar(const statement_t & statement,
                 operand_t::make_iconstant(0)));
             break;
         case bool_popc:
-            if (four_argument) {
-                assert(b.is_constant() &&
-                    "Number of thread in reduction must be constant.");
+            if (four_argument && b.is_constant()) {
                 uint32_t mask = static_cast<uint32_t>(b.offset);
                 mask |= (mask - 1u);
 
@@ -2393,20 +2391,29 @@ void global_context_memcheck::instrument_bar(const statement_t & statement,
                  * temporaries.
                  */
                 const temp_operand block_size(auxillary, u32_type);
-                const temp_operand x(auxillary, u32_type);
-                const temp_operand y(auxillary, u32_type);
-                const temp_operand z(auxillary, u32_type);
+                if (four_argument) {
+                    /*
+                     * We operate destructively on block_size, so we must copy
+                     * the fourth argument.
+                     */
+                    aux->push_back(make_mov(u32_type, block_size, b));
+                } else {
+                    const temp_operand x(auxillary, u32_type);
+                    const temp_operand y(auxillary, u32_type);
+                    const temp_operand z(auxillary, u32_type);
 
-                aux->push_back(make_mov(u32_type, x,
-                    operand_t::make_identifier("%ntid.x")));
-                aux->push_back(make_mov(u32_type, y,
-                    operand_t::make_identifier("%ntid.y")));
-                aux->push_back(make_mov(u32_type, z,
-                    operand_t::make_identifier("%ntid.z")));
+                    aux->push_back(make_mov(u32_type, x,
+                        operand_t::make_identifier("%ntid.x")));
+                    aux->push_back(make_mov(u32_type, y,
+                        operand_t::make_identifier("%ntid.y")));
+                    aux->push_back(make_mov(u32_type, z,
+                        operand_t::make_identifier("%ntid.z")));
 
-                aux->push_back(make_mul(u32_type, width_lo, block_size, x, y));
-                aux->push_back(make_mul(u32_type, width_lo, block_size,
-                    block_size, z));
+                    aux->push_back(make_mul(u32_type, width_lo, block_size,
+                        x, y));
+                    aux->push_back(make_mul(u32_type, width_lo, block_size,
+                        block_size, z));
+                }
 
                 /**
                  * Fuse rounding up to the next power of two with creating a

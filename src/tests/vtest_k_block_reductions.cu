@@ -509,6 +509,104 @@ TEST(BlockReductions, PartialBlocks) {
     }
 }
 
+__global__ void k_dynamic(unsigned * out, const unsigned width,
+        const unsigned value) {
+    unsigned tmp;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %1, 0;\n"
+        "bar.red.popc.u32 %0, 0, %2, %temp;\n}" : "=r"(tmp) :
+        "r"(value), "r"(width));
+    out[threadIdx.x] = tmp;
+}
+
+TEST(BlockReductions, DynamicThreadCount) {
+    /**
+     * This uses a variable width barrier (equal to the size of the block)
+     * to validate system behavior.
+     */
+    cudaError_t ret;
+    const unsigned block_size = 256;
+
+    unsigned * out;
+    ret = cudaMalloc((void **) &out, 3 * sizeof(*out) * block_size);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    unsigned value;
+
+    value = 0;
+    k_dynamic<<<1, block_size, 0, stream>>>
+        (out + 0 * block_size, block_size, value);
+
+    value = 1;
+    k_dynamic<<<1, block_size, 0, stream>>>
+        (out + 1 * block_size, block_size, value);
+
+    VALGRIND_MAKE_MEM_UNDEFINED(&value, sizeof(value));
+    k_dynamic<<<1, block_size, 0, stream>>>
+        (out + 2 * block_size, block_size, value);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    std::vector<unsigned> hout(3 * block_size);
+    ret = cudaMemcpy(&hout[0], out, sizeof(*out) * hout.size(),
+        cudaMemcpyDeviceToHost);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    bool error = false;
+    for (unsigned offset = 0; offset < block_size; offset++) {
+        error |= hout[offset] != 0; 
+    }
+    EXPECT_FALSE(error);
+
+    error = false;
+    for (unsigned offset = block_size; offset < 2 * block_size; offset++) {
+        error |= hout[offset] != block_size; 
+    }
+    EXPECT_FALSE(error);
+
+    if (RUNNING_ON_VALGRIND) {
+        std::vector<unsigned> vout(hout.size());
+        VALGRIND_GET_VBITS(&hout[0], &vout[0], sizeof(hout[0]) * hout.size());
+
+        error = false;
+        for (unsigned offset = 0; offset < block_size; offset++) {
+            error |= vout[offset];
+        }
+        EXPECT_FALSE(error);
+
+        error = false;
+        for (unsigned offset = block_size; offset < 2 * block_size; offset++) {
+            error |= vout[offset];
+        }
+        EXPECT_FALSE(error);
+
+        unsigned mask = block_size - 1;
+        mask |= mask >> 1;
+        mask |= mask >> 2;
+        mask |= mask >> 4;
+        mask |= mask >> 8;
+        mask |= mask >> 16;
+        mask |= mask + 1;
+
+        error = false;
+        for (unsigned offset = 2 * block_size;
+                offset < 3 * block_size; offset++) {
+            error |= vout[offset] != mask;
+        }
+        EXPECT_FALSE(error);
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
