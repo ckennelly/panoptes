@@ -82,7 +82,9 @@ void yyerror(YYLTYPE * location, panoptes::ptx_lexer * lexer, panoptes::ptx_pars
 %token<vsigned> TOKEN_CARRY TOKEN_SHIFTAMT TOKEN_FINITE TOKEN_INFINITE
 %token<vsigned> TOKEN_NUMBER TOKEN_NOTANUMBER TOKEN_NORMAL TOKEN_SUBNORMAL
 %token<vsigned> TOKEN_F4E TOKEN_B4E TOKEN_RC8 TOKEN_ECL TOKEN_ECR TOKEN_RC16
-%token<vsigned> TOKEN_L1 TOKEN_L2
+%token<vsigned> TOKEN_L1 TOKEN_L2 TOKEN_WIDTH TOKEN_HEIGHT TOKEN_DEPTH
+%token<vsigned> TOKEN_CDATATYPE TOKEN_CORDER TOKEN_NORMCOORD TOKEN_FUNNORM
+%token<vsigned> TOKEN_FILTERMODE TOKEN_ADDRMODE0 TOKEN_ADDRMODE1 TOKEN_ADDRMODE2
 
 /* Important pairings. */
 %token<vsigned> TOKEN_CONSTANT_DECIMAL
@@ -1468,7 +1470,23 @@ trap : OPCODE_TRAP {
     parser->function->top->instruction.set_token($<vsigned>1);
 };
 
-txq : ;
+tquery : TOKEN_WIDTH | TOKEN_HEIGHT | TOKEN_DEPTH | TOKEN_CDATATYPE |
+    TOKEN_CORDER | TOKEN_NORMCOORD ;
+squery : TOKEN_FUNNORM | TOKEN_FILTERMODE | TOKEN_ADDRMODE0 | TOKEN_ADDRMODE1 |
+    TOKEN_ADDRMODE2 ;
+query : tquery | squery ;
+txq : OPCODE_TXQ query dataType identifierOperand TOKEN_COMMA TOKEN_LBRACKET
+        identifierOperand TOKEN_RBRACKET {
+    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_query($<vsigned>2);
+
+    parser->set_type($<vsigned>3);
+    parser->function->top->instruction.type = parser->get_type();
+
+    parser->function->top->instruction.set_operands(parser->operands);
+    parser->operands.clear();
+};
+
 vabsdiff : ;
 vadd : ;
 vmad : ;

@@ -221,6 +221,115 @@ TEST(Textures, WildLoad) {
     EXPECT_EQ(0xFFFFFFFF, vout);
 }
 
+static __global__ void k_txq(unsigned * out) {
+    unsigned tmp;
+    asm("txq.width.b32 %0, [tex_src];" : "=r"(tmp));
+    out[0] = tmp;
+
+    asm("txq.height.b32 %0, [tex_src];" : "=r"(tmp));
+    out[1] = tmp;
+
+    asm("txq.depth.b32 %0, [tex_src];" : "=r"(tmp));
+    out[2] = tmp;
+
+    asm("txq.channel_data_type.b32 %0, [tex_src];" : "=r"(tmp));
+    out[3] = tmp;
+
+    asm("txq.channel_order.b32 %0, [tex_src];" : "=r"(tmp));
+    out[4] = tmp;
+
+    asm("txq.normalized_coords.b32 %0, [tex_src];" : "=r"(tmp));
+    out[5] = tmp;
+
+    asm("txq.filter_mode.b32 %0, [tex_src];" : "=r"(tmp));
+    out[6] = tmp;
+
+    asm("txq.addr_mode_0.b32 %0, [tex_src];" : "=r"(tmp));
+    out[7] = tmp;
+
+    asm("txq.addr_mode_1.b32 %0, [tex_src];" : "=r"(tmp));
+    out[8] = tmp;
+
+    asm("txq.addr_mode_2.b32 %0, [tex_src];" : "=r"(tmp));
+    out[9] = tmp;
+}
+
+TEST(Textures, Query) {
+    cudaError_t ret;
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    const size_t n_elements = 1 << 16;
+
+    tex_t *tex;
+    ret = cudaMalloc((void **) &tex, sizeof(*tex) * n_elements);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    const struct cudaChannelFormatDesc desc = cudaCreateChannelDesc<tex_t>();
+    tex_src.addressMode[0] = cudaAddressModeClamp;
+    tex_src.filterMode = cudaFilterModePoint;
+    tex_src.normalized = false;
+
+    ret = cudaBindTexture(NULL, tex_src, tex, desc, sizeof(*tex) * n_elements);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /* Allocate output. */
+    unsigned hout[10];
+    unsigned *out;
+    ret = cudaMalloc((void **) &out, sizeof(hout));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemset(out, 0xFF, sizeof(hout));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /* Run kernel. */
+    k_txq<<<1, 1, 0, stream>>>(out);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(out);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaUnbindTexture(tex_src);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(tex);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /*
+     * The values returned by txq return 0.
+     *
+     * 0: width
+     * 1: height
+     * 2: depth
+     * 3: channel_data_type
+     * 4: channel_order
+     * 5: normalized_coords
+     * 6: filter_mode
+     * 7: addr_mode_0
+     * 8: addr_mode_1
+     * 9: addr_mode_2
+     */
+    EXPECT_EQ(0, hout[0]);
+    EXPECT_EQ(0, hout[1]);
+    EXPECT_EQ(0, hout[2]);
+    EXPECT_EQ(0, hout[3]);
+    EXPECT_EQ(0, hout[4]);
+    EXPECT_EQ(0, hout[5]);
+    EXPECT_EQ(0, hout[6]);
+    EXPECT_EQ(0, hout[7]);
+    EXPECT_EQ(0, hout[8]);
+    EXPECT_EQ(0, hout[9]);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

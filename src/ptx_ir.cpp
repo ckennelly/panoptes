@@ -94,8 +94,51 @@ void statement_t::reset() {
     testp_op        = invalid_testp_op;
     prmt_mode       = invalid_prmt_mode;
     prefetch_cache  = invalid_cache;
+    query           = invalid_query;
     vector          = v1;
     operands.clear();
+}
+
+void statement_t::set_query(int token) {
+    switch (token) {
+        case TOKEN_WIDTH:
+            query   = query_width;
+            return;
+        case TOKEN_HEIGHT:
+            query   = query_height;
+            return;
+        case TOKEN_DEPTH:
+            query   = query_depth;
+            return;
+        case TOKEN_CDATATYPE:
+            query   = query_channel_data_type;
+            return;
+        case TOKEN_CORDER:
+            query   = query_channel_order;
+            return;
+        case TOKEN_NORMCOORD:
+            query   = query_normalized_coords;
+            return;
+        case TOKEN_FUNNORM:
+            query   = query_force_unnormalized_coords;
+            return;
+        case TOKEN_FILTERMODE:
+            query   = query_filter_mode;
+            return;
+        case TOKEN_ADDRMODE0:
+            query   = query_addr_mode0;
+            return;
+        case TOKEN_ADDRMODE1:
+            query   = query_addr_mode1;
+            return;
+        case TOKEN_ADDRMODE2:
+            query   = query_addr_mode2;
+            return;
+        default:
+            assert(0 && "Invalid query token.");
+            query   = invalid_query;
+            return;
+    }
 }
 
 bool operand_t::is_constant() const {

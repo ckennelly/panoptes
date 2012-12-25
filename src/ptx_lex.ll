@@ -302,6 +302,18 @@ COMMENT ("/*"([^*]|"*"[^/])*"*/")|("/"(\\\n)*"/"[^\n]*)
 ".L1"               { yylval->vsigned = TOKEN_L1;       return TOKEN_L1;     }
 ".L2"               { yylval->vsigned = TOKEN_L2;       return TOKEN_L2;     }
 
+".width"                { yylval->vsigned = TOKEN_WIDTH;    return TOKEN_WIDTH;     }
+".height"               { yylval->vsigned = TOKEN_HEIGHT;   return TOKEN_HEIGHT;    }
+".depth"                { yylval->vsigned = TOKEN_DEPTH;    return TOKEN_DEPTH;     }
+".channel_data_type"    { yylval->vsigned = TOKEN_CDATATYPE;return TOKEN_CDATATYPE; }
+".channel_order"        { yylval->vsigned = TOKEN_CORDER;   return TOKEN_CORDER;    }
+".normalized_coords"    { yylval->vsigned = TOKEN_NORMCOORD;return TOKEN_NORMCOORD; }
+".force_unnormalized_coords" { yylval->vsigned = TOKEN_FUNNORM; return TOKEN_FUNNORM;    }
+".filter_mode"          { yylval->vsigned = TOKEN_FILTERMODE;   return TOKEN_FILTERMODE; }
+".addr_mode_0"          { yylval->vsigned = TOKEN_ADDRMODE0;    return TOKEN_ADDRMODE0;  }
+".addr_mode_1"          { yylval->vsigned = TOKEN_ADDRMODE1;    return TOKEN_ADDRMODE1;  }
+".addr_mode_2"          { yylval->vsigned = TOKEN_ADDRMODE2;    return TOKEN_ADDRMODE2;  }
+
 {CONSTANT_DECIMAL}   { yylval->vsigned = boost::lexical_cast<int64_t>(yytext); \
                         return TOKEN_CONSTANT_DECIMAL; }
 {CONSTANT_HEX}       { yylval->vsigned = boost::lexical_cast<int64_t>(yytext); \

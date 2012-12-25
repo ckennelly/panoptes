@@ -48,6 +48,7 @@ std::ostream & operator<<(std::ostream &, const panoptes::operand_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::prefetch_cache_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::prmt_mode_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::ptx_t &);
+std::ostream & operator<<(std::ostream &, const panoptes::query_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::rounding_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::sm_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::testp_op_t &);

@@ -6024,6 +6024,7 @@ void global_context_memcheck::instrument_block(block_t * block,
             case op_tex:
                 instrument_tex(statement, &aux, &keep, &temps);
                 break;
+            case op_txq: /* No-op */ break;
             case op_testp:
                 instrument_testp(statement, &aux, &keep, &temps);
                 break;

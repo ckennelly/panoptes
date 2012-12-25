@@ -226,6 +226,13 @@ enum prefetch_cache_t {
     invalid_cache, cache_L1, cache_L2
 };
 
+enum query_t {
+    invalid_query, query_width, query_height, query_depth,
+    query_channel_data_type, query_channel_order, query_normalized_coords,
+    query_force_unnormalized_coords, query_filter_mode, query_addr_mode0,
+    query_addr_mode1, query_addr_mode2
+};
+
 struct statement_t {
     statement_t();
     void reset();
@@ -234,6 +241,7 @@ struct statement_t {
     void set_atomic_op(int token);
     void set_geometry(int token);
     void set_operands(const std::vector<operand_t> & operands);
+    void set_query(int token);
 
     bool            has_predicate;
     bool            is_negated;
@@ -269,6 +277,7 @@ struct statement_t {
     testp_op_t      testp_op;
     prmt_mode_t     prmt_mode;
     prefetch_cache_t prefetch_cache;
+    query_t         query;
 
     vector_t        vector;
 

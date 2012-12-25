@@ -926,6 +926,11 @@ ostream & operator<<(ostream & o, const statement_t & s) {
 
             o << "]";
             break;
+        case op_txq:
+            assert(s.operands.size() == 2u);
+            o << s.query << s.type << " " << s.operands[0] << ", [" <<
+                s.operands[1] << "]";
+            break;
         case op_trap: break;
         case op_vote:
             assert(s.operands.size() == 2u);
@@ -1468,6 +1473,38 @@ ostream & operator<<(ostream & o, const panoptes::prefetch_cache_t & c) {
             return o;
         case cache_L1: return o << ".L1";
         case cache_L2: return o << ".L2";
+    }
+
+    __builtin_unreachable();
+}
+
+ostream & operator<<(ostream & o, const panoptes::query_t & q) {
+    switch (q) {
+        case invalid_query:
+            assert(0 && "Invalid query type.");
+            return o;
+        case query_width:
+            return o << ".width";
+        case query_height:
+            return o << ".height";
+        case query_depth:
+            return o << ".depth";
+        case query_channel_data_type:
+            return o << ".channel_data_type";
+        case query_channel_order:
+            return o << ".channel_order";
+        case query_normalized_coords:
+            return o << ".normalized_coords";
+        case query_force_unnormalized_coords:
+            return o << ".force_unnormalized_coords";
+        case query_filter_mode:
+            return o << ".filter_mode";
+        case query_addr_mode0:
+            return o << ".addr_mode_0";
+        case query_addr_mode1:
+            return o << ".addr_mode_1";
+        case query_addr_mode2:
+            return o << ".addr_mode_2";
     }
 
     __builtin_unreachable();
