@@ -2199,13 +2199,11 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
             aux->push_back(make_add(uptr_t, vptr, vptr, ptr1));
 
             const temp_ptr shift_ptr(auxillary);
-            if (sizeof(void *) == 8) {
-                aux->push_back(make_and(ptr_t, shift_ptr, ptr1, 7));
-                aux->push_back(make_shr(ptr_t, ptr1, ptr1, 3));
-            } else {
-                aux->push_back(make_and(ptr_t, shift_ptr, ptr1, 3));
-                aux->push_back(make_shr(ptr_t, ptr1, ptr1, 2));
-            }
+            aux->push_back(
+                make_and(ptr_t, shift_ptr, ptr1, sizeof(void *) - 1));
+            aux->push_back(
+                make_shr(ptr_t, ptr1, ptr1,
+                    boost::static_log2<sizeof(void *)>::value));
 
             const temp_operand shift_ptr32(auxillary, u32_type);
             aux->push_back(make_cvt(u32_type, uptr_t, shift_ptr32, shift_ptr));
