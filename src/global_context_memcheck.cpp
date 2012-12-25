@@ -4772,33 +4772,14 @@ void global_context_memcheck::instrument_prmt(const statement_t & statement,
         return;
     }
 
-    bool just_convert;
-    operand_t immed2;
-    operand_t immed3 = immed;
-    if (va.is_constant() & vb.is_constant()) {
-        /* We're done after we convert. */
-        immed2 = vd;
-        just_convert = true;
-    } else {
-        /* We need two more intermediate values, one to hold the result of
-         * selecting and one to hold the converted contents of immed. */
-        just_convert = false;
-
-        temp_operand t2(auxillary, b32_type);
-        immed2 = t2;
-    }
-
-    std::swap(immed2, immed3);
-
-    if (!(just_convert)) {
-        /* Mix in validity of va and vb via selection. */
-        statement_t vprmt = statement;
-        vprmt.operands[0] = immed3;
-        vprmt.operands[1] = va;
-        vprmt.operands[2] = vb;
-        aux->push_back(vprmt);
-        aux->push_back(make_or(b32_type, vd, immed2, immed3));
-    }
+    /* Mix in validity of va and vb via selection. */
+    const temp_operand t2(auxillary, b32_type);
+    statement_t vprmt = statement;
+    vprmt.operands[0] = t2;
+    vprmt.operands[1] = va;
+    vprmt.operands[2] = vb;
+    aux->push_back(vprmt);
+    aux->push_back(make_or(b32_type, vd, immed, t2));
 }
 
 void global_context_memcheck::instrument_sad(const statement_t & statement,
