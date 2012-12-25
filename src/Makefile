@@ -61,7 +61,7 @@ ptx_parser_state.o: ptx_parser_state.cpp Makefile ptx_grammar.tab.cc $(wildcard 
 	$(CXX) -fPIC -MMD -MP -fvisibility=hidden -c $< -o $@
 
 clean:
-	-$(RM) -f $(SRCOBJS) $(patsubst %.o,%.d,$(SRCOBJS)) $(LEXOBJS) $(YACCOBJS) $(LEXHEADERS) $(YACCHEADERS) libpanoptes.so ptx_grammar.tab.hh ptx_lex.lex.hh
+	-$(RM) -f $(SRCOBJS) $(patsubst %.o,%.d,$(SRCOBJS)) $(LEXOBJS) $(YACCOBJS) $(LEXHEADERS) $(YACCHEADERS) libpanoptes.so ptx_grammar.tab.hh ptx_lex.lex.hh *.gc*
 	$(MAKE) -C tests clean
 
 test: libpanoptes.so

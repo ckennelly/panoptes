@@ -166,6 +166,6 @@ vtest_threads: vtest_threads.o Makefile
 	nvcc $(LDFLAGS) -lboost_thread -o $@ $<
 
 clean:
-	-$(RM) -f *.d *.o .*.*_passed $(RUNNERS) .*.apassed
+	-$(RM) -f *.d *.o .*.*_passed $(RUNNERS) .*.apassed *.gc*
 
 .PHONY: all clean

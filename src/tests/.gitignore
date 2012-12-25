@@ -162,6 +162,8 @@ vtest_unbindtexture
 *.cudafe2.stub.c
 *.fatbin
 *.fatbin.c
+*.gcda
+*.gcno
 *.hash
 *.ptx
 *.sm_10.cubin

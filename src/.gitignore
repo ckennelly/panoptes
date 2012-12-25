@@ -1,4 +1,6 @@
 *.d
+*.gcda
+*.gcno
 *.o
 *.so
 .*.swp
