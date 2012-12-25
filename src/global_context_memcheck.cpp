@@ -2529,6 +2529,8 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
             immed = tmp0;
             immed_constant = false;
             break;
+        default:
+            __builtin_unreachable();
     }
 
     /**
@@ -2665,6 +2667,8 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
             immed = tmp0;
             immed_constant = false;
             break;
+        default:
+            __builtin_unreachable();
     }
 
     /**
@@ -4867,6 +4871,8 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
             immed = tmp0;
             immed_constant = false;
             break;
+        default:
+            __builtin_unreachable();
     }
 
     /**
