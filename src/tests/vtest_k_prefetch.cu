@@ -405,6 +405,61 @@ TEST(Prefetch, LocalOutOfBounds) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+static __global__ void k_predicated(void * ptr, const unsigned flag) {
+    asm volatile("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %0, 0;\n"
+        "@%temp prefetch.L1 [%1];\n}" : : "r"(flag), "l"(ptr));
+}
+
+static __global__ void k_predicatedu(void * ptr, const unsigned flag) {
+    asm volatile("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %0, 0;\n"
+        "@%temp prefetchu.L1 [%1];\n}" : : "r"(flag), "l"(ptr));
+}
+
+static __global__ void k_negated(void * ptr, const unsigned flag) {
+    asm volatile("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %0, 0;\n"
+        "@!%temp prefetch.L1 [%1];\n}" : : "r"(flag), "l"(ptr));
+}
+
+static __global__ void k_negatedu(void * ptr, const unsigned flag) {
+    asm volatile("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %0, 0;\n"
+        "@!%temp prefetchu.L1 [%1];\n}" : : "r"(flag), "l"(ptr));
+}
+
+TEST(Prefetch, Predicated) {
+    cudaError_t ret;
+
+    const size_t size = 128;
+    void * tmp;
+    ret = cudaMalloc(&tmp, size);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    cudaStream_t stream;
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    unsigned flag;
+    flag = 1;
+    k_predicated <<<1, 1, 0, stream>>>(tmp, flag);
+    k_predicatedu<<<1, 1, 0, stream>>>(tmp, flag);
+
+    flag = 0;
+    k_negated    <<<1, 1, 0, stream>>>(tmp, flag);
+    k_negatedu   <<<1, 1, 0, stream>>>(tmp, flag);
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(tmp);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
 static __global__ void k_local_1(void ** out) {
     void * ptr;
     asm volatile(".local .align 1 .b8 l[1]; mov.b64 %0, l;" : "=l"(ptr));
