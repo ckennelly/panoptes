@@ -21,7 +21,7 @@
  * data structures produced by nvcc version 4.0.
  */
 
-#define __cudaFatMAGIC2 0x466243b1
+const static int __cudaFatMAGIC2 = 0x466243b1;
 
 typedef struct __cudaFatCudaBinary2HeaderRec {
     unsigned int            magic;
