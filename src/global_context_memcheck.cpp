@@ -2818,33 +2818,26 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
      */
     aux->push_back(make_sub(u32_type, ntmp, ntmp, 1));
 
-    bool has_mask;
-    int mask;
     switch (statement.op) {
         case op_bfind:
             /**
              * bfind can return a value between 0 and mret - 1 inclusive or it
              * can return 0xFFFFFFFF.
              */
-            has_mask = false;
-            break;
+            return;
         case op_clz:
         case op_popc:
-            /* Map 0 -> 0 (modulo 2 * mret). */
-            has_mask = true;
-            mask = 2 * mret - 1;
-            break;
+            /*
+             * Map 0 -> 0 (modulo 2 * mret).
+             *
+             * The bits above those needed to represent the maximum result will
+             * be zero.
+             */
+            aux->push_back(make_and(b32_type, vd, ntmp, 2 * mret - 1));
+            return;
         default:
             assert(0 && "Unknown opcode.");
-            break;
-    }
-
-    if (has_mask) {
-        /*
-         * The bits above those needed to represent the maximum result will be
-         * zero.
-         */
-        aux->push_back(make_and(b32_type, vd, ntmp, mask));
+            return;
     }
 }
 
