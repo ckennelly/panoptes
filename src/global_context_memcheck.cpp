@@ -5276,7 +5276,7 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
         aux->push_back(make_sub(s32_type, immed, tmp, 1));
     } else if (statement.type2 == s32_type) {
         /* The sign bit governs whether the output is invalid */
-        aux->push_back(make_shr(s32_type, immed, vd, 31));
+        aux->push_back(make_shr(s32_type, immed, vc, 31));
     }
 
     if (direct) {
