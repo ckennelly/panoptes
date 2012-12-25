@@ -325,6 +325,139 @@ TEST(Permute, SingleMode) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+__global__ void k_prmt_constants(uint32_t * d, uint32_t a, uint32_t b,
+        uint32_t c) {
+    uint32_t ret;
+
+    asm("prmt.b32 %0, 2156995251, 3293964031, 36756;" : "=r"(ret));
+    d[0] = ret;
+
+    asm("prmt.b32 %0, %1, 3293964031, 36756;" : "=r"(ret) : "r"(a));
+    d[1] = ret;
+
+    asm("prmt.b32 %0, 2156995251, %1, 36756;" : "=r"(ret) : "r"(b));
+    d[2] = ret;
+
+    asm("prmt.b32 %0, %1, %2, 36756;" : "=r"(ret) : "r"(a), "r"(b));
+    d[3] = ret;
+
+    asm("prmt.b32 %0, 2156995251, 3293964031, %1;" : "=r"(ret) : "r"(c));
+    d[4] = ret;
+}
+
+TEST(Permute, Constants) {
+    cudaError_t ret;
+    cudaStream_t stream;
+
+    uint32_t hd[15];
+    uint32_t *d;
+    ret = cudaMalloc((void **) &d, sizeof(hd));
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamCreate(&stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    uint32_t a = 0x809122B3;
+    uint32_t b = 0xC455E6FF;
+    uint32_t c = 0x00008F94;
+
+    /**
+     * Apply a set of validity bits to a and b.
+     */
+    uint32_t va = 0xDEADBEEF;
+    uint32_t vb = 0xFFFE7F7E;
+    const int valgrind = VALGRIND_SET_VBITS(&a, &va, sizeof(a));
+    (void) VALGRIND_SET_VBITS(&b, &vb, sizeof(b));
+
+    const uint32_t  expected[5] = {0xFFFF00FF, 0xFFFF00FF, 0xFFFF00FF,
+                                   0xFFFF00FF, 0xFFFF00FF};
+    const uint32_t vexpected[5] = {0x00000000, 0xFF00FF00, 0x00FF007E,
+                                   0xFFFFFF7E, 0x00000000};
+
+    k_prmt_constants<<<1, 1, 0, stream>>>(d, a, b, c);
+
+    /**
+     * If we're running under Valgrind, set the validity bits of c and
+     * measure the outcome.
+     */
+    if (valgrind) {
+        /* This should have no impact on the validity bits. */
+        const uint32_t vchi = 0xFFFF0000;
+        (void) VALGRIND_SET_VBITS(&c, &vchi, sizeof(c));
+        k_prmt_constants<<<1, 1, 0, stream>>>(d + 5, a, b, c);
+
+        /**
+         * This should have a catastrophic impact on the validity bits.
+         * TODO:  If/when Panoptes supports byte-level invalidity propagation,
+         *        this test will need to be updated.
+         */
+        const uint32_t vclo = 0x00000001;
+        (void) VALGRIND_SET_VBITS(&c, &vclo, sizeof(c));
+        k_prmt_constants<<<1, 1, 0, stream>>>(d + 10, a, b, c);
+    }
+
+    ret = cudaStreamSynchronize(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaStreamDestroy(stream);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaMemcpy(&hd, d, sizeof(hd), cudaMemcpyDeviceToHost);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    /**
+     * If we're running under Valgrind, check the validity bits then
+     * mark hd as entirely valid so our comparison does not produce spurioius
+     * warnings from Valgrind.
+     */
+    if (valgrind) {
+        uint32_t vhd[15];
+        (void) VALGRIND_GET_VBITS(&hd, &vhd, sizeof(hd));
+
+        EXPECT_EQ(vexpected[0], vhd[ 0]);
+        EXPECT_EQ(vexpected[1], vhd[ 1]);
+        EXPECT_EQ(vexpected[2], vhd[ 2]);
+        EXPECT_EQ(vexpected[3], vhd[ 3]);
+        EXPECT_EQ(vexpected[4], vhd[ 4]);
+        EXPECT_EQ(vexpected[0], vhd[ 5]);
+        EXPECT_EQ(vexpected[1], vhd[ 6]);
+        EXPECT_EQ(vexpected[2], vhd[ 7]);
+        EXPECT_EQ(vexpected[3], vhd[ 8]);
+        EXPECT_EQ(vexpected[4], vhd[ 9]);
+
+        EXPECT_EQ(vexpected[0], vhd[10]);
+        EXPECT_EQ(vexpected[1], vhd[11]);
+        EXPECT_EQ(vexpected[2], vhd[12]);
+        EXPECT_EQ(vexpected[3], vhd[13]);
+        EXPECT_EQ(0xFFFFFFFF,   vhd[14]);
+
+        (void) VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(&hd, sizeof(hd));
+    }
+
+    EXPECT_EQ(expected[0], hd[ 0]);
+    EXPECT_EQ(expected[1], hd[ 1]);
+    EXPECT_EQ(expected[2], hd[ 2]);
+    EXPECT_EQ(expected[3], hd[ 3]);
+    EXPECT_EQ(expected[4], hd[ 4]);
+
+    if (valgrind) {
+        EXPECT_EQ(expected[0], hd[ 5]);
+        EXPECT_EQ(expected[1], hd[ 6]);
+        EXPECT_EQ(expected[2], hd[ 7]);
+        EXPECT_EQ(expected[3], hd[ 8]);
+        EXPECT_EQ(expected[4], hd[ 9]);
+
+        EXPECT_EQ(expected[0], hd[10]);
+        EXPECT_EQ(expected[1], hd[11]);
+        EXPECT_EQ(expected[2], hd[12]);
+        EXPECT_EQ(expected[3], hd[13]);
+        EXPECT_EQ(expected[4], hd[14]);
+    }
+
+    ret = cudaFree(d);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
