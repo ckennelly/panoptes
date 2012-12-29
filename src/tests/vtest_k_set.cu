@@ -16,9 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/static_assert.hpp>
 #include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
+#include <valgrind/memcheck.h>
 
 __global__ void k_set_with_immediate(uint32_t * out) {
     uint32_t out_;
@@ -141,6 +143,148 @@ TEST(Regression, NegatedOperand) {
 
     EXPECT_TRUE(hout);
 }
+
+template<typename T>
+class SetTypeParameterized : public ::testing::Test { };
+
+TYPED_TEST_CASE_P(SetTypeParameterized);
+
+template<typename T>
+__global__ void k_set_single(uint32_t * out, const T a, const T b, bool c) {
+    BOOST_STATIC_ASSERT(sizeof(T) == 0);
+}
+
+template<>
+__global__ void k_set_single<int16_t>(uint32_t * out, const int16_t a,
+        const int16_t b, bool _c) {
+    uint32_t tmp;
+    const uint32_t c = _c;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %3, 0;\n"
+        "set.eq.or.u32.s16 %0, %1, %2, %temp; }" : "=r"(tmp) : "h"(a), "h"(b), "r"(c));
+    *out = tmp;
+}
+
+template<>
+__global__ void k_set_single<int32_t>(uint32_t * out, const int32_t a,
+        const int32_t b, bool _c) {
+    uint32_t tmp;
+    const uint32_t c = _c;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %3, 0;\n"
+        "set.eq.or.u32.s32 %0, %1, %2, %temp; }" : "=r"(tmp) : "r"(a), "r"(b), "r"(c));
+    *out = tmp;
+}
+
+template<>
+__global__ void k_set_single<int64_t>(uint32_t * out, const int64_t a,
+        const int64_t b, bool _c) {
+    uint32_t tmp;
+    const uint32_t c = _c;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %3, 0;\n"
+        "set.eq.or.u32.s64 %0, %1, %2, %temp; }" : "=r"(tmp) : "l"(a), "l"(b), "r"(c));
+    *out = tmp;
+}
+
+template<>
+__global__ void k_set_single<uint16_t>(uint32_t * out, const uint16_t a,
+        const uint16_t b, bool _c) {
+    uint32_t tmp;
+    const uint32_t c = _c;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %3, 0;\n"
+        "set.eq.or.u32.u16 %0, %1, %2, %temp; }" : "=r"(tmp) : "h"(a), "h"(b), "r"(c));
+    *out = tmp;
+}
+
+template<>
+__global__ void k_set_single<uint32_t>(uint32_t * out, const uint32_t a,
+        const uint32_t b, bool _c) {
+    uint32_t tmp;
+    const uint32_t c = _c;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %3, 0;\n"
+        "set.eq.or.u32.u32 %0, %1, %2, %temp; }" : "=r"(tmp) : "r"(a), "r"(b), "r"(c));
+    *out = tmp;
+}
+
+template<>
+__global__ void k_set_single<uint64_t>(uint32_t * out, const uint64_t a,
+        const uint64_t b, bool _c) {
+    uint32_t tmp;
+    const uint32_t c = _c;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %3, 0;\n"
+        "set.eq.or.u32.u64 %0, %1, %2, %temp; }" : "=r"(tmp) : "l"(a), "l"(b), "r"(c));
+    *out = tmp;
+}
+
+template<>
+__global__ void k_set_single<float>(uint32_t * out, const float a,
+        const float b, bool _c) {
+    uint32_t tmp;
+    const uint32_t c = _c;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %3, 0;\n"
+        "set.eq.or.u32.f32 %0, %1, %2, %temp; }" : "=r"(tmp) : "f"(a), "f"(b), "r"(c));
+    *out = tmp;
+}
+
+template<>
+__global__ void k_set_single<double>(uint32_t * out, const double a,
+        const double b, bool _c) {
+    uint32_t tmp;
+    const uint32_t c = _c;
+    asm("{ .reg .pred %temp;\n"
+        "setp.ne.u32 %temp, %3, 0;\n"
+        "set.eq.or.u32.f64 %0, %1, %2, %temp; }"
+        : "=r"(tmp) : "d"(a), "d"(b), "r"(c));
+    *out = tmp;
+}
+
+TYPED_TEST_P(SetTypeParameterized, MixInC) {
+    TypeParam a = 3;
+    TypeParam b = 5;
+
+    uint32_t hout[3];
+    uint32_t *out;
+    (void) cudaMalloc((void **) &out, sizeof(hout));
+
+    cudaStream_t stream;
+    (void) cudaStreamCreate(&stream);
+
+    bool c = true;
+    k_set_single<<<1, 1, 0, stream>>>(out + 0, a, b, c);
+
+    c = false;
+    k_set_single<<<1, 1, 0, stream>>>(out + 1, a, b, c);
+
+    VALGRIND_MAKE_MEM_UNDEFINED(&c, sizeof(c));
+    k_set_single<<<1, 1, 0, stream>>>(out + 2, a, b, c);
+
+    (void) cudaStreamSynchronize(stream);
+    (void) cudaStreamDestroy(stream);
+    (void) cudaMemcpy(&hout, out, sizeof(hout), cudaMemcpyDeviceToHost);
+    (void) cudaFree(out);
+
+    uint32_t vout[3];
+    int valgrind = VALGRIND_GET_VBITS(hout, vout, sizeof(hout));
+    assert(valgrind <= 1);
+    if (valgrind == 1) {
+        assert(vout[0] == 0);
+        assert(vout[1] == 0);
+        assert(vout[2] == 0xFFFFFFFF);
+    }
+
+    assert(hout[0] == 0xFFFFFFFF);
+    assert(hout[1] == 0x0);
+};
+
+REGISTER_TYPED_TEST_CASE_P(SetTypeParameterized, MixInC);
+
+typedef ::testing::Types<int16_t, int32_t, int64_t, uint16_t, uint32_t, uint64_t, float, double> ParameterTypes;
+INSTANTIATE_TYPED_TEST_CASE_P(Inst, SetTypeParameterized, ParameterTypes);
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);

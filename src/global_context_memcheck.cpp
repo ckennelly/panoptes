@@ -5020,20 +5020,20 @@ void global_context_memcheck::instrument_set(const statement_t & statement,
      * Fold in validity bits from c, if provided.
      */
     if (statement.operands.size() == 4u) {
-        const operand_t & c = statement.operands[2];
+        const operand_t & c = statement.operands[3];
         const operand_t vc = make_validity_operand(c, 0);
 
         if (immed.is_constant()) {
-            immed = vc;
+            aux->push_back(make_cvt(sdtype, s16_type, vd, vc));
         } else {
             const temp_operand tmp2(auxillary, bdtype);
 
             aux->push_back(make_cvt(sdtype, s16_type, tmp2, vc));
-            aux->push_back(make_or(bdtype, immed, immed, tmp2));
+            aux->push_back(make_or(bdtype, vd, immed, tmp2));
         }
+    } else {
+        aux->push_back(make_mov(bdtype, vd, immed));
     }
-
-    aux->push_back(make_mov(bdtype, vd, immed));
 }
 
 void global_context_memcheck::instrument_setp(const statement_t & statement,
