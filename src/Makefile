@@ -63,8 +63,20 @@ ptx_parser_state.o: ptx_parser_state.cpp Makefile ptx_grammar.tab.cc $(wildcard 
 	$(CXX) $(CXXFLAGS) -fPIC -MMD -MP -fvisibility=hidden -c $< -o $@
 
 clean:
-	-$(RM) -f $(SRCOBJS) $(patsubst %.o,%.d,$(SRCOBJS)) $(LEXOBJS) $(YACCOBJS) $(LEXHEADERS) $(YACCHEADERS) libpanoptes.so ptx_grammar.tab.hh ptx_lex.lex.hh *.gc*
+	-$(RM) -f $(SRCOBJS) $(patsubst %.o,%.d,$(SRCOBJS)) $(LEXOBJS) $(YACCOBJS) $(LEXHEADERS) $(YACCHEADERS) libpanoptes.so ptx_grammar.tab.hh ptx_lex.lex.hh *.gc* coverage.info
+	-$(RM) -rf coverage
 	$(MAKE) -C tests clean
+
+# Based on systemtap's coverage gcov implementation:
+# http://sourceware.org/git/gitweb.cgi?p=systemtap.git;a=blob;f=Makefile.am;h=c05e6c725b1fbe87f13e3656b851818a2274115a;hb=HEAD
+lcov:
+	find . -name '*.gc' | xargs rm -f
+	$(MAKE) clean
+	$(MAKE) CXXFLAGS="-g -fprofile-arcs -ftest-coverage" CFLAGS="-g -fprofile-arcs -ftest-coverage" LDFLAGS="$(LDFLAGS) -lgcov" libpanoptes.so
+	$(MAKE) -C tests lcov
+	lcov -c --no-recursion -d . -o coverage.info
+	lcov -r coverage.info '/tmp/*' '/usr/*' '/opt/*' 'tests' -o coverage.info
+	genhtml -o coverage -p $(abspath .) coverage.info
 
 test: libpanoptes.so
 	$(MAKE) -C tests

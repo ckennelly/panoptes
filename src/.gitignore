@@ -8,3 +8,5 @@
 *.lex.cc
 *.tab.cc
 *.tab.hh
+coverage
+coverage.info

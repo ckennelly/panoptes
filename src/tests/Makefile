@@ -9,11 +9,14 @@ CWARNINGS := $(WARNINGS) -Wmissing-prototypes -Wnested-externs -Wstrict-prototyp
 CXXWARNINGS := $(WARNINGS)
 CFLAGS := -g -fPIC -std=c99 $(CWARNINGS)
 CXXFLAGS := -g $(CXXWARNINGS)
-LDFLAGS := -lcuda -lgtest
+LDFLAGS := -lcuda -lgtest -L/usr/lib/boost-1_49
 CUDAINC=/opt/cuda/include
 VALGRINDFLAGS := --error-exitcode=1 --leak-check=full --suppressions=valgrind.suppressions
 
-all: test
+all: test exe
+
+lcov:
+	$(MAKE) LDFLAGS="$(LDFLAGS) -lgcov" exe test
 
 # When building CUDA files (as all of these test cases are), nvcc does a better
 # job at linking.
@@ -42,6 +45,9 @@ arun_%: %
 #
 # atest: "Additional" standalone tests.
 RUNNERS := $(patsubst %.cu,%,$(wildcard *test_*.cu)) $(patsubst %.cpp,%,$(wildcard *test_*.cpp))
+
+exe : $(RUNNERS)
+
 test: $(patsubst %.cu,run_%,$(wildcard test_*.cu)) $(patsubst %.cu,vrun_%,$(wildcard vtest_*.cu)) $(patsubst %.cpp,run_%,$(wildcard test_*.cpp)) $(patsubst %.cpp,vrun_%,$(wildcard vtest_*.cpp)) $(patsubst %,arun_%,$(wildcard atest_*))
 
 %.o: %.c Makefile
