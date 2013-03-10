@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
  *****************************************************************************
  *
  * This code is largely adopted from GPU Ocelot for its labeling of fat binary
- * data structures produced by nvcc version 4.0.
+ * data structures produced by nvcc version 4.0 and version 5.0.
  */
 
 const static int __cudaFatMAGIC2 = 0x466243b1;
@@ -44,8 +44,9 @@ typedef struct __cudaFatCudaBinary2EntryRec {
     unsigned int            unknown5;
     unsigned int            name;
     unsigned int            nameSize;
-    unsigned long long int  unknown6;
+    unsigned long long int  flags;
     unsigned long long int  unknown7;
+    unsigned long long int  uncompressedSize;
 } __cudaFatCudaBinary2Entry;
 
 typedef struct __cudaFatCudaBinaryRec2 {

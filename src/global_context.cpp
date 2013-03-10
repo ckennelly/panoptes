@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,9 +20,11 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/thread/locks.hpp>
 #include "callout.h"
+#include "compress.h"
 #include "context.h"
 #include "context_internal.h"
 #include <cuda.h>
+#include <fatbinary.h>
 #include "fat_binary.h"
 #include "global_context.h"
 #include "global_context_memcheck.h"
@@ -257,8 +259,8 @@ void** global_context::cudaRegisterFatBinary(void *fatCubin) {
      * distinguished by differing values.  See also GPU Ocelot's implementation
      * of cuda::FatBinaryContext::FatBinaryContext, on which this is based.
      */
-    const int    magic  = *(reinterpret_cast<int *>(fatCubin));
-    const char * ptx    = NULL;
+    const int   magic  = *(reinterpret_cast<int *>(fatCubin));
+    std::string ptx;
 
     if (magic == __cudaFatMAGIC) {
         /* This parsing strategy follows from __cudaFatFormat.h */
@@ -270,6 +272,7 @@ void** global_context::cudaRegisterFatBinary(void *fatCubin) {
         assert(handle->ptx[0].ptx);
 
         unsigned best_version = 0;
+        const char *_ptx = NULL;
 
         for (unsigned i = 0; ; i++) {
             if (!(handle->ptx[i].ptx)) {
@@ -312,8 +315,14 @@ void** global_context::cudaRegisterFatBinary(void *fatCubin) {
 
             if (numeric_version > best_version) {
                 best_version    = numeric_version;
-                ptx             = handle->ptx[i].ptx;
+                _ptx            = handle->ptx[i].ptx;
             }
+        }
+
+        if (_ptx) {
+            ptx = _ptx; 
+        } else {
+            assert(0);
         }
     } else if (magic == __cudaFatMAGIC2) {
         /* This follows from GPU Ocelot */
@@ -334,7 +343,23 @@ void** global_context::cudaRegisterFatBinary(void *fatCubin) {
             offset  = entry->binary + entry->binarySize;
         }
 
-        ptx = reinterpret_cast<const char *>(entry) + entry->binary;
+        const char *data =
+            reinterpret_cast<const char *>(entry) + entry->binary;
+        if (entry->flags & FATBIN_FLAG_COMPRESS) {
+            ptx.resize(entry->uncompressedSize);
+
+            CompressZlib z;
+            size_t out_size = ptx.size();
+            if (z.decompress(data, entry->binarySize, &ptx[0], &out_size)) {
+                ptx.resize(out_size);
+            } else {
+                const char msg[] = "Unable to decompress binary data.";
+                logger::instance().print(msg);
+                exit(1);
+            }
+        } else {
+            ptx = data;
+        }
     } else {
         char msg[128];
         int msgret = snprintf(msg, sizeof(msg),
@@ -346,15 +371,12 @@ void** global_context::cudaRegisterFatBinary(void *fatCubin) {
         exit(1);
     }
 
-    assert(ptx);
-
     internal::module_t * module = new internal::module_t();
     module->handle_owned = true;
 
     ptx_parser      parser;
 
-    std::string _ptx(ptx);
-    parser.parse(_ptx, &module->ptx);
+    parser.parse(ptx, &module->ptx);
 
     void** handle = create_handle();
     instrument(handle, &module->ptx);
