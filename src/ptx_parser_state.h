@@ -125,7 +125,7 @@ public:
 
     int file_number;
     int line_number;
-    int address_size;
+    unsigned address_size;
 
     void set_linkage(int token);
     linkage_t get_linkage();
