@@ -99,7 +99,7 @@ public:
         const cudaUUID_t *pExportTableId);
     static cudaError_t cudaGetLastError(void);
     static cudaError_t cudaGetSurfaceReference(
-        const struct surfaceReference **surfRef, const char *symbol);
+        const struct surfaceReference **surfRef, const void *symbol);
     static cudaError_t cudaGetSymbolAddress(void **devPtr, const char *symbol);
     static cudaError_t cudaGetSymbolSize(size_t *size, const char *symbol);
     static cudaError_t cudaGetTextureAlignmentOffset(size_t *offset,

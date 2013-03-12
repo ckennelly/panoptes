@@ -85,11 +85,11 @@ struct module_t {
     };
 
     // Map host function pointers to function information
-    typedef boost::unordered_map<const char *, function_t> function_map_t;
+    typedef boost::unordered_map<const void *, function_t> function_map_t;
     function_map_t functions;
 
     // Map host variable names to variable information
-    typedef boost::unordered_map<const char *, variable_t> variable_map_t;
+    typedef boost::unordered_map<const void *, variable_t> variable_map_t;
     variable_map_t variables;
 
     // Map host texture names to texture information
@@ -111,11 +111,11 @@ struct modules_t {
     typedef std::vector<module_t *> module_vt;
     module_vt modules;
 
-    typedef boost::unordered_map<const char *,
+    typedef boost::unordered_map<const void *,
         internal::module_t *> function_map_t;
     function_map_t functions;
 
-    typedef boost::unordered_map<const char *, internal::module_t *>
+    typedef boost::unordered_map<const void *, internal::module_t *>
         variable_map_t;
     variable_map_t variables;
 

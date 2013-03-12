@@ -100,7 +100,7 @@ cudaError_t cuda_context::cudaConfigureCall(dim3 gridDim, dim3 blockDim,
     return setLastError(cudaSuccess);
 }
 
-cudaError_t cuda_context::cudaLaunch(const char *entry) {
+cudaError_t cuda_context::cudaLaunch(const void *entry) {
     scoped_lock lock(mx_);
 
     call_stack_t & cs = thread_data().call_stack;
@@ -130,7 +130,8 @@ cudaError_t cuda_context::cudaLaunch(const char *entry) {
          */
         typedef global_t::function_name_map_t fn_t;
         const fn_t & fnames = g->function_names();
-        fn_t::const_iterator nit = fnames.find(entry);
+        const std::string ename(static_cast<const char *>(entry));
+        fn_t::const_iterator nit = fnames.find(ename);
         if (nit == fnames.end()) {
             return setLastError(cudaErrorInvalidDeviceFunction);
         }
@@ -591,7 +592,7 @@ cudaError_t cuda_context::cudaFreeHost(void *ptr) {
 }
 
 cudaError_t cuda_context::cudaFuncGetAttributes(
-        struct cudaFuncAttributes *attr, const char *func) {
+        struct cudaFuncAttributes *attr, const void *func) {
     if (!(attr)) {
         return cudaErrorInvalidValue;
     }
@@ -686,7 +687,7 @@ cudaError_t cuda_context::cudaFuncGetAttributes(
     return cudaSuccess;
 }
 
-cudaError_t cuda_context::cudaFuncSetCacheConfig(const char *func,
+cudaError_t cuda_context::cudaFuncSetCacheConfig(const void *func,
         enum cudaFuncCache cacheConfig) {
     scoped_lock lock(mx_);
 
@@ -749,7 +750,7 @@ cudaError_t cuda_context::cudaGetExportTable(const void **ppExportTable,
 }
 
 cudaError_t cuda_context::cudaGetSurfaceReference(
-        const struct surfaceReference **surfRef, const char *symbol) {
+        const struct surfaceReference **surfRef, const void *symbol) {
     return callout::cudaGetSurfaceReference(surfRef, symbol);
 }
 
@@ -760,7 +761,7 @@ cudaError_t cuda_context::cudaGetLastError() {
 }
 
 cudaError_t cuda_context::cudaGetSymbolAddress(void **devPtr,
-        const char *symbol) {
+        const void *symbol) {
     if (!(devPtr)) {
         return cudaErrorInvalidValue;
     }
@@ -773,7 +774,8 @@ cudaError_t cuda_context::cudaGetSymbolAddress(void **devPtr,
     if (it == modules_->variables.end()) {
         typedef global_t::variable_name_map_t vn_t;
         const vn_t & vn = global_->variable_names();
-        vn_t::const_iterator nit = vn.find(symbol);
+        const std::string vname(static_cast<const char *>(symbol));
+        vn_t::const_iterator nit = vn.find(vname);
         if (nit == vn.end()) {
             return cudaErrorInvalidSymbol;
         }
@@ -797,7 +799,7 @@ cudaError_t cuda_context::cudaGetSymbolAddress(void **devPtr,
     return cudaSuccess;
 }
 
-cudaError_t cuda_context::cudaGetSymbolSize(size_t *size, const char *symbol) {
+cudaError_t cuda_context::cudaGetSymbolSize(size_t *size, const void *symbol) {
     if (!(size)) {
         return cudaErrorInvalidValue;
     }
@@ -811,7 +813,8 @@ cudaError_t cuda_context::cudaGetSymbolSize(size_t *size, const char *symbol) {
     if (it == variables.end()) {
         typedef global_t::variable_name_map_t vn_t;
         const vn_t & vnames = global_->variable_names();
-        vn_t::const_iterator nit = vnames.find(symbol);
+        const std::string vname(static_cast<const char *>(symbol));
+        vn_t::const_iterator nit = vnames.find(vname);
         if (nit == vnames.end()) {
             return cudaErrorInvalidSymbol;
         }
@@ -866,7 +869,7 @@ cudaError_t cuda_context::cudaGetTextureAlignmentOffset(size_t *offset,
 }
 
 cudaError_t cuda_context::cudaGetTextureReference(
-        const struct textureReference **texref, const char *symbol) {
+        const struct textureReference **texref, const void *symbol) {
     if (!(symbol)) {
         return cudaErrorUnknown;
     }
@@ -875,7 +878,8 @@ cudaError_t cuda_context::cudaGetTextureReference(
 
     typedef global_t::texture_name_map_t tn_t;
     const tn_t & texture_names = global_->texture_names();
-    tn_t::const_iterator it = texture_names.find(symbol);
+    const std::string tname(static_cast<const char *>(symbol));
+    tn_t::const_iterator it = texture_names.find(tname);
     if (it == texture_names.end()) {
         /* TODO */
         return cudaErrorInvalidTexture;
@@ -1098,7 +1102,7 @@ cudaError_t cuda_context::cudaMemcpyFromArrayAsync(void *dst,
 }
 
 cudaError_t cuda_context::cudaMemcpyFromSymbol(void *dst,
-        const char *symbol, size_t count, size_t offset,
+        const void *symbol, size_t count, size_t offset,
         enum cudaMemcpyKind kind) {
     uint8_t * symbol_ptr;
     cudaError_t ret = cuda_context::cudaGetSymbolAddress(
@@ -1139,7 +1143,7 @@ cudaError_t cuda_context::cudaMemcpyFromSymbol(void *dst,
 }
 
 cudaError_t cuda_context::cudaMemcpyFromSymbolAsync(void *dst,
-        const char *symbol, size_t count, size_t offset,
+        const void *symbol, size_t count, size_t offset,
         enum cudaMemcpyKind kind, cudaStream_t stream) {
     uint8_t * symbol_ptr;
     cudaError_t ret = cuda_context::cudaGetSymbolAddress(
@@ -1203,7 +1207,7 @@ cudaError_t cuda_context::cudaMemcpyToArrayAsync(struct cudaArray *dst,
         kind, stream);
 }
 
-cudaError_t cuda_context::cudaMemcpyToSymbol(const char *symbol,
+cudaError_t cuda_context::cudaMemcpyToSymbol(const void *symbol,
         const void *src, size_t count, size_t offset,
         enum cudaMemcpyKind kind) {
     uint8_t * symbol_ptr;
@@ -1244,7 +1248,7 @@ cudaError_t cuda_context::cudaMemcpyToSymbol(const char *symbol,
     return cudaMemcpy(symbol_ptr + offset, src, count, kind);
 }
 
-cudaError_t cuda_context::cudaMemcpyToSymbolAsync(const char *symbol,
+cudaError_t cuda_context::cudaMemcpyToSymbolAsync(const void *symbol,
         const void *src, size_t count, size_t offset,
         enum cudaMemcpyKind kind, cudaStream_t stream) {
     uint8_t * symbol_ptr;

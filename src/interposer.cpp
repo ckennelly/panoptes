@@ -267,16 +267,26 @@ cudaError_t cudaFreeHost(void *ptr) {
     return global_context::instance().context()->cudaFreeHost(ptr);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaFuncGetAttributes(struct cudaFuncAttributes *attr, const
+        void *func) {
+#else
 cudaError_t cudaFuncGetAttributes(struct cudaFuncAttributes *attr, const
         char *func) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaFuncGetAttributes(
         attr, func);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaFuncSetCacheConfig(const void *func, enum cudaFuncCache
+        cacheConfig) {
+#else
 cudaError_t cudaFuncSetCacheConfig(const char *func, enum cudaFuncCache
         cacheConfig) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaFuncSetCacheConfig(
@@ -330,22 +340,35 @@ cudaError_t cudaGetLastError(void) {
     return global_context::instance().context()->cudaGetLastError();
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaGetSurfaceReference(const struct surfaceReference **surfRef,
+        const void *symbol) {
+#else
 cudaError_t cudaGetSurfaceReference(const struct surfaceReference **surfRef,
         const char *symbol) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaGetSurfaceReference(
         surfRef, symbol);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaGetSymbolAddress(void **devPtr, const void *symbol) {
+#else
 cudaError_t cudaGetSymbolAddress(void **devPtr, const char *symbol) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaGetSymbolAddress(
         devPtr, symbol);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaGetSymbolSize(size_t *size, const void *symbol) {
+#else
 cudaError_t cudaGetSymbolSize(size_t *size, const char *symbol) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaGetSymbolSize(size,
@@ -360,8 +383,13 @@ cudaError_t cudaGetTextureAlignmentOffset(size_t *offset, const struct
         offset, texref);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaGetTextureReference(const struct textureReference **texref,
+        const void *symbol) {
+#else
 cudaError_t cudaGetTextureReference(const struct textureReference **texref,
         const char *symbol) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaGetTextureReference(
@@ -669,16 +697,26 @@ cudaError_t cudaMemcpyFromArrayAsync(void *dst, const struct cudaArray *src,
         dst, src, wOffset, hOffset, count, kind, stream);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaMemcpyFromSymbol(void *dst, const void *symbol, size_t count,
+        size_t offset, enum cudaMemcpyKind kind) {
+#else
 cudaError_t cudaMemcpyFromSymbol(void *dst, const char *symbol, size_t count,
         size_t offset, enum cudaMemcpyKind kind) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaMemcpyFromSymbol(dst,
         symbol, count, offset, kind);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaMemcpyFromSymbolAsync(void *dst, const void *symbol, size_t
+        count, size_t offset, enum cudaMemcpyKind kind, cudaStream_t stream) {
+#else
 cudaError_t cudaMemcpyFromSymbolAsync(void *dst, const char *symbol, size_t
         count, size_t offset, enum cudaMemcpyKind kind, cudaStream_t stream) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaMemcpyFromSymbolAsync(
@@ -718,17 +756,28 @@ cudaError_t cudaMemcpyToArrayAsync(struct cudaArray *dst, size_t wOffset,
         wOffset, hOffset, src, count, kind, stream);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaMemcpyToSymbol(const void *symbol, const void *src, size_t
+        count, size_t offset, enum cudaMemcpyKind kind) {
+#else
 cudaError_t cudaMemcpyToSymbol(const char *symbol, const void *src, size_t
         count, size_t offset, enum cudaMemcpyKind kind) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaMemcpyToSymbol(symbol,
         src, count, offset, kind);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaMemcpyToSymbolAsync(const void *symbol, const void *src,
+        size_t count, size_t offset, enum cudaMemcpyKind kind, cudaStream_t
+        stream) {
+#else
 cudaError_t cudaMemcpyToSymbolAsync(const char *symbol, const void *src,
         size_t count, size_t offset, enum cudaMemcpyKind kind, cudaStream_t
         stream) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaMemcpyToSymbolAsync(
@@ -788,7 +837,11 @@ cudaError_t cudaMemsetAsync(void *devPtr, int value, size_t count,
         value, count, stream);
 }
 
+#if CUDART_VERSION >= 5000 /* 5.0 */
+cudaError_t cudaLaunch(const void *entry) {
+#else
 cudaError_t cudaLaunch(const char *entry) {
+#endif
     backtrace_t::instance().refresh();
 
     return global_context::instance().context()->cudaLaunch(entry);

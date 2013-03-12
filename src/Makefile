@@ -50,7 +50,7 @@ libpanoptes.so: $(SRCOBJS)
 	$(CXX) $(CXXFLAGS) -fPIC -MMD -MP -fvisibility=hidden -c $< -o $@
 
 interposer.o: interposer.cpp Makefile $(wildcard *.h)
-	$(CXX) $(CXXFLAGS) -fPIC -MMD -MP -I$(CUDAINC) -fvisibility=default -c $< -o $@
+	$(CXX) $(CXXFLAGS) -fPIC -MMD -MP -I$(CUDAINC) -Werror=missing-declarations -fvisibility=default -c $< -o $@
 
 ptx_ir.o: ptx_ir.cpp ptx_grammar.tab.cc $(wildcard *.h)
 

@@ -52,7 +52,7 @@ public:
     /**
      * Launches the kernel.
      */
-    virtual cudaError_t cudaLaunch(const char *entry);
+    virtual cudaError_t cudaLaunch(const void *entry);
 
     /**
      * Provides cudaSetupArgument functionality.
@@ -105,8 +105,8 @@ public:
     virtual cudaError_t cudaFreeArray(struct cudaArray *array);
     virtual cudaError_t cudaFreeHost(void *ptr);
     virtual cudaError_t cudaFuncGetAttributes(struct cudaFuncAttributes *attr,
-        const char *func);
-    virtual cudaError_t cudaFuncSetCacheConfig(const char *func,
+        const void *func);
+    virtual cudaError_t cudaFuncSetCacheConfig(const void *func,
         enum cudaFuncCache cacheConfig);
     virtual cudaError_t cudaGetChannelDesc(struct cudaChannelFormatDesc *desc,
         const struct cudaArray *array);
@@ -116,14 +116,14 @@ public:
         const cudaUUID_t *pExportTableId);
     virtual cudaError_t cudaGetLastError();
     virtual cudaError_t cudaGetSurfaceReference(
-        const struct surfaceReference **surfRef, const char *symbol);
+        const struct surfaceReference **surfRef, const void *symbol);
     virtual cudaError_t cudaGetSymbolAddress(void **devPtr,
-        const char *symbol);
-    virtual cudaError_t cudaGetSymbolSize(size_t *size, const char *symbol);
+        const void *symbol);
+    virtual cudaError_t cudaGetSymbolSize(size_t *size, const void *symbol);
     virtual cudaError_t cudaGetTextureAlignmentOffset(size_t *offset,
         const struct textureReference *texref);
     virtual cudaError_t cudaGetTextureReference(
-        const struct textureReference **texref, const char *symbol);
+        const struct textureReference **texref, const void *symbol);
     virtual cudaError_t cudaGraphicsMapResources(int count,
         cudaGraphicsResource_t *resources, cudaStream_t stream);
     virtual cudaError_t cudaGraphicsResourceGetMappedPointer(void **devPtr,
@@ -210,10 +210,10 @@ public:
     virtual cudaError_t cudaMemcpyFromArrayAsync(void *dst,
         const struct cudaArray *src, size_t wOffset, size_t hOffset,
         size_t count, enum cudaMemcpyKind kind, cudaStream_t stream);
-    virtual cudaError_t cudaMemcpyFromSymbol(void *dst, const char *symbol,
+    virtual cudaError_t cudaMemcpyFromSymbol(void *dst, const void *symbol,
         size_t count, size_t offset, enum cudaMemcpyKind kind);
     virtual cudaError_t cudaMemcpyFromSymbolAsync(void *dst,
-        const char *symbol, size_t count, size_t offset,
+        const void *symbol, size_t count, size_t offset,
         enum cudaMemcpyKind kind, cudaStream_t stream);
     virtual cudaError_t cudaMemcpyPeer(void *dst, int dstDevice,
         const void *src, int srcDevice, size_t count);
@@ -225,9 +225,9 @@ public:
     virtual cudaError_t cudaMemcpyToArrayAsync(struct cudaArray *dst,
         size_t wOffset, size_t hOffset, const void *src, size_t count,
         enum cudaMemcpyKind kind, cudaStream_t stream);
-    virtual cudaError_t cudaMemcpyToSymbol(const char *symbol, const void *src,
+    virtual cudaError_t cudaMemcpyToSymbol(const void *symbol, const void *src,
         size_t count, size_t offset, enum cudaMemcpyKind kind);
-    virtual cudaError_t cudaMemcpyToSymbolAsync(const char *symbol,
+    virtual cudaError_t cudaMemcpyToSymbolAsync(const void *symbol,
         const void *src, size_t count, size_t offset, enum cudaMemcpyKind kind,
         cudaStream_t stream);
     virtual cudaError_t cudaMemGetInfo(size_t *free, size_t *total);
