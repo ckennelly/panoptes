@@ -115,8 +115,6 @@
    obj:/usr/lib64/libcuda.so.295.53
    obj:/usr/lib64/libcuda.so.295.53
    fun:cuCtxCreate_v2
-   fun:_ZN8panoptes12cuda_contextC1EPNS_14global_contextEij
-   fun:_ZN8panoptes21cuda_context_memcheckC1EPNS_23global_context_memcheckEij
 }
 {
    <insert_a_suppression_name_here>
@@ -1283,9 +1281,6 @@
    obj:/opt/cuda/lib64/libcudart.so.4.2.9
    obj:/opt/cuda/lib64/libcudart.so.4.2.9
    fun:cudaFree
-   fun:_ZN8panoptes7callout8cudaFreeEPv
-   fun:_ZN8panoptes12cuda_contextC1EPNS_14global_contextEij
-   fun:_ZN8panoptes21cuda_context_memcheckC1EPNS_23global_context_memcheckEij
 }
 {
    <insert_a_suppression_name_here>
@@ -1464,4 +1459,615 @@
    obj:/opt/cuda/lib64/libcudart.so.4.2.9
    obj:/opt/cuda/lib64/libcudart.so.4.2.9
    fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:_dl_fini
+   fun:__run_exit_handlers
+   fun:exit
+   fun:(below main)
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuInit
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuInit
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuInit
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuInit
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuInit
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemAlloc_v2
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaMalloc
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemAlloc_v2
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaMalloc
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemHostAlloc
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaMallocHost
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemAlloc_v2
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaMalloc
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemHostAlloc
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaMallocHost
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemHostAlloc
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaMallocHost
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemAlloc_v2
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaMalloc
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.2.5
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaFree
+}
+{
+   HostRegister::OverlappingRegistrations
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemHostRegister
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaHostRegister
+}
+{
+   HostRegister::OverlappingRegistrations
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuMemHostRegister
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaHostRegister
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuStreamCreate
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaStreamCreate
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuStreamCreate
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaStreamCreate
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuStreamCreate
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaStreamCreate
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuInit
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuStreamCreate
+   obj:/opt/cuda/lib64/libcudart.so.5.0.35
+   fun:cudaStreamCreate
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuModuleLoadDataEx
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuModuleLoadDataEx
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuModuleLoadDataEx
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   obj:/usr/lib64/libcuda.so.313.18
+   fun:cuModuleLoadDataEx
 }
