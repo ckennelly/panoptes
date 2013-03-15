@@ -51,6 +51,9 @@ TEST(Deallocate, RecentlyFreed) {
 
     ret = cudaMemcpy(dptr, hptr, N, cudaMemcpyHostToDevice);
     EXPECT_EQ(cudaErrorInvalidValue, ret);
+
+    ret = cudaFreeHost(hptr);
+    ASSERT_EQ(cudaSuccess, ret);
 }
 
 int main(int argc, char **argv) {
