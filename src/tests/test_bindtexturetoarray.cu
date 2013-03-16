@@ -39,7 +39,15 @@ TEST(BindTextureToArray, NullArguments) {
     ret = cudaMallocArray(&array, &desc, ints, 0, 0);
     ASSERT_EQ(cudaSuccess, ret);
 
-    ret = cudaGetTextureReference(&texref, "tex_src");
+    int version;
+    ret = cudaRuntimeGetVersion(&version);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    if (version < 5000 /* 5.0 */) {
+        ret = cudaGetTextureReference(&texref, "tex_src");
+    } else {
+        ret = cudaGetTextureReference(&texref, &tex_src);
+    }
     ASSERT_EQ(cudaSuccess, ret);
 
     EXPECT_EXIT(
