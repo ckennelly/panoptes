@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
  */
 
 #include <algorithm>
+#include <cuda.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
 #include <valgrind/memcheck.h>
@@ -140,6 +141,17 @@ static __global__ void k_known_symbol_offsets(uint32_t * d, uint32_t base) {
      * __syncthreads();
      * out = atomicInc(u, 0xFFFFFFFF);
      */
+
+    #if CUDA_VERSION == 5000
+    /*
+     * Work around a bug in ptxas.  Without this, ptxas fails with:
+     *  "Internal error: overlapping offsets allocated to objects"
+     */
+    __shared__ uint32_t uf[1];
+    uf[0] = base;
+    *d = uf[0];
+    #endif
+
     asm volatile(
         "{ .shared .align 4 .u32 u[2];\n"
         "st.shared.u32 [u+4], %1;\n"
