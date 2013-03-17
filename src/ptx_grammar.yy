@@ -145,9 +145,10 @@ func : TOKEN_FUNCTION optionalReturnValue TOKEN_IDENTIFIER entryArguments
     parser->declare_function($<text>3);
 };
 
-entry : TOKEN_ENTRY TOKEN_IDENTIFIER entryArguments rootBlock {
+entry : linkingDirective TOKEN_ENTRY TOKEN_IDENTIFIER entryArguments rootBlock {
+    parser->function->linkage = parser->get_linkage();
     parser->function->entry = true;
-    parser->declare_function($<text>2);
+    parser->declare_function($<text>3);
 };
 
 entryArguments : /* */;
