@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,15 @@ TEST(GetTextureReference, NullArguments) {
     EXPECT_EXIT(
         cudaGetTextureReference(NULL, "tex_src"),
         ::testing::KilledBySignal(SIGSEGV), "");
+
+    int version;
+    cudaError_t ret = cudaRuntimeGetVersion(&version);
+    ASSERT_EQ(cudaSuccess, ret);
+    if (version >= 5000 /* 5.0 */) {
+        EXPECT_EXIT(
+            cudaGetTextureReference(NULL, NULL),
+            ::testing::KilledBySignal(SIGSEGV), "");
+    }
 }
 
 int main(int argc, char **argv) {

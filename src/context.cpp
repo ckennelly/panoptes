@@ -873,7 +873,9 @@ cudaError_t cuda_context::cudaGetTextureAlignmentOffset(size_t *offset,
 
 cudaError_t cuda_context::cudaGetTextureReference(
         const struct textureReference **texref, const void *symbol) {
-    if (!(symbol)) {
+    if (runtime_version_ >= 5000 && !(texref)) {
+        raise(SIGSEGV);
+    } else if (!(symbol)) {
         return cudaErrorUnknown;
     }
 
