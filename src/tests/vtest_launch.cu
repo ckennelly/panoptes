@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,6 +55,10 @@ TEST(Launch, LaunchByName) {
     block.x = block.y = block.z = 1;
 
     cudaError_t ret;
+    int version;
+    ret = cudaRuntimeGetVersion(&version);
+    ASSERT_EQ(cudaSuccess, ret);
+
     cudaStream_t cs;
     ret = cudaStreamCreate(&cs);
     ASSERT_EQ(cudaSuccess, ret);
@@ -63,7 +67,13 @@ TEST(Launch, LaunchByName) {
     EXPECT_EQ(cudaSuccess, ret);
 
     ret = cudaLaunch("k_noop");
-    EXPECT_EQ(cudaSuccess, ret);
+    cudaError_t expected;
+    if (version < 5000 /* 5.0 */) {
+        expected = cudaSuccess;
+    } else {
+        expected = cudaErrorInvalidDeviceFunction;
+    }
+    EXPECT_EQ(expected, ret);
 
     ret = cudaStreamSynchronize(cs);
     EXPECT_EQ(cudaSuccess, ret);

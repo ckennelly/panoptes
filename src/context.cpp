@@ -120,9 +120,9 @@ cudaError_t cuda_context::cudaLaunch(const void *entry) {
     modules_t::function_map_t & functions = modules_->functions;
     modules_t::function_map_t::const_iterator fit = functions.find(entry);
     if (fit == functions.end()) {
-        if (!(entry)) {
+        if (!(entry) || runtime_version_ >= 5000 /* 5.0 */) {
             /* Fail fast. */
-            return setLastError(cudaErrorInvalidDeviceFunction);
+            return cudaErrorInvalidDeviceFunction;
         }
 
         /**
