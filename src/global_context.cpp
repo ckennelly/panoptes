@@ -868,6 +868,11 @@ const global_context::texture_name_map_t &
     return texture_names_;
 }
 
+bool global_context::is_texture_reference(const void * ptr) const {
+    return textures_.find(
+        static_cast<const struct textureReference *>(ptr)) != textures_.end();
+}
+
 unsigned global_context::devices() const {
     return devices_;
 }

@@ -164,8 +164,9 @@ protected:
 public:
     typedef boost::unordered_map<std::string, const struct textureReference *>
         texture_name_map_t;
-
     const texture_name_map_t & texture_names() const;
+
+    bool is_texture_reference(const void * ptr) const;
 protected:
     texture_name_map_t texture_names_;
 

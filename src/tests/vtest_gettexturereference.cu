@@ -26,7 +26,11 @@ TEST(GetTextureReference, Simple) {
     cudaError_t ret;
     const struct textureReference * texref;
 
+    #if CUDA_VERSION < 5000 /* 5.0 */
     ret = cudaGetTextureReference(&texref, "tex_src");
+    #else
+    ret = cudaGetTextureReference(&texref, &tex_src);
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 }
 
@@ -34,7 +38,16 @@ TEST(GetTextureReference, NonTexture) {
     cudaError_t ret;
     const struct textureReference * texref;
 
+    #if CUDA_VERSION < 5000 /* 5.0 */
+    /*
+     * In CUDA5, this *is* the appropriate way of obtaining a texture
+     * reference.
+     */
     ret = cudaGetTextureReference(&texref, (const char *) &tex_src);
+    ASSERT_EQ(cudaErrorInvalidTexture, ret);
+    #endif
+
+    ret = cudaGetTextureReference(&texref, (const char *) &ret);
     ASSERT_EQ(cudaErrorInvalidTexture, ret);
 }
 

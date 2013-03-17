@@ -885,6 +885,13 @@ cudaError_t cuda_context::cudaGetTextureReference(
 
     scoped_lock lock(mx_);
 
+    if (global_->is_texture_reference(symbol)) {
+        *texref = static_cast<const struct textureReference *>(symbol);
+        return cudaSuccess;
+    } else if (runtime_version_ >= 5000) {
+        return cudaErrorInvalidTexture;
+    }
+
     typedef global_t::texture_name_map_t tn_t;
     const tn_t & texture_names = global_->texture_names();
     const std::string tname(static_cast<const char *>(symbol));

@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,7 +45,12 @@ TEST(kReadTex1D, ExplicitStream) {
     ASSERT_EQ(cudaSuccess, ret);
 
     const textureReference* texref;
-    cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION < 5000
+    ret = cudaGetTextureReference(&texref, "tex_src");
+    #else
+    ret = cudaGetTextureReference(&texref, &tex_src);
+    #endif
+    ASSERT_EQ(cudaSuccess, ret); 
 
     struct cudaChannelFormatDesc desc;
     desc.f = cudaChannelFormatKindSigned;
