@@ -725,7 +725,7 @@ cvt : OPCODE_CVT optionalRounding optionalFTZ optionalSaturating dataType
     parser->function->top->instruction.type2 = parser->get_type();
 };
 
-spaceTypeToken : TOKEN_GENERIC | TOKEN_LOCAL | TOKEN_SHARED | TOKEN_GLOBAL ;
+spaceTypeToken : TOKEN_GENERIC | TOKEN_LOCAL | TOKEN_SHARED | TOKEN_GLOBAL | TOKEN_CONST ;
 spaceType : spaceTypeToken {
     parser->function->top->instruction.set_token($<vsigned>1);
 };
