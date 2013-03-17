@@ -110,7 +110,7 @@ public:
     virtual cudaError_t cudaIpcOpenMemHandle(void **devPtr,
         cudaIpcMemHandle_t handle, unsigned int flags);
     virtual cudaError_t cudaIpcCloseMemHandle(void *devPtr); */
-    virtual cudaError_t cudaLaunch(const char *entry);
+    virtual cudaError_t cudaLaunch(const void *entry);
     virtual cudaError_t cudaMalloc(void **devPtr, size_t size);
     virtual cudaError_t cudaMalloc3D(struct cudaPitchedPtr *pitchedDevPtr,
         struct cudaExtent extent);

@@ -288,7 +288,7 @@ protected:
     /**
      * Returns the user readable name of the function given its address.
      */
-    const char * get_entry_name(const char * entry) const;
+    const char * get_entry_name(const void * entry) const;
 protected:
     /**
      * This context's device

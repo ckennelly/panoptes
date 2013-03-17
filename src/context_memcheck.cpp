@@ -3638,7 +3638,7 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
     return true;
 }
 
-cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
+cudaError_t cuda_context_memcheck::cudaLaunch(const void *entry) {
     /**
      * If the entry name is invalid, fail.
      */
@@ -3665,7 +3665,7 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const char *entry) {
     if (entry_name == NULL) {
         /* Try the now depreciated interpretation of entry as the entry name
          * itself. */
-        entry_name = entry;
+        entry_name = static_cast<const char *>(entry);
     }
 
     global_t::entry_info_map_t::const_iterator it =

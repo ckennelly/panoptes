@@ -1510,7 +1510,7 @@ cudaError_t cuda_context::cudaUnbindTexture(
     return cudaSuccess;
 }
 
-const char * cuda_context::get_entry_name(const char * entry) const {
+const char * cuda_context::get_entry_name(const void * entry) const {
     /* Find module. */
     using internal::modules_t;
     modules_t::function_map_t & functions = modules_->functions;
