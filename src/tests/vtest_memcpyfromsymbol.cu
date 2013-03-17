@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -60,9 +60,18 @@ TEST(MemcpyFromSymbol, Basic) {
 
     symbol_t atarget, target, vtarget;
     BOOST_STATIC_ASSERT(sizeof(atarget) == sizeof(device_symbol));
-    ret = cudaMemcpyFromSymbol(&atarget, "device_symbol",
-        sizeof(symbol_t), 0, cudaMemcpyDeviceToHost);
+
+    int version;
+    ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
+
+    if (version < 5000 /* 5.0 */) {
+        ret = cudaMemcpyFromSymbol(&atarget, "device_symbol",
+            sizeof(symbol_t), 0, cudaMemcpyDeviceToHost);
+        ASSERT_EQ(cudaSuccess, ret);
+    } else {
+        atarget = 0;
+    }
 
     ret = cudaMemcpyFromSymbol(&target, device_symbol,
         sizeof(symbol_t), 0, cudaMemcpyDeviceToHost);
