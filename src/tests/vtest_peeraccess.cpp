@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -165,6 +165,10 @@ TEST(PeerAccess, EnableDisable) {
         return;
     }
 
+    int version;
+    ret = cudaRuntimeGetVersion(&version);
+    ASSERT_EQ(cudaSuccess, ret);
+
     typedef std::pair<int, int> peer_t;
     std::vector<peer_t> peers;
 
@@ -182,8 +186,10 @@ TEST(PeerAccess, EnableDisable) {
             if (peer) {
                 expected = cudaSuccess;
                 peers.push_back(peer_t(i, j));
-            } else {
+            } else if (version < 5000 /* 5.0 */) {
                 expected = cudaErrorInvalidDevice;
+            } else {
+                expected = cudaErrorPeerAccessUnsupported;
             }
 
             ret = cudaDeviceEnablePeerAccess(j, 0);
