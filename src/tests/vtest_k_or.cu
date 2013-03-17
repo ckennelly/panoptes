@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -74,7 +74,7 @@ TEST(Or, BinaryConstant) {
 
     EXPECT_EQ(1234567890 | 987654321, hout[0]);
     EXPECT_EQ(1234567890 | 987654321, hout[1]);
-    EXPECT_EQ(1234567890 | 987654321, hout[1]);
+    EXPECT_EQ(1234567890 | 987654321, hout[3]);
 
     uint32_t vout[5];
     const int vret = VALGRIND_GET_VBITS(&hout, &vout, sizeof(hout));
