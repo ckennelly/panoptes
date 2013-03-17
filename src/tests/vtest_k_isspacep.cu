@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,7 +64,7 @@ TEST(IsSpacePTest, Single) {
     cudaStream_t stream;
 
     bool * d;
-    ret = cudaMalloc((void **) &d, 4 * sizeof(d));
+    ret = cudaMalloc((void **) &d, 4 * sizeof(*d));
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaStreamCreate(&stream);
