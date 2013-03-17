@@ -912,8 +912,9 @@ cuda_context_memcheck::~cuda_context_memcheck() {
     }
 
     for (size_t i = 0; i < 1 << (lg_max_memory - lg_chunk_bytes); i++) {
-        if (achunks_[i] != default_achunk_) {
-            apool_.free(achunks_[i]);
+        apool_t::handle_t * const a = achunks_[i];
+        if (a != default_achunk_ && a != initialized_achunk_) {
+            apool_.free(a);
         }
 
         if (vchunks_[i] != default_vchunk_) {
