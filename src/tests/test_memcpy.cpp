@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -81,7 +81,7 @@ TEST(MemcpyDeathTest, AllDirections) {
         cudaMemcpy( b,    b,   sizeof(a), cudaMemcpyHostToDevice),
         ::testing::KilledBySignal(SIGSEGV), "");
     cudaGetLastError(); */
-    if (version >= 4010 /* 4.1 */) {
+    if (version >= 4010 /* 4.1 */ && version < 5000 /* 5.0 */) {
         ret = cudaMemcpy(b, b, sizeof(a), cudaMemcpyHostToHost);
         EXPECT_EQ(cudaSuccess, ret);
     } else {
@@ -162,7 +162,7 @@ TEST(MemcpyDeathTest, AllDirections) {
     EXPECT_EQ(cudaErrorInvalidValue,
         cudaMemcpy(NULL, NULL, sizeof(a), cudaMemcpyHostToDevice));
     cudaGetLastError(); */
-    if (version >= 4010 /* 4.1 */) {
+    if (version >= 4010 /* 4.1 */ && version < 5000 /* 5.0 */) {
         ret = cudaMemcpy(NULL, NULL, sizeof(a), cudaMemcpyHostToHost);
         EXPECT_EQ(cudaSuccess, ret);
     } else {
