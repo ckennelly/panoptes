@@ -876,7 +876,11 @@ cudaError_t cuda_context::cudaGetTextureReference(
     if (runtime_version_ >= 5000 && !(texref)) {
         raise(SIGSEGV);
     } else if (!(symbol)) {
-        return cudaErrorUnknown;
+        if (runtime_version_ >= 5000) {
+            return cudaErrorInvalidTexture;
+        } else {
+            return cudaErrorUnknown;
+        }
     }
 
     scoped_lock lock(mx_);

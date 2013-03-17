@@ -47,7 +47,13 @@ TEST(GetTextureReference, NullArguments) {
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaGetTextureReference(&texref, NULL);
-    ASSERT_EQ(cudaErrorUnknown, ret);
+    ASSERT_EQ(
+    #if CUDA_VERSION < 5000 /* 5.0 */
+        cudaErrorUnknown
+    #else
+        cudaErrorInvalidTexture,
+    #endif
+        ret);
 
     if (version < 5000 /* 5.0 */) {
         ret = cudaGetTextureReference(NULL, NULL);
