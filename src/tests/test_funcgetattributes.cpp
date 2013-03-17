@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,6 +65,10 @@ TEST_F(FuncGetAttributesFixture, UnaddressablePointer) {
     struct cudaFuncAttributes attr;
     cudaError_t ret;
 
+    int version;
+    ret = cudaRuntimeGetVersion(&version);
+    ASSERT_EQ(cudaSuccess, ret);
+
     protect();
 
     for (unsigned i = 0; i < 13; i++) {
@@ -81,10 +85,13 @@ TEST_F(FuncGetAttributesFixture, UnaddressablePointer) {
         if (offset > 0) {
             ret = cudaFuncGetAttributes(&attr, new_buffer);
             EXPECT_EQ(cudaErrorInvalidDeviceFunction, ret);
-        } else {
+        } else if (version < 5000 /* 5.0 */) {
             EXPECT_EXIT(
                 cudaFuncGetAttributes(&attr, new_buffer),
                 ::testing::KilledBySignal(SIGSEGV), "");
+        } else /* version >= 5000 */ {
+            ret = cudaFuncGetAttributes(&attr, new_buffer);
+            EXPECT_EQ(cudaErrorInvalidDeviceFunction, ret);
         }
     }
 

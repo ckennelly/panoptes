@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -609,31 +609,34 @@ cudaError_t cuda_context::cudaFuncGetAttributes(
         }
     }
 
-    /**
-     * For reasons that are not very clear, CUDA appears to access the memory
-     * at func unless it is obviously not addressable (e.g., NULL).  This leads
-     * to SIGSEGV's when the memory is not addressable.
-     */
-    char validity;
-    unsigned valgrind = VALGRIND_GET_VBITS(func, &validity, sizeof(validity));
-    if (valgrind == 3) {
-        char msg[128];
-        int msgret = snprintf(msg, sizeof(msg),
-            "cudaFuncGetAttributes called with unaddressable function %p.",
-            func);
-        // sizeof(msg) is small, so the cast is safe.
-        assert(msgret < (int) sizeof(msg) - 1);
-        logger::instance().print(msg);
-    }
+    if (runtime_version_ < 5000 /* 5.0 */) {
+        /**
+         * For reasons that are not very clear, CUDA appears to access the
+         * memory at func unless it is obviously not addressable (e.g., NULL).
+         * This leads to SIGSEGV's when the memory is not addressable.
+         */
+        char validity;
+        unsigned valgrind = VALGRIND_GET_VBITS(func, &validity,
+            sizeof(validity));
+        if (valgrind == 3) {
+            char msg[128];
+            int msgret = snprintf(msg, sizeof(msg),
+                "cudaFuncGetAttributes called with unaddressable function %p.",
+                func);
+            // sizeof(msg) is small, so the cast is safe.
+            assert(msgret < (int) sizeof(msg) - 1);
+            logger::instance().print(msg);
+        }
 
-    /**
-     * GCC happily compiles this load when we dereference a volatile pointer.
-     * Clang will not emit the load if we do not use the value in some fashion,
-     * even if it has no impact on the execution of the program (x does not get
-     * used beyond this point).
-     */
-    volatile int x = 0;
-    x += *static_cast<volatile const char *>(func);
+        /**
+         * GCC happily compiles this load when we dereference a volatile
+         * pointer.  Clang will not emit the load if we do not use the value in
+         * some fashion, even if it has no impact on the execution of the
+         * program (x does not get used beyond this point).
+         */
+        volatile int x = 0;
+        x += *static_cast<volatile const char *>(func);
+    }
 
     scoped_lock lock(mx_);
 
