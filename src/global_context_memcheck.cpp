@@ -3161,14 +3161,23 @@ void global_context_memcheck::instrument_isspacep(
     }
 
     if (statement.space == global_space) {
-        /* global = !(local | shared) */
-        *keep = false;
-        const temp_operand tmp0(auxillary, pred_type);
-        const temp_operand tmp1(auxillary, pred_type);
-        aux->push_back(make_isspacep(local_space,  tmp0, a));
-        aux->push_back(make_isspacep(shared_space, tmp1, a));
-        aux->push_back(make_or(pred_type, tmp0, tmp0, tmp1));
-        aux->push_back(make_not(pred_type, p, tmp0));
+        /**
+         * Under CUDA 5, isspacep.global on a variable can be modeled as always
+         * returning false when using the *runtime* API.  JIT'd PTX (at any
+         * optimization level) returns sensible values.
+         */
+        if (driver_version_ < 5000 /* 5.0 */) {
+            *keep = false;
+            /* global = !(local | shared) */
+            const temp_operand tmp0(auxillary, pred_type);
+            const temp_operand tmp1(auxillary, pred_type);
+            aux->push_back(make_isspacep(local_space,  tmp0, a));
+            aux->push_back(make_isspacep(shared_space, tmp1, a));
+            aux->push_back(make_or(pred_type, tmp0, tmp0, tmp1));
+            aux->push_back(make_not(pred_type, p, tmp0));
+        } else {
+            *keep = true;
+        }
     } else {
         *keep = true;
     }

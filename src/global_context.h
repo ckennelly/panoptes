@@ -190,6 +190,7 @@ protected:
     const thread_info_t * current() const;
     unsigned current_device() const;
 
+    int driver_version_;
     unsigned devices_;
 public:
     unsigned devices() const;

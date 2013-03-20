@@ -142,6 +142,7 @@ global_context::~global_context() {
 
 global_context::global_context() {
     cuInit(0);
+    cuDriverGetVersion(&driver_version_);
 
     /**
      * TODO: Don't ignore the return value.
