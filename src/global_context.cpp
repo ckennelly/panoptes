@@ -447,6 +447,7 @@ void global_context::load_ptx(internal::modules_t * target) {
 
         CUresult ret = cuModuleLoadDataEx(&module->module, ptx.c_str(),
             n_options, options, values);
+        module->module_set = ret == CUDA_SUCCESS;
         if (ret != CUDA_SUCCESS) {
             /* Update error_output size. */
             error_output.resize(error_output_size);

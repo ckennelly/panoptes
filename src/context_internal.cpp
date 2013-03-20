@@ -22,6 +22,19 @@
 namespace panoptes {
 namespace internal {
 
+module_t::module_t() : module_set(false) { }
+
+module_t::~module_t() {
+    for (texture_map_t::iterator it = textures.begin();
+            it != textures.end(); ++it) {
+        delete it->second;
+    }
+
+    if (module_set) {
+        cuModuleUnload(module);
+    }
+}
+
 /**
  * Opaque handle strategy:  Allocate a void* and then mark it as inaccessible
  * to Valgrind.

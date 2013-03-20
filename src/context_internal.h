@@ -30,15 +30,11 @@
 namespace panoptes {
 namespace internal {
 
-struct module_t {
-    module_t() { }
-    ~module_t() {
-        for (texture_map_t::iterator it = textures.begin();
-                it != textures.end(); ++it) {
-            delete it->second;
-        }
-    }
+struct module_t : boost::noncopyable {
+    module_t();
+    ~module_t();
 
+    bool     module_set;
     CUmodule module;
     ptx_t    ptx;
 
