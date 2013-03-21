@@ -85,7 +85,25 @@ TEST(IsSpacePTest, Single) {
     ret = cudaMemcpy(&hd, d, sizeof(hd), cudaMemcpyDeviceToHost);
     ASSERT_EQ(cudaSuccess, ret);
 
-    EXPECT_TRUE(hd[0]);
+    int version;
+    ret = cudaRuntimeGetVersion(&version);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    if (version != 5000 /* 5.0 */) {
+        /**
+         * As of CUDA 5.0, this particular test fails while running NATIVELY.
+         * While we could compare against the version and modify our
+         * expectation accordingly (for the sake of ensuring that programs
+         * cannot tell whether they are being run under Panoptes), the code
+         * generated Panoptes (and then compiled via the driver API) *works*.
+         *
+         * To complicate things further, a very similar test in GPU Ocelot
+         * fails with CUDA 5.0 and a GTX480:
+         *
+         * https://code.google.com/p/gpuocelot/source/browse/trunk/ocelot/ocelot/cuda/test/driver/generic.cpp
+         */
+        EXPECT_FALSE(hd[0]);
+    }
     EXPECT_TRUE(hd[1]);
     EXPECT_FALSE(hd[2]);
     EXPECT_FALSE(hd[3]);
