@@ -9,8 +9,9 @@ WARNINGS := -Wall -Wextra -Wshadow -Wpointer-arith -Wcast-align \
 			-Winline -Wno-long-long -Wuninitialized -Wconversion
 CWARNINGS := $(WARNINGS) -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes
 CXXWARNINGS := $(WARNINGS) -Wabi -Wnon-virtual-dtor -fno-rtti
-CFLAGS := -g -fPIC -std=c99 $(CWARNINGS) -I include
-CXXFLAGS := -g $(CXXWARNINGS) -I include
+COMMONFLAGS := -I include
+CFLAGS := -g -fPIC -std=c99 $(CWARNINGS) $(COMMONFLAGS)
+CXXFLAGS := -g $(CXXWARNINGS) $(COMMONFLAGS) 
 CUDAINC=/opt/cuda/include
 
 LEXOBJS := $(patsubst %.ll,%.lex.cc,$(wildcard *.ll))
@@ -72,7 +73,7 @@ clean:
 lcov:
 	find . -name '*.gc' | xargs rm -f
 	$(MAKE) clean
-	$(MAKE) CXXFLAGS="-g -fprofile-arcs -ftest-coverage" CFLAGS="-g -fprofile-arcs -ftest-coverage" LDFLAGS="$(LDFLAGS) -lgcov" libpanoptes.so
+	$(MAKE) CXXFLAGS="-g -fprofile-arcs -ftest-coverage $(COMMONFLAGS)" CFLAGS="-g -fprofile-arcs -ftest-coverage $(COMMONFLAGS)" LDFLAGS="$(LDFLAGS) -lgcov" libpanoptes.so
 	$(MAKE) -C tests lcov
 	lcov -c --no-recursion -d . -o coverage.info
 	lcov -r coverage.info '/tmp/*' '/usr/*' '/opt/*' 'tests' -o coverage.info
