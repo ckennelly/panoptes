@@ -9,8 +9,8 @@ WARNINGS := -Wall -Wextra -Wshadow -Wpointer-arith -Wcast-align \
 			-Winline -Wno-long-long -Wuninitialized -Wconversion
 CWARNINGS := $(WARNINGS) -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes
 CXXWARNINGS := $(WARNINGS) -Wabi -Wnon-virtual-dtor -fno-rtti
-CFLAGS := -g -fPIC -std=c99 $(CWARNINGS)
-CXXFLAGS := -g $(CXXWARNINGS)
+CFLAGS := -g -fPIC -std=c99 $(CWARNINGS) -I include
+CXXFLAGS := -g $(CXXWARNINGS) -I include
 CUDAINC=/opt/cuda/include
 
 LEXOBJS := $(patsubst %.ll,%.lex.cc,$(wildcard *.ll))

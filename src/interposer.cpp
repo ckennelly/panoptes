@@ -27,6 +27,7 @@
 #include "global_context.h"
 #include "interposer.h"
 #include <map>
+#include <panoptes/panoptes.h>
 #include <valgrind/memcheck.h>
 
 using namespace panoptes;
@@ -34,6 +35,10 @@ using namespace panoptes;
 #ifdef __CPLUSPLUS
 extern "C" {
 #endif
+
+int __panoptes__running_on_panoptes(void) {
+    return 1;
+}
 
 void** __cudaRegisterFatBinary(void *fatCubin) {
     backtrace_t::instance().refresh();

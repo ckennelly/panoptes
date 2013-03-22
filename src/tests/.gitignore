@@ -41,6 +41,7 @@ vtest_getsymboladdress
 vtest_getsymbolsize
 vtest_gettexturealignmentoffset
 vtest_gettexturereference
+vtest_hooks
 vtest_hostalloc
 vtest_hostgetdevicepointer
 vtest_hostgetflags

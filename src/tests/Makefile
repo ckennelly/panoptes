@@ -7,8 +7,8 @@ WARNINGS := -Wall -Wextra -Wshadow -Wpointer-arith -Wcast-align \
 			-Winline -Wno-long-long -Wuninitialized -Wconversion
 CWARNINGS := $(WARNINGS) -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes
 CXXWARNINGS := $(WARNINGS)
-CFLAGS := -g -fPIC -std=c99 $(CWARNINGS)
-CXXFLAGS := -g $(CXXWARNINGS)
+CFLAGS := -g -fPIC -std=c99 $(CWARNINGS) -I../include
+CXXFLAGS := -g $(CXXWARNINGS) -I../include
 LDFLAGS := -lcuda -lgtest -L/usr/lib/boost-1_49
 CUDAINC=/opt/cuda/include
 VALGRINDFLAGS := --error-exitcode=1 --leak-check=full --suppressions=valgrind.suppressions
