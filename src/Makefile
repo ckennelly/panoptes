@@ -35,10 +35,10 @@ libpanoptes.so: $(SRCOBJS)
 	bison -d $<
 
 # Blindly depend on all headers
-%.o: %.c Makefile ptx_grammar.tab.cc $(wildcard *.h)
+%.o: %.c Makefile $(wildcard *.h) | ptx_grammar.tab.cc
 	$(CC) $(CFLAGS) -fPIC -MMD -MP -c $< -o $@
 
-%.o: %.cpp Makefile ptx_grammar.tab.cc $(wildcard *.h)
+%.o: %.cpp Makefile $(wildcard *.h) | ptx_grammar.tab.cc
 	$(CXX) $(CXXFLAGS) -fPIC -MMD -MP -I$(CUDAINC) -fvisibility=hidden -c $< -o $@
 
 %.o: %.cu Makefile
