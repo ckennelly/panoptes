@@ -19,7 +19,8 @@
 #ifndef __PANOPTES__PTX_IR_H__
 #define __PANOPTES__PTX_IR_H__
 
-#include <boost/bimap.hpp>
+#include <boost/utility.hpp>
+#include "ptx_grammar.h"
 #include <list>
 #include <string>
 #include <vector>

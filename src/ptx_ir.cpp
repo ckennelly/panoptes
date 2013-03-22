@@ -16,14 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cassert>
 #include <stdint.h>
-
-/* Forward declarations for ptx_grammar.tab.hh. */
-namespace panoptes {
-    class ptx_lexer;
-    class ptx_parser_state;
-}
-#include "ptx_grammar.tab.hh"
+#include "ptx_grammar.h"
 #include "ptx_ir.h"
 
 using namespace panoptes;

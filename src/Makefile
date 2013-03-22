@@ -35,10 +35,10 @@ libpanoptes.so: $(SRCOBJS)
 	bison -d $<
 
 # Blindly depend on all headers
-%.o: %.c Makefile  $(wildcard *.h)
+%.o: %.c Makefile ptx_grammar.tab.cc $(wildcard *.h)
 	$(CC) $(CFLAGS) -fPIC -MMD -MP -c $< -o $@
 
-%.o: %.cpp Makefile $(wildcard *.h)
+%.o: %.cpp Makefile ptx_grammar.tab.cc $(wildcard *.h)
 	$(CXX) $(CXXFLAGS) -fPIC -MMD -MP -I$(CUDAINC) -fvisibility=hidden -c $< -o $@
 
 %.o: %.cu Makefile
@@ -52,8 +52,6 @@ libpanoptes.so: $(SRCOBJS)
 
 interposer.o: interposer.cpp Makefile $(wildcard *.h)
 	$(CXX) $(CXXFLAGS) -fPIC -MMD -MP -I$(CUDAINC) -Werror=missing-declarations -fvisibility=default -c $< -o $@
-
-ptx_ir.o: ptx_ir.cpp ptx_grammar.tab.cc $(wildcard *.h)
 
 ptx_lex.o: ptx_lex.lex.cc $(wildcard *.h)
 

@@ -1,5 +1,6 @@
 %{
 
+#include <cassert>
 #undef yyFlexLexer
 #define yyFlexLexer ptxFlexLexer
 #include <FlexLexer.h>

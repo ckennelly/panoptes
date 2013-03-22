@@ -23,9 +23,9 @@
 #include <boost/lexical_cast.hpp>
 #include <sstream>
 #include <stdint.h>
+#include "ptx_grammar.h"
 #include "ptx_lexer.h"
 #include "ptx_parser.h"
-#include "ptx_grammar.tab.hh"
 
 namespace {
     size_t strlcpy(char * dst, const char * src, size_t size);

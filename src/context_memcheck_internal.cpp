@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cassert>
 #include "context_memcheck_internal.h"
 #include <cstdio>
 #include "ptx_ir.h"

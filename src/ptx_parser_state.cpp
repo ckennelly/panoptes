@@ -17,15 +17,11 @@
  */
 
 #include <cassert>
+#include <climits>
+#include "ptx_grammar.h"
 #include "ptx_parser_state.h"
 #include <stdint.h>
 #include <string>
-
-/* Forward declarations. */
-namespace panoptes {
-    class ptx_lexer;
-}
-#include "ptx_grammar.tab.hh"
 
 using namespace panoptes;
 

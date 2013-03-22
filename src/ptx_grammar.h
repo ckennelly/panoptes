@@ -16,32 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/lexical_cast.hpp>
-#include <cassert>
-#include <cstdio>
+#ifndef __PANOPTES__PTX_GRAMMAR_H__
+#define __PANOPTES__PTX_GRAMMAR_H__
 
-#undef yyFlexLexer
-#define yyFlexLexer ptxFlexLexer
-#include <FlexLexer.h>
-#include "ptx_lexer.h"
-#include "ptx_parser.h"
-#include "ptx_parser_state.h"
+#include <stdint.h>
 
-using namespace std;
-using namespace panoptes;
+namespace panoptes {
+    /* Forward declarations for ptx_grammar.tab.hh. */
+    class ptx_lexer;
+    class ptx_parser_state;
 
-ptx_parser::ptx_parser() { }
-
-ptx_parser::~ptx_parser() { }
-
-void ptx_parser::parse(const std::string & ptx, ptx_t * program) const {
-    stringstream in(ptx), out;
-
-    ptx_lexer lexer(&in, &out);
-    ptx_parser_state state;
-
-    int ret = yyparse(&lexer, &state);
-    assert(ret == 0);
-
-    state.to_ir(program);
+    #include "ptx_grammar.tab.hh"
 }
+
+#endif // __PANOPTES__PTX_GRAMMAR_H__
