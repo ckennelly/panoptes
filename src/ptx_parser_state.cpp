@@ -168,7 +168,7 @@ linkage_t ptx_parser_state::get_linkage() {
     return ret;
 }
 
-void ptx_parser_state::set_linkage(int token) {
+void ptx_parser_state::set_linkage(yytokentype token) {
     switch (token) {
         case TOKEN_EXTERN:
             linkage = linkage_extern;
@@ -194,7 +194,7 @@ void ptx_parser_state::add_file(int file, const std::string & path) {
     files.insert(file_map_t::value_type(file, path));
 }
 
-void ptx_parser_state::set_target(int token) {
+void ptx_parser_state::set_target(yytokentype token) {
     switch (token) {
         case TOKEN_SM10:  sm = SM10; break;
         case TOKEN_SM11:  sm = SM11; break;
@@ -250,7 +250,7 @@ void ptx_parser_state::to_ir(ptx_t * program) const {
     }
 }
 
-void ptx_parser_state::set_type(int token) {
+void ptx_parser_state::set_type(int64_t token) {
     switch (token) {
         case TOKEN_U64:
             type  = u64_type;

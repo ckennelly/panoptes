@@ -113,7 +113,7 @@ public:
     unsigned version_major;
     unsigned version_minor;
 
-    void set_target(int token);
+    void set_target(yytokentype token);
     sm_t sm;
     bool map_f64_to_f32;
 
@@ -127,7 +127,7 @@ public:
     int line_number;
     unsigned address_size;
 
-    void set_linkage(int token);
+    void set_linkage(yytokentype token);
     linkage_t get_linkage();
 
     void declare_function(const std::string & name);
@@ -136,7 +136,7 @@ public:
     void declare_variable();
     variable_t variable;
 
-    void set_type(int token);
+    void set_type(int64_t token);
     /* Returns the type set by set_type.  If subsequent calls to get_type occur
      * without another call to set_type, invalid_type will be returned. */
     type_t get_type();

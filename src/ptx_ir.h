@@ -86,7 +86,7 @@ struct variable_t {
     typedef std::vector<variant_t> variant_vt;
     variant_vt      initializer;
 
-    void set_token(int token);
+    void set_space(yytokentype token);
     size_t size() const;
 };
 
@@ -190,7 +190,7 @@ struct operand_t {
     typedef std::vector<bool> constness_vt;
     constness_vt constness;
 
-    void push_field(int token);
+    void push_field(yytokentype token);
     typedef std::vector<field_t> field_vt;
     field_vt    field;
 
@@ -237,12 +237,25 @@ enum query_t {
 struct statement_t {
     statement_t();
     void reset();
-    void set_width(int token);
-    void set_token(int token);
-    void set_atomic_op(int token);
-    void set_geometry(int token);
-    void set_operands(const std::vector<operand_t> & operands);
-    void set_query(int token);
+    void set_approximation(yytokentype token);
+    void set_atomic_op    (yytokentype token);
+    void set_barrier      (yytokentype token);
+    void set_barrier_scope(yytokentype token);
+    void set_boolop       (yytokentype token);
+    void set_cache        (yytokentype token);
+    void set_cmp          (yytokentype token);
+    void set_geometry     (yytokentype token);
+    void set_op           (yytokentype token);
+    void set_operands     (const std::vector<operand_t> & operands);
+    void set_prefetch     (yytokentype token);
+    void set_prmt_mode    (yytokentype token);
+    void set_query        (yytokentype token);
+    void set_rounding     (yytokentype token);
+    void set_space        (yytokentype token);
+    void set_testp_op     (yytokentype token);
+    void set_vector       (yytokentype token);
+    void set_vote         (yytokentype token);
+    void set_width        (yytokentype token);
 
     bool            has_predicate;
     bool            is_negated;

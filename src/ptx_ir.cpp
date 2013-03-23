@@ -94,7 +94,7 @@ void statement_t::reset() {
     operands.clear();
 }
 
-void statement_t::set_query(int token) {
+void statement_t::set_query(yytokentype token) {
     switch (token) {
         case TOKEN_WIDTH:
             query   = query_width;
@@ -274,7 +274,7 @@ void operand_t::reset() {
     negated = false;
 }
 
-void operand_t::push_field(int token) {
+void operand_t::push_field(yytokentype token) {
     switch (token) {
         case TOKEN_X:
             field.push_back(field_x);
@@ -294,7 +294,7 @@ void operand_t::push_field(int token) {
     }
 }
 
-void statement_t::set_atomic_op(int token) {
+void statement_t::set_atomic_op(yytokentype token) {
     switch (token) {
         case TOKEN_AND:
             atomic_op = atom_and;
@@ -326,12 +326,13 @@ void statement_t::set_atomic_op(int token) {
         case TOKEN_MAX:
             atomic_op = atom_max;
             return;
+        default:
+            assert(0 && "Unknown atomic operation token.");
+            return;
     }
-
-    assert(0 && "Unknown atomic operation token.");
 }
 
-void statement_t::set_geometry(int token) {
+void statement_t::set_geometry(yytokentype token) {
     switch (token) {
         case TOKEN_1D:
             geometry = geom_1d;
@@ -354,12 +355,13 @@ void statement_t::set_geometry(int token) {
         case TOKEN_ACUBE:
             geometry = geom_acube;
             return;
+        default:
+            assert(0 && "Unknown geometry token.");
+            return;
     }
-
-    assert(0 && "Unknown geometry token.");
 }
 
-void statement_t::set_token(int token) {
+void statement_t::set_op(yytokentype token) {
     switch (token) {
         case OPCODE_ABS:
             op = op_abs;
@@ -604,6 +606,14 @@ void statement_t::set_token(int token) {
         case OPCODE_XOR:
             op = op_xor;
             return;
+        default:
+            assert(0 && "Unknown token for opcode.");
+            return;
+    }
+}
+
+void statement_t::set_space(yytokentype token) {
+    switch (token) {
         case TOKEN_CONST:
             space = const_space;
             return;
@@ -622,6 +632,14 @@ void statement_t::set_token(int token) {
         case TOKEN_GENERIC:
             space = generic_space;
             return;
+        default:
+            assert(0 && "Unknown space token");
+            return;
+    }
+}
+
+void statement_t::set_cache(yytokentype token) {
+    switch (token) {
         case TOKEN_CA:
             cache = cache_ca;
             return;
@@ -637,12 +655,28 @@ void statement_t::set_token(int token) {
         case TOKEN_LU:
             cache = cache_lu;
             return;
+        default:
+            assert(0 && "Unknown cache control");
+            return;
+    }
+}
+
+void statement_t::set_vector(yytokentype token) {
+    switch (token) {
         case TOKEN_V2:
             vector = v2;
             return;
         case TOKEN_V4:
             vector = v4;
             return;
+        default:
+            assert(0 && "Unknown vector size");
+            return;
+    }
+}
+
+void statement_t::set_cmp(yytokentype token) {
+    switch (token) {
         case TOKEN_EQ:
             cmp = cmp_eq;
             return;
@@ -694,6 +728,14 @@ void statement_t::set_token(int token) {
         case TOKEN_NAN:
             cmp = cmp_nan;
             return;
+        default:
+            assert(0 && "Unknown comparison operation token");
+            return;
+    }
+}
+
+void statement_t::set_boolop(yytokentype token) {
+    switch (token) {
         case TOKEN_AND:
             bool_op = bool_and;
             return;
@@ -706,6 +748,14 @@ void statement_t::set_token(int token) {
         case TOKEN_POPC:
             bool_op = bool_popc;
             return;
+        default:
+            assert(0 && "Unknown boolean operation.");
+            return;
+    }
+}
+
+void statement_t::set_rounding(yytokentype token) {
+    switch (token) {
         case TOKEN_RNI:
             rounding = rounding_rni;
             return;
@@ -730,6 +780,14 @@ void statement_t::set_token(int token) {
         case TOKEN_RP:
             rounding = rounding_rp;
             return;
+        default:
+            assert(0 && "Unknown rounding type");
+            return;
+    }
+}
+
+void statement_t::set_barrier(yytokentype token) {
+    switch (token) {
         case TOKEN_SYNC:
             barrier = barrier_sync;
             return;
@@ -739,12 +797,28 @@ void statement_t::set_token(int token) {
         case TOKEN_RED:
             barrier = barrier_reduce;
             return;
+        default:
+            assert(0 && "Unknown barrier type");
+            return;
+    }
+}
+
+void statement_t::set_approximation(yytokentype token) {
+    switch (token) {
         case TOKEN_FULL:
             approximation = full_approximation;
             return;
         case TOKEN_APPROX:
             approximation = approximate;
             return;
+        default:
+            assert(0 && "Unknown approximation type");
+            return;
+    }
+}
+
+void statement_t::set_barrier_scope(yytokentype token) {
+    switch (token) {
         case TOKEN_MCTA:
             barrier_scope = barrier_cta;
             return;
@@ -754,6 +828,14 @@ void statement_t::set_token(int token) {
         case TOKEN_MSYS:
             barrier_scope = barrier_sys;
             return;
+        default:
+            assert(0 && "Unknown barrier scope");
+            return;
+    }
+}
+
+void statement_t::set_vote(yytokentype token) {
+    switch (token) {
         case TOKEN_ALL:
             vote_mode       = vote_all;
             return;
@@ -766,6 +848,14 @@ void statement_t::set_token(int token) {
         case TOKEN_UNI:
             vote_mode       = vote_uniform;
             return;
+        default:
+            assert(0 && "Unknown vote token");
+            return;
+    }
+}
+
+void statement_t::set_testp_op(yytokentype token) {
+    switch (token) {
         case TOKEN_FINITE:
             testp_op = testp_finite;
             return;
@@ -784,6 +874,14 @@ void statement_t::set_token(int token) {
         case TOKEN_SUBNORMAL:
             testp_op = testp_subnormal;
             return;
+        default:
+            assert(0 && "Unknown testp_op type.");
+            return;
+    }
+}
+
+void statement_t::set_prmt_mode(yytokentype token) {
+    switch (token) {
         case TOKEN_F4E:
             prmt_mode = prmt_f4e;
             return;
@@ -802,6 +900,14 @@ void statement_t::set_token(int token) {
         case TOKEN_RC16:
             prmt_mode = prmt_rc16;
             return;
+        default:
+            assert(0 && "Unknown permute type");
+            return;
+    }
+}
+
+void statement_t::set_prefetch(yytokentype token) {
+    switch (token) {
         case TOKEN_L1:
             prefetch_cache = cache_L1;
             return;
@@ -809,12 +915,12 @@ void statement_t::set_token(int token) {
             prefetch_cache = cache_L2;
             return;
         default:
-            assert(0 && "Unknown token.");
+            assert(0 && "Unknown prefetch token.");
             return;
     }
 }
 
-void statement_t::set_width(int token) {
+void statement_t::set_width(yytokentype token) {
     switch (token) {
         case TOKEN_LO:
             width    = width_lo;
@@ -906,7 +1012,7 @@ size_t variable_t::size() const {
     return base_size * scale;
 }
 
-void variable_t::set_token(int token) {
+void variable_t::set_space(yytokentype token) {
     switch (token) {
         case TOKEN_CONST:   space = const_space; break;
         case TOKEN_GLOBAL:  space = global_space; break;

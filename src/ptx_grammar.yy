@@ -23,6 +23,7 @@ void yyerror(YYLTYPE * location, panoptes::ptx_lexer * lexer, panoptes::ptx_pars
 
 %union {
     char text[1024];
+    yytokentype token;
     int64_t vsigned;
     uint64_t vunsigned;
     float vsingle;
@@ -113,7 +114,7 @@ directiveStatement : addressSize | /* branchTargets | callPrototype | */
     section | */ target | texDeclaration | version ;
 
 addressSize : TOKEN_ADDRESS_SIZE TOKEN_CONSTANT_DECIMAL {
-    parser->address_size = $<vsigned>2;
+    parser->address_size = static_cast<unsigned>($<vunsigned>2);
 };
 
 branchTargets : ;
@@ -206,7 +207,7 @@ dataType : dataTypeToken {
 
 declarationSpace : TOKEN_REG | TOKEN_PARAM | TOKEN_LOCAL | TOKEN_SHARED ;
 declarationSuffix : TOKEN_LANGLE TOKEN_CONSTANT_DECIMAL TOKEN_RANGLE {
-    parser->function->top->variable.suffix = $<vsigned>2;
+    parser->function->top->variable.suffix = static_cast<unsigned>($<vunsigned>2);
     parser->function->top->variable.has_suffix = true;
 };
 declarationSuffix : /* */ ;
@@ -242,7 +243,7 @@ alignment : TOKEN_ALIGN TOKEN_CONSTANT_DECIMAL {
 optionalAlignment : /* */ | alignment ;
 
 declaration: declarationSpace optionalAlignment dataType TOKEN_IDENTIFIER declarationSuffix optionalArray TOKEN_SEMICOLON {
-    parser->function->top->variable.set_token($<vsigned>1);
+    parser->function->top->variable.set_space($<token>1);
 
     parser->function->top->variable.type = parser->get_type();
     parser->function->top->variable.name = $<text>4;
@@ -289,13 +290,12 @@ targetTM : TOKEN_UNIFIED | TOKEN_INDEPENDENT ;
 targetFlagStub : TOKEN_MAP_F64_TO_F32 ;
 targetFlagStub : targetSM | targetTM ;
 targetFlag : targetFlagStub {
-    parser->set_target($<vsigned>1);
+    parser->set_target($<token>1);
 };
 
 targetFlags : targetFlag ;
 targetFlags : targetFlag TOKEN_COMMA targetFlags ;
 target : TOKEN_TARGET targetFlags ;
-
 
 texIdentifierList : TOKEN_IDENTIFIER {
     parser->texture.names.push_back($<text>1);
@@ -316,8 +316,8 @@ texrefDeclaration : TOKEN_TEXREF TOKEN_IDENTIFIER TOKEN_SEMICOLON {
 };
 
 version : TOKEN_VERSION TOKEN_CONSTANT_DECIMAL TOKEN_PERIOD TOKEN_CONSTANT_DECIMAL {
-    parser->version_major = $<vsigned>2;
-    parser->version_minor = $<vsigned>4;
+    parser->version_major = static_cast<unsigned>($<vunsigned>2);
+    parser->version_minor = static_cast<unsigned>($<vunsigned>4);
 };
 
 /* These are global in the sense of "declared outside of a function", they are
@@ -327,7 +327,7 @@ globalAddressSpace : TOKEN_CONST | TOKEN_GLOBAL ;
 /* PTX ISA 3.0 pg. 190 */
 linkingDirectiveToken : TOKEN_EXTERN | TOKEN_VISIBLE ;
 linkingDirective : linkingDirectiveToken {
-    parser->set_linkage($<vsigned>1);
+    parser->set_linkage($<token>1);
 }
 linkingDirective : /* */ ;
 
@@ -409,7 +409,7 @@ globalInitializableDeclaration : globalAddressSpace
         addressableVariableProperties TOKEN_IDENTIFIER optionalGlobalArray initializer TOKEN_SEMICOLON {
     parser->variable.linkage = parser->get_linkage();
     parser->variable.type = parser->get_type();
-    parser->variable.set_token($<vsigned>1);
+    parser->variable.set_space($<token>1);
     parser->variable.name = $<text>3;
     parser->declare_variable();
 };
@@ -420,7 +420,7 @@ globalSharedDeclaration : TOKEN_SHARED
         addressableVariableProperties TOKEN_IDENTIFIER optionalGlobalArray TOKEN_SEMICOLON {
     parser->variable.linkage = parser->get_linkage();
     parser->variable.name = $<text>3;
-    parser->variable.set_token($<vsigned>1);
+    parser->variable.set_space($<token>1);
     parser->variable.type = parser->get_type();
     parser->declare_variable();
 }
@@ -455,7 +455,7 @@ instructionOp : abs | add | addc | and | atom | bar | bfe | bfi | bfind |
 
 abs : OPCODE_ABS optionalFTZ TOKEN_F32 identifierOperand TOKEN_COMMA
         identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->set_type(TOKEN_F32);
     parser->function->top->instruction.type = parser->get_type();
@@ -467,7 +467,7 @@ abs : OPCODE_ABS optionalFTZ TOKEN_F32 identifierOperand TOKEN_COMMA
 
 abs : OPCODE_ABS TOKEN_F64 identifierOperand TOKEN_COMMA
         identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->set_type(TOKEN_F64);
     parser->function->top->instruction.type = parser->get_type();
@@ -478,7 +478,7 @@ abs : OPCODE_ABS TOKEN_F64 identifierOperand TOKEN_COMMA
 
 abs : OPCODE_ABS integerDataType identifierOperand TOKEN_COMMA
         identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
 
     parser->function->top->instruction.set_operands(parser->operands);
@@ -518,7 +518,7 @@ optionalCarryOut : ;
 
 add : OPCODE_ADD optionalCarryOut optionalSaturating dataType immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
 
     parser->function->top->instruction.set_operands(parser->operands);
@@ -527,7 +527,7 @@ add : OPCODE_ADD optionalCarryOut optionalSaturating dataType immedOrVarOperand
 
 addc : OPCODE_ADDC optionalCarryOut dataType immedOrVarOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
 
     parser->function->top->instruction.set_operands(parser->operands);
@@ -536,7 +536,7 @@ addc : OPCODE_ADDC optionalCarryOut dataType immedOrVarOperand TOKEN_COMMA
 
 and : OPCODE_AND dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
 
     parser->function->top->instruction.set_operands(parser->operands);
@@ -545,7 +545,7 @@ and : OPCODE_AND dataType identifierOperand TOKEN_COMMA immedOrVarOperand
 
 atomicSpaceToken : TOKEN_SHARED | TOKEN_GLOBAL ;
 atomicSpace : atomicSpaceToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_space($<token>1);
 };
 atomicSpace : /* */ {
     parser->function->top->instruction.space = generic_space;
@@ -553,13 +553,13 @@ atomicSpace : /* */ {
 atomicOpToken : TOKEN_AND | TOKEN_OR | TOKEN_XOR | TOKEN_CAS | TOKEN_EXCH |
     TOKEN_ADD | TOKEN_INC | TOKEN_DEC | TOKEN_MIN | TOKEN_MAX ;
 atomicOp : atomicOpToken {
-    parser->function->top->instruction.set_atomic_op($<vsigned>1);
+    parser->function->top->instruction.set_atomic_op($<token>1);
 };
 optionalImmediateOrVariableOperand : /* */ | TOKEN_COMMA immedOrVarOperand ;
 atom : OPCODE_ATOM atomicSpace atomicOp dataType identifierOperand TOKEN_COMMA
         stDestination TOKEN_COMMA immedOrVarOperand
         optionalImmediateOrVariableOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -573,8 +573,8 @@ bar : OPCODE_BAR TOKEN_ARRIVE {
 
 optionalDecOrVarOperand : /* */ | TOKEN_COMMA decimalOrVarOperand ;
 bar : OPCODE_BAR TOKEN_SYNC decimalOrVarOperand optionalDecOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_token($<vsigned>2);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_barrier($<token>2);
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 };
@@ -585,9 +585,9 @@ optionalNegatedIdentifier: /* */ | TOKEN_COMMA optionalNegatedOperand identifier
 bar : OPCODE_BAR TOKEN_RED barRedOpToken dataType identifierOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand
         optionalNegatedIdentifier {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_token($<vsigned>2);
-    parser->function->top->instruction.set_token($<vsigned>3);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_barrier($<token>2);
+    parser->function->top->instruction.set_boolop($<token>3);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -595,7 +595,7 @@ bar : OPCODE_BAR TOKEN_RED barRedOpToken dataType identifierOperand
 
 bfe : OPCODE_BFE dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -604,7 +604,7 @@ bfe : OPCODE_BFE dataType identifierOperand TOKEN_COMMA immedOrVarOperand
 bfi : OPCODE_BFI dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -618,7 +618,7 @@ optionalShiftAmount : /* */ | shiftAmount ;
 
 bfind : OPCODE_BFIND optionalShiftAmount dataType identifierOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -633,18 +633,18 @@ bra : OPCODE_BRA optionalUni identifierOperand {
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 }
 
 brev : OPCODE_BREV rawDataType identifierOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 };
 
 brkpt : OPCODE_BRKPT {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 };
 
 returnParam : TOKEN_LPAREN identifierOperand TOKEN_RPAREN TOKEN_COMMA {
@@ -660,7 +660,7 @@ call : OPCODE_CALL optionalUni optionalReturnParam identifierOperand
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 };
 
 rawDataTypeToken : TOKEN_B16 | TOKEN_B32 | TOKEN_B64 ;
@@ -669,7 +669,7 @@ rawDataType : rawDataTypeToken {
 };
 
 clz : OPCODE_CLZ rawDataType identifierOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -677,7 +677,7 @@ clz : OPCODE_CLZ rawDataType identifierOperand TOKEN_COMMA immedOrVarOperand {
 
 cnot : OPCODE_CNOT rawDataType identifierOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -685,7 +685,7 @@ cnot : OPCODE_CNOT rawDataType identifierOperand TOKEN_COMMA
 
 copysign : OPCODE_COPYSIGN floatingDataType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -693,7 +693,7 @@ copysign : OPCODE_COPYSIGN floatingDataType identifierOperand TOKEN_COMMA
 
 cos : OPCODE_COS optionalApprox optionalFTZ TOKEN_F32 identifierOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.approximation = approximate;
 
     parser->set_type(TOKEN_F32);
@@ -704,11 +704,11 @@ cos : OPCODE_COS optionalApprox optionalFTZ TOKEN_F32 identifierOperand
 
 iRoundingToken : TOKEN_RNI | TOKEN_RZI | TOKEN_RMI | TOKEN_RPI ;
 iRounding : iRoundingToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_rounding($<token>1);
 };
 fRoundingToken : TOKEN_RN  | TOKEN_RZ  | TOKEN_RM  | TOKEN_RP ;
 fRounding: fRoundingToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_rounding($<token>1);
 }
 rounding : iRounding | fRounding ;
 optionalRounding : /* */ | rounding ;
@@ -719,7 +719,7 @@ cvt : OPCODE_CVT optionalRounding optionalFTZ optionalSaturating dataType
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->set_type($<vsigned>5);
     parser->function->top->instruction.type = parser->get_type();
     parser->set_type($<vsigned>6);
@@ -728,14 +728,14 @@ cvt : OPCODE_CVT optionalRounding optionalFTZ optionalSaturating dataType
 
 spaceTypeToken : TOKEN_GENERIC | TOKEN_LOCAL | TOKEN_SHARED | TOKEN_GLOBAL | TOKEN_CONST ;
 spaceType : spaceTypeToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_space($<token>1);
 };
 
 integerWidthType : TOKEN_U32 | TOKEN_U64 ;
 
 cvta : OPCODE_CVTA TOKEN_TO spaceType integerWidthType identifierOperand
         TOKEN_COMMA identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.is_to = true;
     parser->set_type($<vsigned>4);
     parser->function->top->instruction.type = parser->get_type();
@@ -745,7 +745,7 @@ cvta : OPCODE_CVTA TOKEN_TO spaceType integerWidthType identifierOperand
 
 cvta : OPCODE_CVTA spaceType integerWidthType identifierOperand
         TOKEN_COMMA addressableOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->set_type($<vsigned>3);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -755,7 +755,7 @@ cvta : OPCODE_CVTA spaceType integerWidthType identifierOperand
 div : OPCODE_DIV integerDataType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     /* Integer division */
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -763,13 +763,13 @@ div : OPCODE_DIV integerDataType identifierOperand TOKEN_COMMA
 
 approximationToken : TOKEN_APPROX | TOKEN_FULL ;
 approximation : approximationToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_approximation($<token>1);
 }
 
 div : OPCODE_DIV approximation optionalFTZ TOKEN_F32 identifierOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     /* Approximate floating point division */
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->set_type(TOKEN_F32);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -784,7 +784,7 @@ floatingDataType : floatingDataTypeToken {
 div : OPCODE_DIV fRounding optionalFTZ floatingDataType identifierOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
     /* IEEE754 floating point division */
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -792,7 +792,7 @@ div : OPCODE_DIV fRounding optionalFTZ floatingDataType identifierOperand
 
 ex2 : OPCODE_EX2 optionalApprox optionalFTZ floatingDataType
         identifierOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.approximation = approximate;
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -800,13 +800,13 @@ ex2 : OPCODE_EX2 optionalApprox optionalFTZ floatingDataType
 };
 
 exit : OPCODE_EXIT {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 };
 
 fma : OPCODE_FMA fRounding optionalFTZ optionalSaturating TOKEN_F32
         identifierOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->set_type(TOKEN_F32);
     parser->function->top->instruction.type = parser->get_type();
@@ -817,7 +817,7 @@ fma : OPCODE_FMA fRounding optionalFTZ optionalSaturating TOKEN_F32
 fma : OPCODE_FMA fRounding TOKEN_F64 identifierOperand TOKEN_COMMA
         identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA
         identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->set_type(TOKEN_F64);
     parser->function->top->instruction.type = parser->get_type();
@@ -827,8 +827,8 @@ fma : OPCODE_FMA fRounding TOKEN_F64 identifierOperand TOKEN_COMMA
 
 isspacep : OPCODE_ISSPACEP stateSpace identifierOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_token($<vsigned>2);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_space($<token>2);
 
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -845,17 +845,17 @@ immediateDecimal: TOKEN_CONSTANT_DECIMAL {
 stateSpace          : TOKEN_CONST | TOKEN_GLOBAL | TOKEN_LOCAL | TOKEN_PARAM | TOKEN_SHARED ;
 optionalSpace       : /* */
 optionalSpace       : stateSpace {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_space($<token>1);
 }
 
 ldCacheOp           : TOKEN_CA | TOKEN_CG | TOKEN_CS | TOKEN_LU | TOKEN_CV ;
 optionalLDCacheOp   : /* */ | ldCacheOp {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_cache($<token>1);
 }
 
 vectorType          : TOKEN_V2 | TOKEN_V4 ;
 optionalVectorType  : /* */ | vectorType {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_vector($<token>1);
 }
 
 ldSource : TOKEN_LBRACKET addressableOperand TOKEN_RBRACKET ;
@@ -868,7 +868,7 @@ optionalVolatile : /* */ | volatileFlag ;
 
 ld : OPCODE_LD optionalVolatile optionalSpace optionalLDCacheOp
         optionalVectorType dataType lValue TOKEN_COMMA ldSource {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -877,7 +877,7 @@ ld : OPCODE_LD optionalVolatile optionalSpace optionalLDCacheOp
 
 ldu : OPCODE_LDU optionalSpace optionalVectorType dataType lValue TOKEN_COMMA
         ldSource {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -885,7 +885,7 @@ ldu : OPCODE_LDU optionalSpace optionalVectorType dataType lValue TOKEN_COMMA
 
 lg2 : OPCODE_LG2 optionalApprox optionalFTZ floatingDataType
         identifierOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.approximation = approximate;
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -902,7 +902,7 @@ integerDataType : integerDataTypeToken {
 mad : OPCODE_MAD optionalWidth optionalCarryOut optionalSaturating
         integerDataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -912,7 +912,7 @@ mad : OPCODE_MAD optionalWidth optionalCarryOut optionalSaturating
 mad : OPCODE_MAD optionalFRounding optionalSaturating TOKEN_F32
         identifierOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->set_type(TOKEN_F32);
     parser->function->top->instruction.type = parser->get_type();
@@ -923,7 +923,7 @@ mad : OPCODE_MAD optionalFRounding optionalSaturating TOKEN_F32
 mad : OPCODE_MAD fRounding TOKEN_F64 identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->set_type(TOKEN_F64);
     parser->function->top->instruction.type = parser->get_type();
@@ -934,7 +934,7 @@ mad : OPCODE_MAD fRounding TOKEN_F64 identifierOperand TOKEN_COMMA
 mad24 : OPCODE_MAD24 optionalWidth optionalSaturating integerDataType
         identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA
         identifierOperand TOKEN_COMMA identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -943,7 +943,7 @@ mad24 : OPCODE_MAD24 optionalWidth optionalSaturating integerDataType
 madc : OPCODE_MADC optionalWidth optionalCarryOut
         integerDataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -951,7 +951,7 @@ madc : OPCODE_MADC optionalWidth optionalCarryOut
 
 max : OPCODE_MAX optionalFTZ dataType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -959,13 +959,13 @@ max : OPCODE_MAX optionalFTZ dataType identifierOperand TOKEN_COMMA
 
 membarLevelToken : TOKEN_MCTA | TOKEN_MGL | TOKEN_MSYS ;
 membar : OPCODE_MEMBAR membarLevelToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_token($<vsigned>2);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_barrier_scope($<token>2);
 }
 
 min : OPCODE_MIN optionalFTZ dataType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -977,7 +977,7 @@ optionalPackedField : /* */ {
 
 packedFieldToken : TOKEN_X | TOKEN_Y | TOKEN_Z | TOKEN_W ;
 optionalPackedField : packedFieldToken {
-    parser->operand.push_field($<vsigned>1);
+    parser->operand.push_field($<token>1);
 };
 
 operand : TOKEN_IDENTIFIER optionalPackedField {
@@ -1046,7 +1046,7 @@ movSource : addressableOperandBase | indexedOperand {
 };
 
 mov : OPCODE_MOV dataType lValue TOKEN_COMMA movSource {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1055,13 +1055,13 @@ mov : OPCODE_MOV dataType lValue TOKEN_COMMA movSource {
 
 widthToken: TOKEN_HI | TOKEN_LO | TOKEN_WIDE ;
 width : widthToken {
-    parser->function->top->instruction.set_width($<vsigned>1);
+    parser->function->top->instruction.set_width($<token>1);
 };
 optionalWidth : /* */ | width ;
 
 mul : OPCODE_MUL optionalWidth dataType identifierOperand TOKEN_COMMA
         identifierOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1071,7 +1071,7 @@ mul : OPCODE_MUL optionalWidth dataType identifierOperand TOKEN_COMMA
 mul : OPCODE_MUL optionalFRounding optionalFTZ optionalSaturating dataType
         identifierOperand TOKEN_COMMA identifierOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1080,13 +1080,13 @@ mul : OPCODE_MUL optionalFRounding optionalFTZ optionalSaturating dataType
 
 narrowHalfToken : TOKEN_HI | TOKEN_LO ;
 narrowHalf : narrowHalfToken {
-    parser->function->top->instruction.set_width($<vsigned>1);
+    parser->function->top->instruction.set_width($<token>1);
 };
 optionalNarrowHalf : /* */ | narrowHalf ;
 
 mul24 : OPCODE_MUL24 optionalNarrowHalf integerDataType identifierOperand
         TOKEN_COMMA identifierOperand TOKEN_COMMA identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1094,7 +1094,7 @@ mul24 : OPCODE_MUL24 optionalNarrowHalf integerDataType identifierOperand
 
 neg : OPCODE_NEG integerDataType identifierOperand TOKEN_COMMA
         identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1102,14 +1102,14 @@ neg : OPCODE_NEG integerDataType identifierOperand TOKEN_COMMA
 
 neg : OPCODE_NEG optionalFTZ floatingDataType identifierOperand TOKEN_COMMA
         identifierOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 };
 
 not : OPCODE_NOT dataType identifierOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1117,7 +1117,7 @@ not : OPCODE_NOT dataType identifierOperand TOKEN_COMMA immedOrVarOperand {
 
 or : OPCODE_OR dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1129,13 +1129,13 @@ mask : TOKEN_MASK {
 optionalMask : /* */ | mask ;
 
 pmevent : OPCODE_PMEVENT optionalMask immediateDecimal {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 };
 
 popc : OPCODE_POPC dataType identifierOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1143,26 +1143,26 @@ popc : OPCODE_POPC dataType identifierOperand TOKEN_COMMA immedOrVarOperand {
 
 prefetchCacheToken : TOKEN_L1 | TOKEN_L2 ;
 prefetchCacheLevel : prefetchCacheToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_prefetch($<token>1);
 };
 
 prefetchSpaceToken : TOKEN_GLOBAL | TOKEN_LOCAL ;
 prefetchSpace : prefetchSpaceToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_space($<token>1);
 };
 prefetchSpace : /* */ {
     parser->function->top->instruction.space = generic_space;
 }
 
 prefetch : OPCODE_PREFETCH prefetchSpace prefetchCacheLevel ldSource {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 }
 
 prefetchu : OPCODE_PREFETCHU TOKEN_L1 ldSource {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_token($<vsigned>2);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_prefetch($<token>2);
     parser->function->top->instruction.space = generic_space;
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1171,7 +1171,7 @@ prefetchu : OPCODE_PREFETCHU TOKEN_L1 ldSource {
 prmtModeToken: TOKEN_F4E | TOKEN_B4E | TOKEN_RC8 | TOKEN_ECL | TOKEN_ECR |
     TOKEN_RC16 ;
 prmtMode : prmtModeToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_prmt_mode($<token>1);
 };
 prmtMode : /* */ {
     parser->function->top->instruction.prmt_mode = prmt_default;
@@ -1180,7 +1180,7 @@ prmtMode : /* */ {
 prmt : OPCODE_PRMT dataType prmtMode identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1188,7 +1188,7 @@ prmt : OPCODE_PRMT dataType prmtMode identifierOperand TOKEN_COMMA
 
 rcp : OPCODE_RCP TOKEN_APPROX optionalFTZ floatingDataType identifierOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.approximation = approximate;
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1197,7 +1197,7 @@ rcp : OPCODE_RCP TOKEN_APPROX optionalFTZ floatingDataType identifierOperand
 
 rcp : OPCODE_RCP fRounding optionalFTZ floatingDataType identifierOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1205,7 +1205,7 @@ rcp : OPCODE_RCP fRounding optionalFTZ floatingDataType identifierOperand
 
 red : OPCODE_RED atomicSpace atomicOp dataType stDestination TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1213,19 +1213,19 @@ red : OPCODE_RED atomicSpace atomicOp dataType stDestination TOKEN_COMMA
 
 rem : OPCODE_REM integerDataType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
 };
 
 ret : OPCODE_RET optionalUni {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 };
 
 rsqrt : OPCODE_RSQRT optionalApprox optionalFTZ floatingDataType
         identifierOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.approximation = approximate;
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1235,7 +1235,7 @@ rsqrt : OPCODE_RSQRT optionalApprox optionalFTZ floatingDataType
 sad : OPCODE_SAD integerDataType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1243,7 +1243,7 @@ sad : OPCODE_SAD integerDataType identifierOperand TOKEN_COMMA
 
 selp : OPCODE_SELP dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1257,7 +1257,7 @@ set : OPCODE_SET cmpOp optionalBoolOp optionalFTZ dataType dataType
     parser->set_type($<vsigned>6);
     parser->function->top->instruction.type2 = parser->get_type();
 
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->function->top->instruction.has_ppredicate = true;
     parser->function->top->instruction.ppredicate     = $<text>6;
@@ -1272,12 +1272,12 @@ cmpOpToken : TOKEN_EQ | TOKEN_NE | TOKEN_LT | TOKEN_LE | TOKEN_GT | TOKEN_GE |
     TOKEN_LO | TOKEN_LS | TOKEN_HI | TOKEN_HS | TOKEN_EQU | TOKEN_NEU |
     TOKEN_LTU | TOKEN_GTU | TOKEN_GEU | TOKEN_NUM | TOKEN_NAN ;
 cmpOp : cmpOpToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_cmp($<token>1);
 };
 
 boolOpToken : TOKEN_AND | TOKEN_OR | TOKEN_XOR ;
 boolOp : boolOpToken {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_boolop($<token>1);
 }
 optionalBoolOp: /* */ | boolOp ;
 
@@ -1304,7 +1304,7 @@ setpFlags : dataType optionalBoolOp optionalFTZ cmpOp ;
 setp : OPCODE_SETP setpFlags TOKEN_IDENTIFIER optionalQpred TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand optionalCpred {
     parser->function->top->instruction.type = parser->get_type();
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->function->top->instruction.has_ppredicate = true;
     parser->function->top->instruction.ppredicate     = $<text>3;
@@ -1315,7 +1315,7 @@ setp : OPCODE_SETP setpFlags TOKEN_IDENTIFIER optionalQpred TOKEN_COMMA
 
 shl : OPCODE_SHL dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1323,7 +1323,7 @@ shl : OPCODE_SHL dataType identifierOperand TOKEN_COMMA immedOrVarOperand
 
 shr : OPCODE_SHR dataType identifierOperand TOKEN_COMMA immedOrVarOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1333,7 +1333,7 @@ optionalApprox : /* */ | TOKEN_APPROX ;
 
 sin : OPCODE_SIN optionalApprox optionalFTZ TOKEN_F32 identifierOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.approximation = approximate;
 
     parser->set_type(TOKEN_F32);
@@ -1345,7 +1345,7 @@ sin : OPCODE_SIN optionalApprox optionalFTZ TOKEN_F32 identifierOperand
 slct : OPCODE_SLCT optionalFTZ dataType dataType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 
     parser->set_type($<vsigned>3);
     parser->function->top->instruction.type = parser->get_type();
@@ -1358,7 +1358,7 @@ slct : OPCODE_SLCT optionalFTZ dataType dataType identifierOperand TOKEN_COMMA
 
 sqrt : OPCODE_SQRT TOKEN_APPROX optionalFTZ TOKEN_F32 identifierOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.approximation = approximate;
 
     parser->set_type(TOKEN_F32);
@@ -1369,7 +1369,7 @@ sqrt : OPCODE_SQRT TOKEN_APPROX optionalFTZ TOKEN_F32 identifierOperand
 
 sqrt : OPCODE_SQRT fRounding optionalFTZ TOKEN_F32 identifierOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->set_type(TOKEN_F32);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1378,7 +1378,7 @@ sqrt : OPCODE_SQRT fRounding optionalFTZ TOKEN_F32 identifierOperand
 
 sqrt : OPCODE_SQRT fRounding TOKEN_F64 identifierOperand TOKEN_COMMA
         immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->set_type(TOKEN_F64);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1404,7 +1404,7 @@ identifierOperand : TOKEN_IDENTIFIER {
 
 st : OPCODE_ST optionalVolatile optionalSpace optionalSTCacheOp
         optionalVectorType dataType stDestination TOKEN_COMMA lValue {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1415,7 +1415,7 @@ subType : saturating dataType ;
 
 sub : OPCODE_SUB optionalCarryOut subType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1423,7 +1423,7 @@ sub : OPCODE_SUB optionalCarryOut subType identifierOperand TOKEN_COMMA
 
 subc : OPCODE_SUBC optionalCarryOut subType identifierOperand TOKEN_COMMA
         immedOrVarOperand TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
     parser->operands.clear();
@@ -1439,8 +1439,8 @@ testpOpToken : TOKEN_FINITE | TOKEN_INFINITE | TOKEN_NUMBER |
 
 testp : OPCODE_TESTP testpOpToken floatingDataType identifierOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_token($<vsigned>2);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_testp_op($<token>2);
 
     parser->function->top->instruction.type = parser->get_type();
 
@@ -1453,9 +1453,9 @@ texGeomToken : TOKEN_1D | TOKEN_2D | TOKEN_3D | TOKEN_A1D | TOKEN_A2D |
 tex : OPCODE_TEX texGeomToken TOKEN_V4 dataType dataType lValue TOKEN_COMMA
         TOKEN_LBRACKET identifierOperand TOKEN_COMMA optionalIdentifier
         lValue TOKEN_RBRACKET {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_geometry($<vsigned>2);
-    parser->function->top->instruction.set_token($<vsigned>3);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_geometry($<token>2);
+    parser->function->top->instruction.set_vector($<token>3);
 
     parser->set_type($<vsigned>4);
     parser->function->top->instruction.type = parser->get_type();
@@ -1469,7 +1469,7 @@ tex : OPCODE_TEX texGeomToken TOKEN_V4 dataType dataType lValue TOKEN_COMMA
 tld4 : ;
 
 trap : OPCODE_TRAP {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
 };
 
 tquery : TOKEN_WIDTH | TOKEN_HEIGHT | TOKEN_DEPTH | TOKEN_CDATATYPE |
@@ -1479,8 +1479,8 @@ squery : TOKEN_FUNNORM | TOKEN_FILTERMODE | TOKEN_ADDRMODE0 | TOKEN_ADDRMODE1 |
 query : tquery | squery ;
 txq : OPCODE_TXQ query dataType identifierOperand TOKEN_COMMA TOKEN_LBRACKET
         identifierOperand TOKEN_RBRACKET {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_query($<vsigned>2);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_query($<token>2);
 
     parser->set_type($<vsigned>3);
     parser->function->top->instruction.type = parser->get_type();
@@ -1498,8 +1498,8 @@ vmin : ;
 voteModeToken : TOKEN_ALL | TOKEN_ANY | TOKEN_UNI ;
 vote : OPCODE_VOTE voteModeToken TOKEN_PRED identifierOperand TOKEN_COMMA
         optionalNegatedOperand immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_token($<vsigned>2);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_vote($<token>2);
     parser->set_type($<vsigned>3);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1508,8 +1508,8 @@ vote : OPCODE_VOTE voteModeToken TOKEN_PRED identifierOperand TOKEN_COMMA
 
 vote : OPCODE_VOTE TOKEN_BALLOT TOKEN_B32 identifierOperand TOKEN_COMMA
         optionalNegatedOperand immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
-    parser->function->top->instruction.set_token($<vsigned>2);
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_vote($<token>2);
     parser->set_type($<vsigned>3);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
@@ -1524,7 +1524,7 @@ vsub : ;
 xorType : TOKEN_PRED | TOKEN_B16 | TOKEN_B32 | TOKEN_B64 ;
 xor : OPCODE_XOR xorType identifierOperand TOKEN_COMMA identifierOperand
         TOKEN_COMMA immedOrVarOperand {
-    parser->function->top->instruction.set_token($<vsigned>1);
+    parser->function->top->instruction.set_op($<token>1);
     parser->set_type($<vsigned>2);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
