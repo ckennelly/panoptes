@@ -1,0 +1,3 @@
+libk_atomic_kernels.a
+vtest_k_atomic_global
+vtest_k_atomic_shared

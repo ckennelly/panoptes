@@ -19,13 +19,13 @@ information see COPYING.
 Building
 ========
 
-The Panoptes interposer depends on Boost, CUDA, Make, and Valgrind (for its
+The Panoptes interposer depends on Boost, CUDA, cmake, and Valgrind (for its
 hooks).  The testsuite shares the same dependencies as well as Google's
 googletest framework (http://code.google.com/p/googletest/).
 
-Once the appropriate include paths are specified in the Makefile, run 'make'
-from the source directory to build the interposer and run the test suite.  (A
-working CUDA-compatible GPU is required for the tests to work.)
+CMake should locate the appropriate packages to generate the Makefiles
+necessary to build Panoptes.  A working CUDA-compatible GPU is required for the
+tests to work.
 
 Using Panoptes
 ==============

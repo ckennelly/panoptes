@@ -1,12 +1,3 @@
-*.d
-*.gcda
-*.gcno
-*.o
-*.so
-.*.swp
-*.lex.hh
-*.lex.cc
-*.tab.cc
-*.tab.hh
-coverage
-coverage.info
+CMakeFiles
+cmake_install.cmake
+Makefile
