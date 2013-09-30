@@ -18,6 +18,8 @@
 
 #include <__cudaFatFormat.h>
 #include <boost/lexical_cast.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/thread/once.hpp>
 #include <boost/thread/locks.hpp>
 #include "callout.h"
 #include "compress.h"
@@ -43,12 +45,28 @@ using internal::free_handle;
 
 typedef boost::unique_lock<boost::mutex> scoped_lock;
 
-/**
- * TODO:  Make this selectable.
- */
-static global_context_memcheck instance_;
+static boost::scoped_ptr<global_context> instance_;
+static boost::once_flag instance_once;
+static void instance_setup() {
+    const char *c_env = getenv("PANOPTES_TOOL");
+    if (c_env == NULL) {
+        c_env = "MEMCHECK";
+    }
+
+    const std::string env(c_env);
+    if (env == "MEMCHECK") {
+        instance_.reset(new global_context_memcheck());
+    } else {
+        char msg[256];
+        snprintf(msg, sizeof(msg), "Unknown tool '%s'.\n", env.c_str());
+        logger::instance().print(msg);
+        exit(1);
+    }
+}
+
 global_context & global_context::instance() {
-    return instance_;
+    boost::call_once(instance_setup, instance_once);
+    return *instance_;
 }
 
 /**
