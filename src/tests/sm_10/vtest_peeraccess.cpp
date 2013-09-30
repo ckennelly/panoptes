@@ -186,10 +186,12 @@ TEST(PeerAccess, EnableDisable) {
             if (peer) {
                 expected = cudaSuccess;
                 peers.push_back(peer_t(i, j));
-            } else if (version < 5000 /* 5.0 */) {
-                expected = cudaErrorInvalidDevice;
-            } else {
+            #if CUDA_VERSION >= 5000
+            } else if (version >= 5000 /* 5.0 */) {
                 expected = cudaErrorPeerAccessUnsupported;
+            #endif
+            } else {
+                expected = cudaErrorInvalidDevice;
             }
 
             ret = cudaDeviceEnablePeerAccess(j, 0);
