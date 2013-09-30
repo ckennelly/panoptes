@@ -24,7 +24,11 @@
 #include "context.h"
 #include "context_internal.h"
 #include <cuda.h>
+
+#if CUDA_VERSION >= 5000
 #include <fatbinary.h>
+#endif
+
 #include "fat_binary.h"
 #include "global_context.h"
 #include "global_context_memcheck.h"
@@ -346,6 +350,7 @@ void** global_context::cudaRegisterFatBinary(void *fatCubin) {
 
         const char *data =
             reinterpret_cast<const char *>(entry) + entry->binary;
+        #if CUDA_VERSION >= 5000
         if (entry->flags & FATBIN_FLAG_COMPRESS) {
             ptx.resize(entry->uncompressedSize);
 
@@ -359,8 +364,11 @@ void** global_context::cudaRegisterFatBinary(void *fatCubin) {
                 exit(1);
             }
         } else {
+        #endif
             ptx = data;
+        #if CUDA_VERSION >= 5000
         }
+        #endif
     } else {
         char msg[128];
         int msgret = snprintf(msg, sizeof(msg),
