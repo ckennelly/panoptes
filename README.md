@@ -74,3 +74,28 @@ currently include:
   * Video instructions: The video instructions (vadd, vsub, vabsdiff, vmin,
                         vmax, vshl, vshr, vmad, vset) are currently not
                         instrumented.
+
+Future Work
+===========
+
+With the `--tool` flag, Panoptes provides support for alternate instrumentation
+modes.
+
+* `hostgpu`: This instrumentation mode translates CUDA to parallel host code
+  on-the-fly.  By using vectorized SSE/AVX instructions where possible,
+  transformed code is able to maximize the computational throughput available
+  from the host processor. This approach allows for a write-once, run-anywhere
+  approach to parallel software development, exploiting the hardware resources
+  available.
+
+  These extensions add a series of passes during the processing of PTX code
+  during the instrumentation process. Following basic block extraction, we
+  identify opportunities to use native host vector instructions to provide 4-
+  or 8-wide SIMD operations simultaneously. Where possible, code is scheduled
+  to minimize register spills, executing the most instructions possible for a
+  pseudowarp of 4 or 8 threads before performing a lightweight context switch
+  to another pseudowarp. Combining host-based threads with vectorized
+  instructions allows efficient use of host processors for parallel programs.
+
+* These instrumentation capabilities can be extended to data race detection,
+  coverage analysis, and instruction-level performance measurements.
