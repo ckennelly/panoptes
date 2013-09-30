@@ -35,9 +35,14 @@ TEST(EventRecord, RecordAfterDestroy) {
     ret = cudaStreamCreate(&stream);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDART_VERSION >= 5000
+    ret = cudaEventRecord(event);
+    EXPECT_EQ(cudaErrorUnknown, ret);
+    #else
     EXPECT_EXIT(
         cudaEventRecord(event, stream),
         ::testing::KilledBySignal(SIGSEGV), "");
+    #endif
 
     ret = cudaStreamDestroy(stream);
     EXPECT_EQ(cudaSuccess, ret);

@@ -1243,7 +1243,7 @@ cudaError_t cuda_context_memcheck::cudaEventRecord(cudaEvent_t event,
     event_map_t::iterator eit = events_.find(ehandle);
     if (eit == events_.end()) {
         /**
-         * CUDA segfaults here.
+         * CUDA segfaults here (prior to CUDA 5).
          */
         char msg[128];
         int ret = snprintf(msg, sizeof(msg),
@@ -1252,8 +1252,10 @@ cudaError_t cuda_context_memcheck::cudaEventRecord(cudaEvent_t event,
         assert(ret < (int) sizeof(msg) - 1);
         logger::instance().print(msg);
 
-        raise(SIGSEGV);
-        return cudaErrorInvalidValue;
+        if (runtime_version_ < 5000 /* 5.0 */) {
+            raise(SIGSEGV);
+        }
+        return cudaErrorUnknown;
     }
 
     return eit->second->record(sit->second);
