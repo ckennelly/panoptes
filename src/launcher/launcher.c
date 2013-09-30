@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 const char *argp_program_version = "panoptes";
@@ -34,6 +36,15 @@ struct {
 const size_t n_tools = sizeof(tools) / sizeof(tools[0]);
 
 struct parse {
+    /*
+     * When libpanoptes.so is not in the library search path (particularly when
+     * building Panoptes and running its tests), we want to support injection
+     * of the library from the CMake test harness into the launcher.  This
+     * option is hidden from users.
+     */
+    const char *library_path;
+    struct stat library_stat;
+
     size_t tool;
 };
 
@@ -59,6 +70,24 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
 
             argp_error(state, "No tool specified.");
+        case 2:
+            /* Library path. */
+            if (arg) {
+                /*
+                 * Stat the argument to verify that it is a file or directory,
+                 * caching the result.
+                 */
+                int ret = stat(arg, &p->library_stat);
+                if (ret < 0) {
+                    argp_error(state, "Unable to stat '%s'.", arg);
+                } else if (!(p->library_stat.st_mode & (S_IFREG | S_IFDIR))) {
+                    argp_error(state, "'%s' is not a file or directory.", arg);
+                }
+
+                p->library_path = arg;
+            }
+
+            break;
         default:
             return ARGP_ERR_UNKNOWN;
     }
@@ -73,12 +102,14 @@ int main(int argc, char **argv) {
 
     const char tool_doc[] = "Use <name> translator [default: memcheck].";
     const struct argp_option options[] = {
-        {"tool", 1, "<name>", 0, tool_doc, 0},
-        {0,      0, 0,        0, 0,        0}};
+        {"tool",    1, "<name>", 0,             tool_doc, 0},
+        {"library", 2, "<lib>",  OPTION_HIDDEN, 0,        0},
+        {0,         0, 0,        0,             0,        0}};
     const char args_doc[] = "[options] program [program options]";
 
     struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
     struct parse p;
+    p.library_path = NULL;
     p.tool = 0;
 
     int last = 0;
@@ -125,10 +156,41 @@ int main(int argc, char **argv) {
     i++;
 
     /*
-     * Preload string.  TODO:  In the future, if we expect libpanoptes.so to be
-     * outside of the LD_LIBRARY_PATH, we may want to fill in a full path here.
+     * Preload string.  We estimate the needed size loosely.
      */
-    char preload_string[] = "LD_PRELOAD=libpanoptes.so";
+    const char libpanoptes[] = "libpanoptes.so";
+    char *preload_string;
+    size_t preload_strlen = sizeof(libpanoptes) + sizeof(preload_env);
+    if (p.library_path) {
+        preload_strlen += strlen(p.library_path);
+    }
+    preload_string = malloc(preload_strlen);
+
+    int ret = 0;
+    if (!(preload_string)) {
+        fprintf(stderr, "Unable to allocate memory.\n");
+        ret = 1;
+        goto end;
+    }
+
+    if (p.library_path && (p.library_stat.st_mode & S_IFDIR)) {
+        /*
+         * The null terminator from both libpanotes and preload environment
+         * gives us an extra character for the /.
+         */
+        snprintf(preload_string, preload_strlen, "%s%s/%s", preload_env,
+            p.library_path, libpanoptes);
+    } else if (p.library_path && (p.library_stat.st_mode & S_IFREG)) {
+        snprintf(preload_string, preload_strlen, "%s%s", preload_env,
+            p.library_path);
+    } else if (p.library_path) {
+        fprintf(stderr, "Specified library path is not a file or directory.\n");
+        ret = 1;
+        goto free_preload;
+    } else {
+        snprintf(preload_string, preload_strlen, "%s%s", preload_env,
+            libpanoptes);
+    }
 
     /* Format a string for the tool. */
     char tool_string[256];
@@ -139,7 +201,8 @@ int main(int argc, char **argv) {
     char **new_env = malloc(sizeof(*new_env) * i);
     if (!(new_env)) {
         fprintf(stderr, "Unable to allocate memory.  Aborting.\n");
-        return 1;
+        ret = 1;
+        goto free_preload;
     }
 
     for (i = 0; environ[i]; i++) {
@@ -166,8 +229,11 @@ int main(int argc, char **argv) {
     /* 5. Null terminate. */
     new_env[i] = NULL;
 
+    ret = execvpe(file, argv + last, new_env);
     /* We shouldn't return, but if we do, clean up. */
-    int ret = execvpe(file, argv + last, new_env);
     free(new_env);
+    free_preload:
+    free(preload_string);
+    end:
     return ret;
 }
