@@ -1,5 +1,5 @@
 Panoptes - A Binary Translation Framework for CUDA
-(c) 2012 - Chris Kennelly (chris@ckennelly.com)
+(c) 2012-2013 - Chris Kennelly (chris@ckennelly.com)
 
 Overview
 ========
@@ -33,7 +33,9 @@ Using Panoptes
 To run a CUDA program under Panoptes (for demonstration purposes, named
 "`my_cuda_program`"):
 
-    LD_PRELOAD="$(PATH_TO_PANOPTES)/libpanoptes.so" ./my_cuda_program
+    panoptes ./my_cuda_program
+
+libpanoptes.so needs to be in the ordinary library search path (`LD_LIBRARY_PATH`).
 
 Limitations
 ===========
