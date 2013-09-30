@@ -35,11 +35,15 @@ TEST(BindTexture, Simple) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION >= 5000
     if (version < 5000 /* 5.0 */) {
+    #endif
         ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
     } else {
         ret = cudaGetTextureReference(&texref, &tex_src);
     }
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 
     struct cudaChannelFormatDesc desc;
@@ -97,11 +101,15 @@ TEST(BindTexture, Adjacent) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION >= 5000
     if (version < 5000 /* 5.0 */) {
+    #endif
         ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
     } else {
         ret = cudaGetTextureReference(&texref, &tex_src);
     }
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 
     struct cudaChannelFormatDesc desc;
@@ -134,11 +142,15 @@ TEST(BindTexture, DoubleBind) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION >= 5000
     if (version < 5000 /* 5.0 */) {
+    #endif
         ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
     } else {
         ret = cudaGetTextureReference(&texref, &tex_src);
     }
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 
     struct cudaChannelFormatDesc desc;
@@ -172,11 +184,15 @@ TEST(BindTexture, FreeBeforeUnbind) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION >= 5000
     if (version < 5000 /* 5.0 */) {
+    #endif
         ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
     } else {
         ret = cudaGetTextureReference(&texref, &tex_src);
     }
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 
     struct cudaChannelFormatDesc desc;
@@ -206,11 +222,15 @@ TEST(BindTexture, Overrun) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION >= 5000
     if (version < 5000 /* 5.0 */) {
+    #endif
         ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
     } else {
         ret = cudaGetTextureReference(&texref, &tex_src);
     }
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 
     struct cudaChannelFormatDesc desc;
@@ -240,11 +260,15 @@ TEST(BindTexture, NullArguments) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION >= 5000
     if (version < 5000 /* 5.0 */) {
+    #endif
         ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
     } else {
         ret = cudaGetTextureReference(&texref, &tex_src);
     }
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 
     struct cudaChannelFormatDesc desc;
@@ -289,11 +313,15 @@ TEST(BindTexture, Offsets) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION >= 5000
     if (version < 5000 /* 5.0 */) {
+    #endif
         ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
     } else {
         ret = cudaGetTextureReference(&texref, &tex_src);
     }
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 
     struct cudaChannelFormatDesc desc;

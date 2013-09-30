@@ -37,11 +37,15 @@ TEST(BindTexture, NullArguments) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION >= 5000
     if (version < 5000 /* 5.0 */) {
+    #endif
         ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
     } else {
         ret = cudaGetTextureReference(&texref, &tex_src);
     }
+    #endif
     ASSERT_EQ(cudaSuccess, ret);
 
     EXPECT_EXIT(

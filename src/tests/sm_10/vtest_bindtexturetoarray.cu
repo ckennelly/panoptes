@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 texture<int32_t, 1, cudaReadModeElementType> tex_src;
+const char * ctex_src = "tex_src";
 
 TEST(BindTextureToArray, Simple) {
     cudaError_t ret;
@@ -41,12 +42,16 @@ TEST(BindTextureToArray, Simple) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION < 5000
+    const char * ptr = ctex_src;
+    #else
     const void * ptr;
     if (version < 5000 /* 5.0 */) {
-        ptr = "tex_src";
+        ptr = ctex_src;
     } else {
         ptr = &tex_src;
     }
+    #endif
     ret = cudaGetTextureReference(&texref, ptr);
     ASSERT_EQ(cudaSuccess, ret);
 
@@ -79,12 +84,16 @@ TEST(BindTextureToArray, FreeBeforeUnbind) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION < 5000
+    const char * ptr = ctex_src;
+    #else
     const void * ptr;
     if (version < 5000 /* 5.0 */) {
-        ptr = "tex_src";
+        ptr = ctex_src;
     } else {
         ptr = &tex_src;
     }
+    #endif
     ret = cudaGetTextureReference(&texref, ptr);
     ASSERT_EQ(cudaSuccess, ret);
 
@@ -117,12 +126,16 @@ TEST(BindTextureToArray, NullArguments) {
     ret = cudaRuntimeGetVersion(&version);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDA_VERSION < 5000
+    const char * ptr = ctex_src;
+    #else
     const void * ptr;
     if (version < 5000 /* 5.0 */) {
-        ptr = "tex_src";
+        ptr = ctex_src;
     } else {
         ptr = &tex_src;
     }
+    #endif
     ret = cudaGetTextureReference(&texref, ptr);
     ASSERT_EQ(cudaSuccess, ret);
 
