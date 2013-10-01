@@ -23,9 +23,9 @@
 #include <boost/thread/tss.hpp>
 #include <boost/unordered_map.hpp>
 #include <cuda.h>
-#include "host_gpu_vector.h"
-#include "gpu_pool.h"
-#include "metadata.h"
+#include <panoptes/host_gpu_vector.h>
+#include <panoptes/gpu_pool.h>
+#include <panoptes/metadata.h>
 #include <stack>
 
 namespace panoptes {

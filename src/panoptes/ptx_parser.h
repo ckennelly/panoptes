@@ -21,7 +21,7 @@
 
 #include <string>
 #include <vector>
-#include "ptx_ir.h"
+#include <panoptes/ptx_ir.h>
 
 namespace panoptes {
 

@@ -19,7 +19,7 @@
 #ifndef __PANOPTES__GPU_VECTOR_H_
 #define __PANOPTES__GPU_VECTOR_H_
 
-#include "callout.h"
+#include <panoptes/callout.h>
 #include <new>
 
 namespace panoptes {

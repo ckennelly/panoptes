@@ -23,9 +23,9 @@
 #undef yyFlexLexer
 #define yyFlexLexer ptxFlexLexer
 #include <FlexLexer.h>
-#include "ptx_lexer.h"
-#include "ptx_parser.h"
-#include "ptx_parser_state.h"
+#include <panoptes/ptx_lexer.h>
+#include <panoptes/ptx_parser.h>
+#include <panoptes/ptx_parser_state.h>
 
 using namespace std;
 using namespace panoptes;

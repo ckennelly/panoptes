@@ -20,7 +20,7 @@
 #define __PANOPTES__HOST_GPU_VECTOR_H_
 
 #include <cassert>
-#include "gpu_vector.h"
+#include <panoptes/gpu_vector.h>
 #include <vector>
 
 namespace panoptes {

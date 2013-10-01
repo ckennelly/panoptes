@@ -16,11 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "backtrace.h"
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
-#include "logger.h"
+#include <panoptes/backtrace.h>
+#include <panoptes/logger.h>
 #include <string.h>
 #include <syscall.h>
 #include <unistd.h>

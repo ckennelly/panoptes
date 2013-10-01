@@ -16,13 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "callout.h"
 #include <cassert>
 #include <cstdio>
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
 #include <dlfcn.h>
+#include <panoptes/callout.h>
 
 using namespace panoptes;
 

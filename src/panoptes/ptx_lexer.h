@@ -20,7 +20,7 @@
 #define __PANOPTES__PTX_LEXER_H__
 
 #include <stdint.h>
-#include "ptx_ir.h"
+#include <panoptes/ptx_ir.h>
 
 /* Forward declaration */
 union YYSTYPE;

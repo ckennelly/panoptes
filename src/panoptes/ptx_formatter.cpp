@@ -18,7 +18,7 @@
 
 #include <cassert>
 #include <iomanip>
-#include "ptx_formatter.h"
+#include <panoptes/ptx_formatter.h>
 
 using namespace std;
 using namespace panoptes;

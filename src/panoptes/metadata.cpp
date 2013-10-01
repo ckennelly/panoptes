@@ -1,4 +1,4 @@
-#include "metadata.h"
+#include <panoptes/metadata.h>
 
 using namespace panoptes;
 

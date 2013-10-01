@@ -20,7 +20,7 @@
 #define __PANOPTES__PTX_IR_H__
 
 #include <boost/utility.hpp>
-#include "ptx_grammar.h"
+#include <panoptes/ptx_grammar.h>
 #include <list>
 #include <string>
 #include <vector>

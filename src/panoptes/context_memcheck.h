@@ -22,11 +22,11 @@
 #include <boost/icl/interval_set.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_set.hpp>
-#include "context.h"
-#include "global_context.h"
-#include "global_memcheck_state.h"
-#include "gpu_stack.h"
-#include "ptx_ir.h"
+#include <panoptes/context.h>
+#include <panoptes/global_context.h>
+#include <panoptes/global_memcheck_state.h>
+#include <panoptes/gpu_stack.h>
+#include <panoptes/ptx_ir.h>
 
 namespace panoptes {
 

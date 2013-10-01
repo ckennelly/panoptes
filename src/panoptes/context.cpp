@@ -20,16 +20,16 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/utility.hpp>
-#include "context.h"
-#include "context_internal.h"
 #include <cstdio>
 #include <cstring>
 #include <cuda.h>
-#include "global_context.h"
-#include "logger.h"
+#include <panoptes/context.h>
+#include <panoptes/context_internal.h>
+#include <panoptes/global_context.h>
+#include <panoptes/logger.h>
+#include <panoptes/utilities.h>
 #include <signal.h>
 #include <sstream>
-#include "utilities.h"
 #include <valgrind/memcheck.h>
 
 using namespace panoptes;

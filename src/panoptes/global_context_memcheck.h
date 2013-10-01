@@ -19,9 +19,9 @@
 #ifndef __PANOPTES__GLOBAL_CONTEXT_MEMCHECK_H__
 #define __PANOPTES__GLOBAL_CONTEXT_MEMCHECK_H__
 
-#include "global_context.h"
-#include "global_memcheck_state.h"
-#include "ptx_ir.h"
+#include <panoptes/global_context.h>
+#include <panoptes/global_memcheck_state.h>
+#include <panoptes/ptx_ir.h>
 
 namespace panoptes {
 

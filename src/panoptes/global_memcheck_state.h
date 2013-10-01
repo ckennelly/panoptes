@@ -21,9 +21,9 @@
 
 #include <boost/thread/mutex.hpp>
 #include <boost/unordered_map.hpp>
-#include "host_gpu_vector.h"
 #include <map>
-#include "metadata.h"
+#include <panoptes/host_gpu_vector.h>
+#include <panoptes/metadata.h>
 #include <set>
 
 namespace panoptes {

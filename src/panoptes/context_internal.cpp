@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "context_internal.h"
+#include <panoptes/context_internal.h>
 #include <valgrind/memcheck.h>
 
 namespace panoptes {

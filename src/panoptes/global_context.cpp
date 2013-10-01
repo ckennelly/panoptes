@@ -21,22 +21,22 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/thread/once.hpp>
 #include <boost/thread/locks.hpp>
-#include "callout.h"
-#include "compress.h"
-#include "context.h"
-#include "context_internal.h"
 #include <cuda.h>
 
 #if CUDA_VERSION >= 5000
 #include <fatbinary.h>
 #endif
 
-#include "fat_binary.h"
-#include "global_context.h"
-#include "global_context_memcheck.h"
-#include "logger.h"
-#include "ptx_formatter.h"
-#include "ptx_parser.h"
+#include <panoptes/callout.h>
+#include <panoptes/compress.h>
+#include <panoptes/context.h>
+#include <panoptes/context_internal.h>
+#include <panoptes/fat_binary.h>
+#include <panoptes/global_context.h>
+#include <panoptes/global_context_memcheck.h>
+#include <panoptes/logger.h>
+#include <panoptes/ptx_formatter.h>
+#include <panoptes/ptx_parser.h>
 #include <signal.h>
 
 using namespace panoptes;

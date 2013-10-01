@@ -16,21 +16,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "backtrace.h"
 #include <boost/scoped_array.hpp>
 #include <cstdio>
-#include "context_internal.h"
-#include "context_memcheck_internal.h"
-#include "context_memcheck.h"
 #include <cxxabi.h>
-#include "global_context_memcheck.h"
 #include <list>
-#include "logger.h"
-#include "ptx_formatter.h"
+#include <panoptes/backtrace.h>
+#include <panoptes/context_internal.h>
+#include <panoptes/context_memcheck_internal.h>
+#include <panoptes/context_memcheck.h>
+#include <panoptes/global_context_memcheck.h>
+#include <panoptes/logger.h>
+#include <panoptes/ptx_formatter.h>
+#include <panoptes/utilities.h>
 #include <signal.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include "utilities.h"
 #include <valgrind/memcheck.h>
 
 using namespace panoptes;

@@ -19,7 +19,7 @@
 #ifndef __PANOPTES__GPU_STACK_H_
 #define __PANOPTES__GPU_STACK_H_
 
-#include "callout.h"
+#include <panoptes/callout.h>
 #include <stack>
 
 namespace panoptes {

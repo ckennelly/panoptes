@@ -21,9 +21,9 @@
 
 #include <boost/utility.hpp>
 #include <cassert>
-#include "host_gpu_vector.h"
 #include <limits>
 #include <map>
+#include <panoptes/host_gpu_vector.h>
 #include <set>
 #include <valgrind/valgrind.h>
 

@@ -16,17 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "backtrace.h"
-#include "callout.h"
 #include <cassert>
-#include "context.h"
 #include <cstdio>
 #include <cstring>
 #include <cuda_runtime_api.h>
 #include <crt/host_runtime.h>
-#include "global_context.h"
-#include "interposer.h"
 #include <map>
+#include <panoptes/backtrace.h>
+#include <panoptes/callout.h>
+#include <panoptes/context.h>
+#include <panoptes/global_context.h>
+#include <panoptes/interposer.h>
 #include <panoptes/panoptes.h>
 #include <valgrind/memcheck.h>
 

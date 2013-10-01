@@ -20,7 +20,7 @@
 #define __PANOPTES__PTX_FORMATTER_H_
 
 #include <ostream>
-#include "ptx_ir.h"
+#include <panoptes/ptx_ir.h>
 
 std::ostream & operator<<(std::ostream &, const panoptes::approximation_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::atom_op_t &);

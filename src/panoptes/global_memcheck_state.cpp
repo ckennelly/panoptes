@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "global_memcheck_state.h"
+#include <panoptes/global_memcheck_state.h>
 
 using namespace panoptes;
 

@@ -17,12 +17,12 @@
  */
 
 #include <boost/integer/static_log2.hpp>
-#include "context_memcheck.h"
-#include "context_memcheck_internal.h"
 #include <cstdio>
-#include "global_context_memcheck.h"
-#include "logger.h"
-#include "ptx_formatter.h"
+#include <panoptes/context_memcheck.h>
+#include <panoptes/context_memcheck_internal.h>
+#include <panoptes/global_context_memcheck.h>
+#include <panoptes/logger.h>
+#include <panoptes/ptx_formatter.h>
 
 using namespace panoptes;
 

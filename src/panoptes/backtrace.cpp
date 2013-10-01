@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "backtrace.h"
 #include <boost/thread.hpp>
 #include <cassert>
 #include <cxxabi.h>
@@ -24,6 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <execinfo.h>
+#include <panoptes/backtrace.h>
 #include <syscall.h>
 #include <unistd.h>
 #include <valgrind/memcheck.h>

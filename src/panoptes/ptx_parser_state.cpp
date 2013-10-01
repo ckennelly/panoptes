@@ -18,8 +18,8 @@
 
 #include <cassert>
 #include <climits>
-#include "ptx_grammar.h"
-#include "ptx_parser_state.h"
+#include <panoptes/ptx_grammar.h>
+#include <panoptes/ptx_parser_state.h>
 #include <stdint.h>
 #include <string>
 

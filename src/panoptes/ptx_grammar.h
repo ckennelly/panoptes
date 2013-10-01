@@ -26,7 +26,7 @@ namespace panoptes {
     class ptx_lexer;
     class ptx_parser_state;
 
-    #include "ptx_grammar.tab.hh"
+    #include <panoptes/ptx_grammar.tab.hh>
 }
 
 #endif // __PANOPTES__PTX_GRAMMAR_H__
