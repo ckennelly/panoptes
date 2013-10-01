@@ -1,4 +1,5 @@
 test_bindtexture
+test_bindtexture2d
 test_bindtexturetoarray
 test_eventdestroy
 test_eventelapsedtime
@@ -20,6 +21,7 @@ test_streamquery
 test_streamsynchronize
 test_streamwaitevent
 vtest_bindtexture
+vtest_bindtexture2d
 vtest_bindtexturetoarray
 vtest_deallocate
 vtest_devicecacheconfig

@@ -29,6 +29,7 @@
 #include "logger.h"
 #include <signal.h>
 #include <sstream>
+#include "utilities.h"
 #include <valgrind/memcheck.h>
 
 using namespace panoptes;
@@ -434,8 +435,121 @@ cudaError_t cuda_context::cudaBindTexture2D(size_t *offset, const struct
         textureReference *texref, const void *devPtr, const struct
         cudaChannelFormatDesc *desc, size_t width, size_t height, size_t
         pitch) {
-    return callout::cudaBindTexture2D(offset, texref, devPtr, desc, width,
-        height, pitch);
+    scoped_lock lock(mx_);
+
+    CUarray_format format;
+
+    unsigned int flags = 0;
+    switch (desc->f) {
+        case cudaChannelFormatKindSigned:
+            flags = CU_TRSF_READ_AS_INTEGER;
+            format = CU_AD_FORMAT_SIGNED_INT32;
+            break;
+        case cudaChannelFormatKindUnsigned:
+            flags = CU_TRSF_READ_AS_INTEGER;
+            format = CU_AD_FORMAT_UNSIGNED_INT32;
+            break;
+        case cudaChannelFormatKindFloat:
+            format = CU_AD_FORMAT_FLOAT;
+            break;
+        case cudaChannelFormatKindNone:
+            return cudaErrorInvalidValue;
+    }
+
+    typedef internal::modules_t::texture_map_t tm_t;
+    tm_t::const_iterator it = modules_->textures.find(texref);
+    if (it == modules_->textures.end()) {
+        return cudaErrorInvalidTexture;
+    }
+
+    internal::module_t::texture_map_t::const_iterator jit =
+        it->second->textures.find(texref);
+    if (jit == it->second->textures.end()) {
+        return cudaErrorInvalidTexture;
+    }
+
+    if (!(devPtr)) {
+        return cudaErrorUnknown;
+    }
+
+    CUDA_ARRAY_DESCRIPTOR driver_desc;
+    driver_desc.Width       = width;
+    driver_desc.Height      = height;
+    driver_desc.Format      = format;
+    driver_desc.NumChannels = (desc->x + desc->y + desc->z + desc->w + 31) / 32;
+
+    /* Compute necessary offset for alignment. */
+    load_device_info();
+    size_t internal_offset =
+        reinterpret_cast<uintptr_t>(devPtr) % info_.textureAlignment;
+    size_t adjust = internal_offset;
+    if (adjust > 0) {
+        adjust = info_.textureAlignment - adjust;
+    }
+
+    const void *adjusted_ptr = reinterpret_cast<const void *>(
+        reinterpret_cast<uintptr_t>(devPtr) + adjust);
+    if (internal_offset != 0 && !(offset)) {
+        return cudaErrorInvalidValue;
+    } else if (offset) {
+        *offset = internal_offset;
+    }
+
+    CUresult ret = cuTexRefSetAddress2D(jit->second->texref, &driver_desc,
+        (CUdeviceptr) adjusted_ptr, pitch);
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
+    }
+
+    flags |= (texref->normalized ? CU_TRSF_NORMALIZED_COORDINATES : 0);
+    ret = cuTexRefSetFlags(jit->second->texref, flags);
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
+    }
+
+    for (int dim = 0; dim < 2; dim++) {
+        CUaddress_mode mode;
+        switch (texref->addressMode[dim]) {
+            case cudaAddressModeWrap:
+                mode = CU_TR_ADDRESS_MODE_WRAP;
+                break;
+            case cudaAddressModeClamp:
+                mode = CU_TR_ADDRESS_MODE_CLAMP;
+                break;
+            case cudaAddressModeMirror:
+                mode = CU_TR_ADDRESS_MODE_MIRROR;
+                break;
+            case cudaAddressModeBorder:
+                mode = CU_TR_ADDRESS_MODE_BORDER;
+                break;
+            default:
+                return cudaErrorInvalidValue;
+        }
+
+        ret = cuTexRefSetAddressMode(jit->second->texref, dim, mode);
+        if (ret != CUDA_SUCCESS) {
+            return cuToCUDA(ret);
+        }
+    }
+
+    CUfilter_mode filter_mode;
+    switch (texref->filterMode) {
+        case cudaFilterModePoint:
+            filter_mode = CU_TR_FILTER_MODE_POINT;
+            break;
+        case cudaFilterModeLinear:
+            filter_mode = CU_TR_FILTER_MODE_LINEAR;
+            break;
+    }
+
+    ret = cuTexRefSetFilterMode(jit->second->texref, filter_mode);
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
+    }
+
+    jit->second->bound  = true;
+    jit->second->offset = internal_offset;
+    return cudaSuccess;
 }
 
 cudaError_t cuda_context::cudaBindTextureToArray(

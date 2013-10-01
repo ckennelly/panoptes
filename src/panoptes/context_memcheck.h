@@ -65,11 +65,11 @@ public:
         const struct cudaChannelFormatDesc *desc); */
     virtual cudaError_t cudaBindTexture(size_t *offset,
         const struct textureReference *texref, const void *devPtr,
-        const struct cudaChannelFormatDesc *desc, size_t size); /*
+        const struct cudaChannelFormatDesc *desc, size_t size);
     virtual cudaError_t cudaBindTexture2D(size_t *offset, const struct
         textureReference *texref, const void *devPtr,
         const struct cudaChannelFormatDesc *desc, size_t width, size_t height,
-        size_t pitch); */
+        size_t pitch);
     virtual cudaError_t cudaBindTextureToArray(
         const struct textureReference *texref, const struct cudaArray *array,
         const struct cudaChannelFormatDesc *desc);
@@ -299,6 +299,11 @@ protected:
     void initialize_achunk(apool_t::handle_t * handle) const;
     void initialize_vchunk(vpool_t::handle_t * handle) const;
 
+    /* Backend for computing validity textures details. */
+    cudaError_t get_validity_texture(const struct textureReference *texref,
+        const void *devPtr, size_t size, internal::texture_t **tex,
+        const void **validity_ptr);
+
     /**
      * Cleans up the previously bound texture.
      */
@@ -310,6 +315,10 @@ protected:
         const struct textureReference * texref,
         const struct cudaChannelFormatDesc *desc,
         const void * validity_ptr, size_t size);
+    cudaError_t bind_validity_texref2d(internal::texture_t * texture,
+        const struct textureReference * texref,
+        const struct cudaChannelFormatDesc *desc,
+        const void * validity_ptr, size_t pitch, size_t height);
 
     global_context_memcheck * global();
     const global_context_memcheck * global() const;

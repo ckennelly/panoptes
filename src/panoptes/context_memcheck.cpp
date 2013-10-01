@@ -30,6 +30,7 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include "utilities.h"
 #include <valgrind/memcheck.h>
 
 using namespace panoptes;
@@ -3856,6 +3857,80 @@ void cuda_context_memcheck::bind_validity_texref(internal::texture_t * texture,
     }
 }
 
+cudaError_t cuda_context_memcheck::bind_validity_texref2d(
+        internal::texture_t * texture, const struct textureReference * texref,
+        const struct cudaChannelFormatDesc * desc, const void * validity_ptr,
+        size_t pitch, size_t height) {
+    CUDA_ARRAY_DESCRIPTOR driver_desc;
+    driver_desc.Width       = pitch /
+        ((desc->x + desc->y + desc->z + desc->w) / CHAR_BIT);
+    driver_desc.Height      = height;
+    driver_desc.Format      = CU_AD_FORMAT_UNSIGNED_INT32;
+    driver_desc.NumChannels = (desc->x + desc->y + desc->z + desc->w + 31) / 32;
+
+    const void *aligned_ptr = reinterpret_cast<const void *>(
+        reinterpret_cast<uintptr_t>(validity_ptr) &
+        ~(info_.textureAlignment - 1u));
+
+    /* Bind validity pointer. */
+    CUresult curet = cuTexRefSetAddress2D(texture->validity_texref, &driver_desc,
+        (CUdeviceptr) aligned_ptr, pitch);
+    if (curet != CUDA_SUCCESS) {
+        return cuToCUDA(curet);
+    }
+
+    const unsigned int flags =
+        (texref->normalized ? CU_TRSF_NORMALIZED_COORDINATES : 0) |
+        CU_TRSF_READ_AS_INTEGER;
+
+    curet = cuTexRefSetFlags(texture->validity_texref, flags);
+    if (curet != CUDA_SUCCESS) {
+        return cuToCUDA(curet);
+    }
+
+    CUfilter_mode filter_mode;
+    switch (texref->filterMode) {
+        case cudaFilterModePoint:
+            filter_mode = CU_TR_FILTER_MODE_POINT;
+            break;
+        case cudaFilterModeLinear:
+            filter_mode = CU_TR_FILTER_MODE_LINEAR;
+            break;
+    }
+
+    curet = cuTexRefSetFilterMode(texture->validity_texref, filter_mode);
+    if (curet != CUDA_SUCCESS) {
+        return cuToCUDA(curet);
+    }
+
+    for (int dim = 0; dim < 2; dim++) {
+        CUaddress_mode mode;
+        switch (texref->addressMode[dim]) {
+            case cudaAddressModeWrap:
+                mode = CU_TR_ADDRESS_MODE_WRAP;
+                break;
+            case cudaAddressModeClamp:
+                mode = CU_TR_ADDRESS_MODE_CLAMP;
+                break;
+            case cudaAddressModeMirror:
+                mode = CU_TR_ADDRESS_MODE_MIRROR;
+                break;
+            case cudaAddressModeBorder:
+                mode = CU_TR_ADDRESS_MODE_BORDER;
+                break;
+            default:
+                return cudaErrorInvalidValue;
+        }
+
+        curet = cuTexRefSetAddressMode(texture->validity_texref, dim, mode);
+        if (curet != CUDA_SUCCESS) {
+            return cuToCUDA(curet);
+        }
+    }
+
+    return cudaSuccess;
+}
+
 cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
         const struct textureReference *texref, const void *devPtr,
         const struct cudaChannelFormatDesc *desc, size_t size) {
@@ -3865,6 +3940,43 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
         return ret;
     }
 
+    internal::texture_t *tex;
+    const void *validity_ptr;
+    ret = get_validity_texture(texref, devPtr, size, &tex, &validity_ptr);
+    if (ret != cudaSuccess) {
+        return ret;
+    }
+
+    bind_validity_texref(tex, texref, desc, validity_ptr, size);
+    return cudaSuccess;
+}
+
+cudaError_t cuda_context_memcheck::cudaBindTexture2D(size_t *offset,
+        const struct textureReference *texref, const void *devPtr,
+        const struct cudaChannelFormatDesc *desc, size_t width, size_t height,
+        size_t pitch) {
+    cudaError_t ret = cuda_context::cudaBindTexture2D(offset, texref, devPtr,
+        desc, width, height, pitch);
+    if (ret != cudaSuccess) {
+        return ret;
+    }
+
+    internal::texture_t *tex;
+    const void *validity_ptr;
+    ret = get_validity_texture(texref, devPtr, height * pitch, &tex,
+        &validity_ptr);
+    if (ret != cudaSuccess) {
+        return ret;
+    }
+
+    return bind_validity_texref2d(tex, texref, desc, validity_ptr, pitch,
+        height);
+}
+
+cudaError_t cuda_context_memcheck::get_validity_texture(
+        const struct textureReference *texref,
+        const void *devPtr, size_t size, internal::texture_t **tex,
+        const void **validity_ptr) {
     scoped_lock lock(mx_);
     texture_map_t::iterator it = bound_textures_.find(texref);
     if (it == bound_textures_.end()) {
@@ -3879,6 +3991,7 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
     it->second->bound_size      = size;
     it->second->binding         = backtrace_t::instance();
 
+    *tex = it->second;
     load_validity_texref(it->second, texref);
 
     /* Note which memory regions have been bound to this texture. */
@@ -3976,7 +4089,6 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
     const size_t chunk_start =  uiptr                           >> lg_chunk_bytes;
     const size_t chunk_end   = (uiptr + size + chunk_bytes - 1) >> lg_chunk_bytes;
 
-    void * validity_ptr;
     if (chunk_start < chunk_end) {
         /*
          * Coalesce validity blocks.
@@ -4075,11 +4187,10 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
     const size_t voffset = uiptr - chunk_start * chunk_bytes;
     vpool_t::handle_t * vhandle = vchunks_[chunk_start];
     assert(vhandle != default_vchunk_);
-    validity_ptr = reinterpret_cast<uint8_t *>(vhandle->gpu()->v_data) +
+    *validity_ptr = reinterpret_cast<uint8_t *>(vhandle->gpu()->v_data) +
         voffset;
 
-    bind_validity_texref(it->second, texref, desc, validity_ptr, size);
-    return ret;
+    return cudaSuccess;
 }
 
 cudaError_t cuda_context_memcheck::cudaBindTextureToArray(
