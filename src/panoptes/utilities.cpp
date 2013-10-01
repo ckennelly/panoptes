@@ -29,6 +29,7 @@ cudaError_t cuToCUDA(CUresult ret) {
         case CUDA_ERROR_DEINITIALIZED:
         case CUDA_ERROR_NOT_INITIALIZED:
         case CUDA_ERROR_INVALID_CONTEXT:
+            return cudaErrorInitializationError;
         default:
             return cudaErrorUnknown;
     }

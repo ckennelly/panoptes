@@ -333,17 +333,8 @@ cudaError_t cuda_context::cudaBindTexture(size_t *offset,
     size_t internal_offset;
     CUresult ret = cuTexRefSetAddress(&internal_offset, jit->second->texref,
         (CUdeviceptr) devPtr, size);
-    switch (ret) {
-        case CUDA_SUCCESS:
-            break;
-        case CUDA_ERROR_INVALID_VALUE:
-            return cudaErrorInvalidValue;
-        case CUDA_ERROR_DEINITIALIZED:
-        case CUDA_ERROR_NOT_INITIALIZED:
-        case CUDA_ERROR_INVALID_CONTEXT:
-        default:
-            /* TODO */
-            return cudaErrorNotYetImplemented;
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
     }
 
     if (internal_offset != 0 && !(offset)) {
@@ -374,17 +365,8 @@ cudaError_t cuda_context::cudaBindTexture(size_t *offset,
     }
 
     ret = cuTexRefSetFlags(jit->second->texref, flags);
-    switch (ret) {
-        case CUDA_SUCCESS:
-            break;
-        case CUDA_ERROR_INVALID_VALUE:
-            return cudaErrorInvalidValue;
-        case CUDA_ERROR_DEINITIALIZED:
-        case CUDA_ERROR_NOT_INITIALIZED:
-        case CUDA_ERROR_INVALID_CONTEXT:
-        default:
-            /* TODO */
-            return cudaErrorNotYetImplemented;
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
     }
 
     CUfilter_mode filter_mode;
@@ -398,32 +380,14 @@ cudaError_t cuda_context::cudaBindTexture(size_t *offset,
     }
 
     ret = cuTexRefSetFilterMode(jit->second->texref, filter_mode);
-    switch (ret) {
-        case CUDA_SUCCESS:
-            break;
-        case CUDA_ERROR_INVALID_VALUE:
-            return cudaErrorInvalidValue;
-        case CUDA_ERROR_DEINITIALIZED:
-        case CUDA_ERROR_NOT_INITIALIZED:
-        case CUDA_ERROR_INVALID_CONTEXT:
-        default:
-            /* TODO */
-            return cudaErrorNotYetImplemented;
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
     }
 
     const int n_components = (desc->x + desc->y + desc->z + desc->w + 31) / 32;
     ret = cuTexRefSetFormat(jit->second->texref, format, n_components);
-    switch (ret) {
-        case CUDA_SUCCESS:
-            break;
-        case CUDA_ERROR_INVALID_VALUE:
-            return cudaErrorInvalidValue;
-        case CUDA_ERROR_DEINITIALIZED:
-        case CUDA_ERROR_NOT_INITIALIZED:
-        case CUDA_ERROR_INVALID_CONTEXT:
-        default:
-            /* TODO */
-            return cudaErrorNotYetImplemented;
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
     }
 
     jit->second->bound  = true;
@@ -590,17 +554,8 @@ cudaError_t cuda_context::cudaBindTextureToArray(
 
     CUresult ret = cuTexRefSetArray(jit->second->texref, (CUarray) array,
         CU_TRSA_OVERRIDE_FORMAT);
-    switch (ret) {
-        case CUDA_SUCCESS:
-            break;
-        case CUDA_ERROR_INVALID_VALUE:
-            return cudaErrorInvalidValue;
-        case CUDA_ERROR_DEINITIALIZED:
-        case CUDA_ERROR_NOT_INITIALIZED:
-        case CUDA_ERROR_INVALID_CONTEXT:
-        default:
-            /* TODO */
-            return cudaErrorInvalidResourceHandle;
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
     }
 
     jit->second->bound  = true;
@@ -837,16 +792,7 @@ cudaError_t cuda_context::cudaFuncSetCacheConfig(const void *func,
             break;
     }
 
-    CUresult ret = cuFuncSetCacheConfig(dfunc, dconfig);
-    switch (ret) {
-        case CUDA_SUCCESS:
-            return cudaSuccess;
-        case CUDA_ERROR_DEINITIALIZED:
-        case CUDA_ERROR_NOT_INITIALIZED:
-        case CUDA_ERROR_INVALID_CONTEXT:
-        default:
-            return cudaErrorInitializationError;
-    }
+    return cuToCUDA(cuFuncSetCacheConfig(dfunc, dconfig));
 }
 
 cudaError_t cuda_context::cudaGetChannelDesc(
@@ -1474,13 +1420,8 @@ cudaError_t cuda_context::cudaPointerGetAttributes(struct
 
     CUresult ret = cuPointerGetAttribute((void *) &ctx,
         CU_POINTER_ATTRIBUTE_CONTEXT, (CUdeviceptr) ptr);
-    switch (ret) {
-        case CUDA_ERROR_INVALID_VALUE:
-            return cudaErrorInvalidValue;
-        case CUDA_SUCCESS:
-            break;
-        default:
-            return cudaErrorNotYetImplemented;
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
     }
 
     ret = cuCtxPushCurrent(ctx);
@@ -1500,16 +1441,8 @@ cudaError_t cuda_context::cudaPointerGetAttributes(struct
 
     ret = cuPointerGetAttribute((void *) &type,
         CU_POINTER_ATTRIBUTE_MEMORY_TYPE, (CUdeviceptr) ptr);
-    switch (ret) {
-        case CUDA_ERROR_INVALID_CONTEXT:
-            /** TODO **/
-            return cudaErrorNotYetImplemented;
-        case CUDA_ERROR_INVALID_VALUE:
-            return cudaErrorInvalidValue;
-        case CUDA_SUCCESS:
-            break;
-        default:
-            return cudaErrorNotYetImplemented;
+    if (ret != CUDA_SUCCESS) {
+        return cuToCUDA(ret);
     }
 
     switch (type) {
