@@ -344,6 +344,56 @@ TEST(BindTexture, Offsets) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+TEST(BindTexture, RebindWithoutReallocation) {
+    /**
+     * This test verifies that we can unbind and then rebind a large (1M)
+     * memory allocation (i.e., one that Panoptes will allocate a large chunk
+     * to for validity data) successfully (or without hitting an implementation
+     * limit).
+     */
+    cudaError_t ret;
+    const struct textureReference * texref;
+
+    const uint32_t bytes = 1u << 20;
+    int32_t * data;
+    ret = cudaMalloc((void **) &data, sizeof(*data) * bytes);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    int version;
+    ret = cudaRuntimeGetVersion(&version);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    #if CUDA_VERSION >= 5000
+    if (version < 5000 /* 5.0 */) {
+    #endif
+        ret = cudaGetTextureReference(&texref, "tex_src");
+    #if CUDA_VERSION >= 5000
+    } else {
+        ret = cudaGetTextureReference(&texref, &tex_src);
+    }
+    #endif
+    ASSERT_EQ(cudaSuccess, ret);
+
+    struct cudaChannelFormatDesc desc;
+    desc.f = cudaChannelFormatKindSigned;
+    desc.x = CHAR_BIT * sizeof(*data);
+    desc.y = desc.z = desc.w = 0;
+    ret = cudaBindTexture(NULL, texref, data, &desc, bytes);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaUnbindTexture(tex_src);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaBindTexture(NULL, texref, data, &desc, bytes);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaUnbindTexture(tex_src);
+    ASSERT_EQ(cudaSuccess, ret);
+
+    ret = cudaFree(data);
+    ASSERT_EQ(cudaSuccess, ret);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

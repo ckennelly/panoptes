@@ -3985,16 +3985,27 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
          * TODO: Add support to merge adjacent blocks as necessary.
          */
         bool single_allocation = true;
+        bool normal_chunks = false;
+        std::set<size_t> large_owners;
         size_t bad_chunk;
         for (size_t i = chunk_start; i < chunk_end; i++) {
-            if (chunks_aux_[i].allocations != 1 ||
-                    chunks_aux_[i].large_chunk) {
+            if (chunks_aux_[i].large_chunk) {
+                large_owners.insert(chunks_aux_[i].owner_index);
+                if (large_owners.size() >= 1) {
+                    bad_chunk = i;
+                    break;
+                }
+            } else if (chunks_aux_[i].allocations != 1) {
                 single_allocation = false;
                 bad_chunk = i;
+            } else {
+                normal_chunks = true;
             }
         }
 
-        if (single_allocation) {
+        if (!(normal_chunks) && large_owners.size() == 1) {
+            /* Do nothing, as we already have a large allocation. */
+        } else if (single_allocation && large_owners.size() == 0) {
             /* Nothing else can interact with this device. */
             cudaError_t sret = callout::cudaDeviceSynchronize();
             if (sret != cudaSuccess) {
