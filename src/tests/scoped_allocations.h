@@ -33,6 +33,12 @@ template<typename T>
 class scoped_allocation : boost::noncopyable {
 public:
     scoped_allocation(size_t size) {
+        /*
+         * Swallow the last error so the return value of cudaMalloc only
+         * concerns cudaMalloc.
+         */
+        cudaGetLastError();
+
         cudaError_t ret;
         ret = cudaMalloc(&ptr_, sizeof(*ptr_) * size);
         if (ret != cudaSuccess) {
