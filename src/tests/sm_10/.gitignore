@@ -73,8 +73,8 @@ vtest_k_rcp
 vtest_k_sad
 vtest_k_saturate
 vtest_k_set
-vtest_k_setcacheconfig
 vtest_k_set_const_int
+vtest_k_setcacheconfig
 vtest_k_shared
 vtest_k_shift
 vtest_k_sincos
