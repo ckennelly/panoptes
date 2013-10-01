@@ -33,6 +33,7 @@ std::ostream & operator<<(std::ostream &, const panoptes::statement_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::variable_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::block_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::cache_t &);
+std::ostream & operator<<(std::ostream &, const panoptes::color_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::geom_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::texture_t &);
 std::ostream & operator<<(std::ostream &, const panoptes::label_t &);

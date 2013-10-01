@@ -26,5 +26,6 @@ vtest_k_rsqrt
 vtest_k_testp
 vtest_k_tex1d_sm20
 vtest_k_threadfence
+vtest_k_tld4
 vtest_k_uniform
 vtest_k_vote

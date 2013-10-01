@@ -76,6 +76,7 @@ void statement_t::reset() {
     space           = invalid_space;
     cache           = cache_default;
     type            = invalid_type;
+    color           = invalid_color;
     cmp             = cmp_invalid;
     bool_op         = bool_none;
     atomic_op       = atom_invalid;
@@ -671,6 +672,26 @@ void statement_t::set_vector(yytokentype token) {
             return;
         default:
             assert(0 && "Unknown vector size");
+            return;
+    }
+}
+
+void statement_t::set_color(yytokentype token) {
+    switch (token) {
+        case TOKEN_X:
+            color = color_r;
+            break;
+        case TOKEN_Y:
+            color = color_g;
+            break;
+        case TOKEN_Z:
+            color = color_b;
+            break;
+        case TOKEN_W:
+            color = color_a;
+            break;
+        default:
+            assert(0 && "Unknown color field.");
             return;
     }
 }

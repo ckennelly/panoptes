@@ -1466,7 +1466,23 @@ tex : OPCODE_TEX texGeomToken TOKEN_V4 dataType dataType lValue TOKEN_COMMA
     parser->operands.clear();
 };
 
-tld4 : ;
+tldTypeToken : TOKEN_U32 | TOKEN_S32 | TOKEN_F32;
+tld4 : OPCODE_TLD4 packedFieldToken TOKEN_2D TOKEN_V4 tldTypeToken TOKEN_F32
+        lValue TOKEN_COMMA TOKEN_LBRACKET identifierOperand TOKEN_COMMA
+        optionalIdentifier lValue TOKEN_RBRACKET {
+    parser->function->top->instruction.set_op($<token>1);
+    parser->function->top->instruction.set_color($<token>2);
+    parser->function->top->instruction.set_geometry($<token>3);
+    parser->function->top->instruction.set_vector($<token>4);
+
+    parser->set_type($<vsigned>5);
+    parser->function->top->instruction.type = parser->get_type();
+    parser->set_type($<vsigned>6);
+    parser->function->top->instruction.type2 = parser->get_type();
+
+    parser->function->top->instruction.set_operands(parser->operands);
+    parser->operands.clear();
+};
 
 trap : OPCODE_TRAP {
     parser->function->top->instruction.set_op($<token>1);

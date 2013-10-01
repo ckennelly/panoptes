@@ -234,6 +234,10 @@ enum query_t {
     query_addr_mode1, query_addr_mode2
 };
 
+enum color_t {
+    invalid_color, color_r, color_g, color_b, color_a
+};
+
 struct statement_t {
     statement_t();
     void reset();
@@ -243,6 +247,7 @@ struct statement_t {
     void set_barrier_scope(yytokentype token);
     void set_boolop       (yytokentype token);
     void set_cache        (yytokentype token);
+    void set_color        (yytokentype token);
     void set_cmp          (yytokentype token);
     void set_geometry     (yytokentype token);
     void set_op           (yytokentype token);
@@ -276,6 +281,7 @@ struct statement_t {
     barrier_scope_t barrier_scope;
     space_t         space;
     cache_t         cache;
+    color_t         color;
     type_t          type;
     type_t          type2;
     op_set_cmp_t    cmp;

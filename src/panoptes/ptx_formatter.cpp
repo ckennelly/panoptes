@@ -194,6 +194,19 @@ ostream & operator<<(ostream & o, const cache_t & c) {
     }
 }
 
+ostream & operator<<(ostream & o, const color_t & c) {
+    switch (c) {
+        case color_r: return o << ".r";
+        case color_g: return o << ".g";
+        case color_b: return o << ".b";
+        case color_a: return o << ".a";
+        case invalid_color:
+        default:
+            assert(0 && "Unknown color field.");
+            return o;
+    }
+}
+
 ostream & operator<<(ostream & o, const panoptes::op_set_cmp_t & cmp) {
     switch (cmp) {
         case cmp_eq:  return o << ".eq";
@@ -919,6 +932,20 @@ ostream & operator<<(ostream & o, const statement_t & s) {
 
             o << s.geometry << s.vector << s.type << s.type2 << " " <<
                 s.operands[0] << ", [" << s.operands[1] << ", " <<
+                s.operands[2];
+
+            if (s.operands.size() == 4u) {
+                o << ", " << s.operands[3];
+            }
+
+            o << "]";
+            break;
+        case op_tld4:
+            assert(s.operands.size() >= 3u);
+            assert(s.operands.size() <= 4u);
+
+            o << s.color << s.geometry << s.vector << s.type << s.type2 <<
+                " " << s.operands[0] << ", [" << s.operands[1] << ", " <<
                 s.operands[2];
 
             if (s.operands.size() == 4u) {
