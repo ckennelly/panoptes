@@ -18,26 +18,36 @@
 
 #include <cuda.h>
 #include <gtest/gtest.h>
+#include "scoped_allocations.h"
 #include <stdint.h>
 
 static bool bound = false;
 texture<int32_t, 1, cudaReadModeElementType> tex_src;
 
-TEST(GetTextureAlignmentOffset, Simple) {
-    cudaError_t ret;
+class GetTextureAlignmentOffset : public ::testing::Test {
+public:
+    void SetUp() {
+        cudaError_t ret;
+        #if CUDA_VERSION < 5000
+        ret = cudaGetTextureReference(&texref, "tex_src");
+        #else
+        ret = cudaGetTextureReference(&texref, &tex_src);
+        #endif
+        ASSERT_EQ(cudaSuccess, ret);
+    }
+
+    void TearDown() {
+
+    }
+
     const struct textureReference * texref;
+};
+
+TEST_F(GetTextureAlignmentOffset, Simple) {
+    cudaError_t ret;
 
     const uint32_t bytes = 1u << 20;
-    signed char * data;
-    ret = cudaMalloc((void **) &data, sizeof(*data) * bytes);
-    ASSERT_EQ(cudaSuccess, ret);
-
-    #if CUDA_VERSION < 5000
-    ret = cudaGetTextureReference(&texref, "tex_src");
-    #else
-    ret = cudaGetTextureReference(&texref, &tex_src);
-    #endif
-    ASSERT_EQ(cudaSuccess, ret);
+    scoped_allocation<signed char> data(bytes);
 
     struct cudaChannelFormatDesc desc;
     desc.f = cudaChannelFormatKindSigned;
@@ -83,16 +93,8 @@ TEST(GetTextureAlignmentOffset, Simple) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
-TEST(GetTextureAlignmentOffset, UnboundTexture) {
+TEST_F(GetTextureAlignmentOffset, UnboundTexture) {
     cudaError_t ret;
-    const struct textureReference * texref;
-
-    #if CUDA_VERSION < 5000
-    ret = cudaGetTextureReference(&texref, "tex_src");
-    #else
-    ret = cudaGetTextureReference(&texref, &tex_src);
-    #endif
-    ASSERT_EQ(cudaSuccess, ret);
 
     if (bound) {
         ret = cudaUnbindTexture(tex_src);
@@ -107,21 +109,11 @@ TEST(GetTextureAlignmentOffset, UnboundTexture) {
     ASSERT_EQ(cudaErrorInvalidValue, ret);
 }
 
-TEST(GetTextureAlignmentOffset, NullArguments) {
+TEST_F(GetTextureAlignmentOffset, NullArguments) {
     cudaError_t ret;
-    const struct textureReference * texref;
 
     const uint32_t bytes = 1u << 20;
-    int32_t * data;
-    ret = cudaMalloc((void **) &data, sizeof(*data) * bytes);
-    ASSERT_EQ(cudaSuccess, ret);
-
-    #if CUDA_VERSION < 5000
-    ret = cudaGetTextureReference(&texref, "tex_src");
-    #else
-    ret = cudaGetTextureReference(&texref, &tex_src);
-    #endif
-    ASSERT_EQ(cudaSuccess, ret);
+    scoped_allocation<int32_t> data(bytes);
 
     struct cudaChannelFormatDesc desc;
     desc.f = cudaChannelFormatKindSigned;
@@ -144,9 +136,6 @@ TEST(GetTextureAlignmentOffset, NullArguments) {
 
     ret = cudaUnbindTexture(tex_src);
     bound = false;
-    ASSERT_EQ(cudaSuccess, ret);
-
-    ret = cudaFree(data);
     ASSERT_EQ(cudaSuccess, ret);
 }
 
