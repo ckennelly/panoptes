@@ -546,10 +546,8 @@ cudaError_t internal::stream_t::busy() {
     }
 
     /**
-     * TODO:  Walk forward on the stream and clean things up
-     */
-
-    /**
+     * Walk forward on the stream and clean things up
+     *
      * Start from the last event and work backwards until we find one that
      * belongs to this stream *and* is in its proper place.
      */
