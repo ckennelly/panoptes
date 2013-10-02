@@ -21,7 +21,7 @@
 
 #include <panoptes/global_context.h>
 #include <panoptes/memcheck/global_memcheck_state.h>
-#include <panoptes/ptx_ir.h>
+#include <ptx_io/ptx_ir.h>
 
 namespace panoptes {
 

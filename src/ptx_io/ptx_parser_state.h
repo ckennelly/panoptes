@@ -22,7 +22,7 @@
 #include <boost/utility.hpp>
 #include <deque>
 #include <map>
-#include <panoptes/ptx_ir.h>
+#include <ptx_io/ptx_ir.h>
 #include <stack>
 #include <string>
 #include <vector>

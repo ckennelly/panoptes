@@ -16,17 +16,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PANOPTES__PTX_GRAMMAR_H__
-#define __PANOPTES__PTX_GRAMMAR_H__
+#ifndef __PANOPTES__PTX_LEXER_H__
+#define __PANOPTES__PTX_LEXER_H__
 
 #include <stdint.h>
+#include <ptx_io/ptx_ir.h>
+
+/* Forward declaration */
+union YYSTYPE;
 
 namespace panoptes {
-    /* Forward declarations for ptx_grammar.tab.hh. */
-    class ptx_lexer;
-    class ptx_parser_state;
 
-    #include <panoptes/ptx_grammar.tab.hh>
+class ptx_lexer : public ptxFlexLexer {
+public:
+    YYSTYPE * yylval;
+
+    ptx_lexer(std::istream * in, std::ostream * out);
+    ~ptx_lexer();
+
+    int yylex();
+};
+
 }
 
-#endif // __PANOPTES__PTX_GRAMMAR_H__
+#endif // __PANOPTES__PTX_LEXER_H__

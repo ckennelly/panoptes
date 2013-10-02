@@ -34,9 +34,9 @@
 #include <panoptes/fat_binary.h>
 #include <panoptes/global_context.h>
 #include <panoptes/logger.h>
-#include <panoptes/ptx_formatter.h>
-#include <panoptes/ptx_parser.h>
 #include <panoptes/registry.h>
+#include <ptx_io/ptx_formatter.h>
+#include <ptx_io/ptx_parser.h>
 #include <signal.h>
 
 using namespace panoptes;

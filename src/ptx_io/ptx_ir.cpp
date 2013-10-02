@@ -18,8 +18,8 @@
 
 #include <cassert>
 #include <stdint.h>
-#include <panoptes/ptx_grammar.h>
-#include <panoptes/ptx_ir.h>
+#include <ptx_io/ptx_grammar.h>
+#include <ptx_io/ptx_ir.h>
 
 using namespace panoptes;
 

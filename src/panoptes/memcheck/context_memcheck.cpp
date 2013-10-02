@@ -26,8 +26,8 @@
 #include <panoptes/memcheck/context_memcheck.h>
 #include <panoptes/memcheck/global_context_memcheck.h>
 #include <panoptes/logger.h>
-#include <panoptes/ptx_formatter.h>
 #include <panoptes/utilities.h>
+#include <ptx_io/ptx_formatter.h>
 #include <signal.h>
 #include <sys/mman.h>
 #include <unistd.h>

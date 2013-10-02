@@ -19,7 +19,7 @@
 #include <cassert>
 #include <cstdio>
 #include <panoptes/memcheck/context_memcheck_internal.h>
-#include <panoptes/ptx_ir.h>
+#include <ptx_io/ptx_ir.h>
 #include <cstring>
 
 using namespace panoptes;

@@ -24,7 +24,7 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cstring>
-#include <panoptes/ptx_ir.h>
+#include <ptx_io/ptx_ir.h>
 #include <vector>
 
 namespace panoptes {

@@ -16,26 +16,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PANOPTES__PTX_PARSER_H__
-#define __PANOPTES__PTX_PARSER_H__
+#include <boost/lexical_cast.hpp>
+#include <cassert>
+#include <cstdio>
 
-#include <string>
-#include <vector>
-#include <panoptes/ptx_ir.h>
+#undef yyFlexLexer
+#define yyFlexLexer ptxFlexLexer
+#include <FlexLexer.h>
+#include <ptx_io/ptx_lexer.h>
+#include <ptx_io/ptx_parser.h>
+#include <ptx_io/ptx_parser_state.h>
 
-namespace panoptes {
+using namespace std;
+using namespace panoptes;
 
-/* Forward declaration */
-class ptx_parser_state;
+ptx_parser::ptx_parser() { }
 
-class ptx_parser {
-public:
-    ptx_parser();
-    ~ptx_parser();
+ptx_parser::~ptx_parser() { }
 
-    void parse(const std::string & ptx, ptx_t * program) const;
-};
+void ptx_parser::parse(const std::string & ptx, ptx_t * program) const {
+    stringstream in(ptx), out;
 
-} // end namespace panoptes
+    ptx_lexer lexer(&in, &out);
+    ptx_parser_state state;
 
-#endif // __PANOPTES__PTX_PARSER_H__
+    int ret = yyparse(&lexer, &state);
+    assert(ret == 0);
+
+    state.to_ir(program);
+}

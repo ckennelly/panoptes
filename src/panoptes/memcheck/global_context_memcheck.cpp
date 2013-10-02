@@ -23,8 +23,8 @@
 #include <panoptes/memcheck/context_memcheck.h>
 #include <panoptes/memcheck/context_memcheck_internal.h>
 #include <panoptes/memcheck/global_context_memcheck.h>
-#include <panoptes/ptx_formatter.h>
 #include <panoptes/registry.h>
+#include <ptx_io/ptx_formatter.h>
 
 using namespace panoptes;
 

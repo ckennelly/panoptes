@@ -4,11 +4,7 @@ coverage
 coverage.info
 *.gcda
 *.gcno
-*.lex.cc
-*.lex.hh
 Makefile
 *.o
 *.so
 .*.swp
-*.tab.cc
-*.tab.hh

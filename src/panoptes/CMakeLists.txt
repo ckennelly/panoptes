@@ -1,16 +1,7 @@
-FIND_PACKAGE(BISON REQUIRED)
-FIND_PACKAGE(FLEX REQUIRED)
-
 SET(COMPILE_DEFINITIONS CUDA_MAJOR=${CUDA_VERSION_MAJOR};CUDA_MINOR=${CUDA_VERSION_MINOR})
-
-SET(GRAMMAR_FILE "ptx_grammar.tab.cc")
-BISON_TARGET(grammar "ptx_grammar.yy" "${GRAMMAR_FILE}")
-
-SET(LEXER_FILE "ptx_lex.lex.cc")
-FLEX_TARGET(lexer "ptx_lex.ll" "${LEXER_FILE}")
 
 FILE(GLOB libpanoptes_SOURCES *.c *.cpp memcheck/*.cpp)
 
-ADD_LIBRARY(panoptes SHARED "${GRAMMAR_FILE}" "${LEXER_FILE}" ${libpanoptes_SOURCES})
-ADD_DEPENDENCIES(panoptes lexer grammar)
-TARGET_LINK_LIBRARIES(panoptes ${CUDA_LIBRARIES} boost_thread)
+ADD_LIBRARY(panoptes SHARED ${libpanoptes_SOURCES})
+ADD_DEPENDENCIES(panoptes ptx_io)
+TARGET_LINK_LIBRARIES(panoptes ${CUDA_LIBRARIES} boost_thread ptx_io)

@@ -19,7 +19,7 @@
 #ifndef __PANOPTES__CONTEXT_MEMCHECK_INTERNAL_H__
 #define __PANOPTES__CONTEXT_MEMCHECK_INTERNAL_H__
 
-#include <panoptes/ptx_ir.h>
+#include <ptx_io/ptx_ir.h>
 #include <set>
 
 namespace panoptes {
