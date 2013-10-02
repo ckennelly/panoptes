@@ -4372,7 +4372,11 @@ void global_context_memcheck::instrument_prefetch(
             assert(clean_a.offset == 0 &&
                 "Offset preloads are not supported.");
             clean_a.op_type = operand_identifier;
-            clean_a.field.push_back(field_none);
+            if (clean_a.field.size() == 0) {
+                clean_a.field.push_back(field_none);
+            }
+
+            assert(clean_a.field.size() == 1 && clean_a.field[0] == field_none);
         }
 
         const operand_t va  = make_validity_operand(clean_a, 0);

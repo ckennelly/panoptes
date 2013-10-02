@@ -1009,12 +1009,14 @@ lValue : TOKEN_LBRACE operandList TOKEN_RBRACE {
 addressableOperandBase : TOKEN_IDENTIFIER {
     parser->operand.op_type = operand_addressable;
     parser->operand.identifier.push_back($<text>1);
+    parser->operand.field.push_back(field_none);
 };
 
 addressableOperandBase : TOKEN_IDENTIFIER TOKEN_PLUS TOKEN_CONSTANT_DECIMAL {
     parser->operand.op_type = operand_addressable;
     parser->operand.identifier.push_back($<text>1);
     parser->operand.offset = $<vsigned>3;
+    parser->operand.field.push_back(field_none);
 };
 
 addressableOperandBase : TOKEN_IDENTIFIER TOKEN_MINUS TOKEN_CONSTANT_DECIMAL {
@@ -1022,6 +1024,7 @@ addressableOperandBase : TOKEN_IDENTIFIER TOKEN_MINUS TOKEN_CONSTANT_DECIMAL {
     parser->operand.op_type = operand_addressable;
     parser->operand.identifier.push_back($<text>1);
     parser->operand.offset = -1 * $<vsigned>3;
+    parser->operand.field.push_back(field_none);
 };
 
 addressableOperand : addressableOperandBase {
@@ -1403,7 +1406,7 @@ identifierOperand : TOKEN_IDENTIFIER {
 };
 
 st : OPCODE_ST optionalVolatile optionalSpace optionalSTCacheOp
-        optionalVectorType dataType stDestination TOKEN_COMMA lValue {
+        optionalVectorType dataType stDestination TOKEN_COMMA movSource {
     parser->function->top->instruction.set_op($<token>1);
     parser->function->top->instruction.type = parser->get_type();
     parser->function->top->instruction.set_operands(parser->operands);
