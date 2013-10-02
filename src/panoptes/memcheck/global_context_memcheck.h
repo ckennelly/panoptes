@@ -20,7 +20,7 @@
 #define __PANOPTES__GLOBAL_CONTEXT_MEMCHECK_H__
 
 #include <panoptes/global_context.h>
-#include <panoptes/global_memcheck_state.h>
+#include <panoptes/memcheck/global_memcheck_state.h>
 #include <panoptes/ptx_ir.h>
 
 namespace panoptes {

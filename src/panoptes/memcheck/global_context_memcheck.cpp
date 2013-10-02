@@ -18,11 +18,13 @@
 
 #include <boost/integer/static_log2.hpp>
 #include <cstdio>
-#include <panoptes/context_memcheck.h>
-#include <panoptes/context_memcheck_internal.h>
-#include <panoptes/global_context_memcheck.h>
+#include <panoptes/initializer.h>
 #include <panoptes/logger.h>
+#include <panoptes/memcheck/context_memcheck.h>
+#include <panoptes/memcheck/context_memcheck_internal.h>
+#include <panoptes/memcheck/global_context_memcheck.h>
 #include <panoptes/ptx_formatter.h>
+#include <panoptes/registry.h>
 
 using namespace panoptes;
 
@@ -6418,4 +6420,14 @@ void global_context_memcheck::cudaRegisterVar(void **fatCubinHandle,
 
 state_ptr_t global_context_memcheck::state() {
     return state_;
+}
+
+/* Registration */
+namespace {
+    void f() {
+        registry::instance().add_tool<
+            panoptes::global_context_memcheck>("MEMCHECK");
+    }
+
+    static initializer i(f);
 }

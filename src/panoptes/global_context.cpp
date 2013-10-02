@@ -33,10 +33,10 @@
 #include <panoptes/context_internal.h>
 #include <panoptes/fat_binary.h>
 #include <panoptes/global_context.h>
-#include <panoptes/global_context_memcheck.h>
 #include <panoptes/logger.h>
 #include <panoptes/ptx_formatter.h>
 #include <panoptes/ptx_parser.h>
+#include <panoptes/registry.h>
 #include <signal.h>
 
 using namespace panoptes;
@@ -54,9 +54,9 @@ static void instance_setup() {
     }
 
     const std::string env(c_env);
-    if (env == "MEMCHECK") {
-        instance_.reset(new global_context_memcheck());
-    } else {
+    instance_.reset(registry::instance().create(env));
+    if (!(instance_.get())) {
+        /* The tool couldn't be found. */
         char msg[256];
         snprintf(msg, sizeof(msg), "Unknown tool '%s'.\n", env.c_str());
         logger::instance().print(msg);

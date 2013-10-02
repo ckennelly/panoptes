@@ -9,7 +9,7 @@ BISON_TARGET(grammar "ptx_grammar.yy" "${GRAMMAR_FILE}")
 SET(LEXER_FILE "ptx_lex.lex.cc")
 FLEX_TARGET(lexer "ptx_lex.ll" "${LEXER_FILE}")
 
-FILE(GLOB libpanoptes_SOURCES *.c *.cpp)
+FILE(GLOB libpanoptes_SOURCES *.c *.cpp memcheck/*.cpp)
 
 ADD_LIBRARY(panoptes SHARED "${GRAMMAR_FILE}" "${LEXER_FILE}" ${libpanoptes_SOURCES})
 ADD_DEPENDENCIES(panoptes lexer grammar)

@@ -24,8 +24,8 @@
 #include <boost/unordered_set.hpp>
 #include <panoptes/context.h>
 #include <panoptes/global_context.h>
-#include <panoptes/global_memcheck_state.h>
 #include <panoptes/gpu_stack.h>
+#include <panoptes/memcheck/global_memcheck_state.h>
 #include <panoptes/ptx_ir.h>
 
 namespace panoptes {

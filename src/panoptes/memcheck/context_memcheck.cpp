@@ -22,9 +22,9 @@
 #include <list>
 #include <panoptes/backtrace.h>
 #include <panoptes/context_internal.h>
-#include <panoptes/context_memcheck_internal.h>
-#include <panoptes/context_memcheck.h>
-#include <panoptes/global_context_memcheck.h>
+#include <panoptes/memcheck/context_memcheck_internal.h>
+#include <panoptes/memcheck/context_memcheck.h>
+#include <panoptes/memcheck/global_context_memcheck.h>
 #include <panoptes/logger.h>
 #include <panoptes/ptx_formatter.h>
 #include <panoptes/utilities.h>
