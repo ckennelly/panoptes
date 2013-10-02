@@ -25,7 +25,6 @@
 #include <cuda.h>
 #include <panoptes/host_gpu_vector.h>
 #include <panoptes/gpu_pool.h>
-#include <panoptes/metadata.h>
 #include <stack>
 
 namespace panoptes {

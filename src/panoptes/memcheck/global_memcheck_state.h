@@ -23,7 +23,7 @@
 #include <boost/unordered_map.hpp>
 #include <map>
 #include <panoptes/host_gpu_vector.h>
-#include <panoptes/metadata.h>
+#include <panoptes/memcheck/metadata.h>
 #include <set>
 
 namespace panoptes {
