@@ -17,6 +17,7 @@
  */
 
 #include <boost/lexical_cast.hpp>
+#include <cstdio>
 #include <cuda.h>
 #include <panoptes/callout.h>
 #include <panoptes/cuda_context.h>

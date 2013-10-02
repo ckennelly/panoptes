@@ -18,6 +18,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <panoptes/compress.h>
+#include <stdint.h>
 #include <zlib.h>
 
 using namespace panoptes;

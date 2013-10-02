@@ -18,6 +18,8 @@
 
 #include <__cudaFatFormat.h>
 #include <boost/lexical_cast.hpp>
+#include <cassert>
+#include <cstdio>
 #include <cuda.h>
 #if CUDA_VERSION >= 5000
 #include <fatbinary.h>
