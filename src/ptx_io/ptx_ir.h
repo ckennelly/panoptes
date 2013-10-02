@@ -22,12 +22,21 @@
 #include <boost/utility.hpp>
 #include <ptx_io/ptx_grammar.h>
 #include <list>
+#include <map>
 #include <string>
 #include <vector>
 
 namespace panoptes {
 
 typedef std::string string_t;
+
+struct location_t {
+    location_t();
+    bool is_valid() const;
+
+    int file_number;
+    int line_number;
+};
 
 enum type_t {
     b8_type, b16_type, b32_type, b64_type,
@@ -304,6 +313,8 @@ struct statement_t {
     /* We always go in order of operands without regard for naming */
     typedef std::vector<operand_t> operand_vt;
     operand_vt      operands;
+
+    location_t      location;
 };
 
 struct scope_t;
@@ -398,6 +409,9 @@ struct ptx_t : boost::noncopyable {
 
     typedef std::vector<function_t *> entry_vt;
     entry_vt        entries;
+
+    typedef std::map<int, std::string> file_map_t;
+    file_map_t      files;
 };
 
 } // end namespace panoptes

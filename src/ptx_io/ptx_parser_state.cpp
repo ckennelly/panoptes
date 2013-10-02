@@ -191,7 +191,7 @@ ptx_parser_state::~ptx_parser_state() {
 }
 
 void ptx_parser_state::add_file(int file, const std::string & path) {
-    files.insert(file_map_t::value_type(file, path));
+    files.insert(ptx_t::file_map_t::value_type(file, path));
 }
 
 void ptx_parser_state::set_target(yytokentype token) {
@@ -240,6 +240,7 @@ void ptx_parser_state::to_ir(ptx_t * program) const {
     program->address_size   = address_size;
     program->textures       = textures;
     program->variables      = variables;
+    program->files          = files;
 
     for (function_vector_t::const_iterator it = functions.begin();
             it != functions.end(); ++it) {

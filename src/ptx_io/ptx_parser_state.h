@@ -123,8 +123,7 @@ public:
 
     void add_file(int file, const std::string & path);
 
-    int file_number;
-    int line_number;
+    location_t location;
     unsigned address_size;
 
     void set_linkage(yytokentype token);
@@ -149,8 +148,7 @@ protected:
     linkage_t linkage;
     type_t type;
 
-    typedef std::map<int, std::string> file_map_t;
-    file_map_t files;
+    ptx_t::file_map_t files;
 
     typedef std::vector<ptx_parser_function *> function_vector_t;
     function_vector_t functions;

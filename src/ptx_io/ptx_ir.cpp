@@ -93,6 +93,8 @@ void statement_t::reset() {
     query           = invalid_query;
     vector          = v1;
     operands.clear();
+
+    location        = location_t();
 }
 
 void statement_t::set_query(yytokentype token) {
@@ -1045,4 +1047,10 @@ void variable_t::set_space(yytokentype token) {
             assert(0 && "Unknown variable token.");
             break;
     }
+}
+
+location_t::location_t() : file_number(-1), line_number(-1) { }
+
+bool location_t::is_valid() const {
+    return file_number >= 0 && line_number >= 0;
 }

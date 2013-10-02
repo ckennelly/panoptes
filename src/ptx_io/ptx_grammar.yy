@@ -109,9 +109,12 @@ label : TOKEN_IDENTIFIER TOKEN_COLON {
 
 /* Per PTX ISA 3.0 pg 25 */
 directiveStatement : addressSize | /* branchTargets | callPrototype | */
-    entry | file | linkable | loc | /* maxnctapersm |
-    maxnreg | maxntid | minnctapersm | pragma | reqntid |
-    section | */ target | texDeclaration | version ;
+        entry | file | linkable | loc | /* maxnctapersm |
+        maxnreg | maxntid | minnctapersm | pragma | reqntid |
+        section | */ target | texDeclaration | version {
+    /* Clear out loc after each. */
+    parser->location = location_t();
+}
 
 addressSize : TOKEN_ADDRESS_SIZE TOKEN_CONSTANT_DECIMAL {
     parser->address_size = static_cast<unsigned>($<vunsigned>2);
@@ -266,9 +269,17 @@ blockClose : TOKEN_RBRACE {
 
 basicBlock : blockOpen zeroOrMoreBasicBlockStatements blockClose ;
 
-file : TOKEN_FILE TOKEN_CONSTANT_DECIMAL TOKEN_STRING ;
+file : TOKEN_FILE TOKEN_CONSTANT_DECIMAL TOKEN_STRING {
+    /* 64-bit file numbers should be unnecessary. */
+    parser->add_file(static_cast<int>($<vsigned>2), $<text>3);
+};
 
-loc : TOKEN_LOC TOKEN_CONSTANT_DECIMAL TOKEN_CONSTANT_DECIMAL TOKEN_CONSTANT_DECIMAL ;
+loc : TOKEN_LOC TOKEN_CONSTANT_DECIMAL TOKEN_CONSTANT_DECIMAL
+        TOKEN_CONSTANT_DECIMAL {
+    /* 64-bit line numbers should be unnecessary. */
+    parser->location.file_number = static_cast<int>($<vsigned>2);
+    parser->location.line_number = static_cast<int>($<vsigned>3);
+};
 
 maxnctapersm : ;
 
@@ -440,6 +451,9 @@ predicate : TOKEN_NEG_PREDICATE {
 optionalPredicate : /* */ | predicate ;
 
 instruction : optionalPredicate instructionOp TOKEN_SEMICOLON {
+    /* Note loc first. */
+    parser->function->top->instruction.location = parser->location;
+
     parser->function->top->declare_instruction();
 };
 

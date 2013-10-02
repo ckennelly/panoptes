@@ -263,6 +263,22 @@ cudaError_t internal::check_t::check(cudaError_t r) {
             typedef instrumentation_t::error_desc_t error_desc_t;
             const error_desc_t & desc = inst->errors[e];
             std::stringstream ss;
+
+            const location_t & location = desc.orig.location;
+            if (location.is_valid()) {
+                const function_t *func = it->second.function;
+                assert(func);
+                const ptx_t *ptx = func->parent;
+                assert(ptx);
+
+                ptx_t::file_map_t::const_iterator jit =
+                    ptx->files.find(location.file_number);
+                if (jit != ptx->files.end()) {
+                    ss << jit->second << " at line " << location.line_number <<
+                        std::endl;
+                }
+            }
+
             ss << desc.orig;
 
             switch (desc.type) {
