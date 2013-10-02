@@ -24,6 +24,19 @@
 texture<int4, 2, cudaReadModeElementType> tex_src;
 
 __global__ void k_tld(int4 * dst, float x, float y) {
+    /**
+     * In the absence a device function using a texture through a recognizable
+     * channel, nvcc version 4.0 places the texref for "tex_src" below all of
+     * the device functions.  This leads the associated ptxas to look for
+     * (missing) forward declarations.  To remedy this, we perform a dummy
+     * texture lookup to force the compiler to place the global texture
+     * declaration in the right place.
+     *
+     * This is not an issue for nvcc 4.1 or newer, but the version is not readily
+     * obtained from standard preprocessor macros (nvcc -E -dryrun /dev/null).
+     */
+    (void) tex2D(tex_src, 0, 0);
+
     int4 tmp;
 
     asm volatile("tld4.r.2d.v4.s32.f32 {%0, %1, %2, %3}, [tex_src, {%4, %5}];"
