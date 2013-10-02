@@ -38,6 +38,7 @@ callout & callout::instance() {
 typedef cudaError_t (*cudaBindTexture_t)(size_t *,
     const struct textureReference *, const void *,
     const struct cudaChannelFormatDesc *, size_t);
+typedef cudaError_t (*cudaChooseDevice_t)(int *, const struct cudaDeviceProp *);
 typedef cudaError_t (*cudaConfigureCall_t)(dim3, dim3, size_t, cudaStream_t);
 typedef cudaError_t (*cudaDeviceCanAccessPeer_t)(int *, int, int);
 typedef cudaError_t (*cudaDeviceDisablePeerAccess_t)(int);
@@ -124,6 +125,13 @@ cudaError_t callout::cudaBindTexture(size_t *offset,
     cudaBindTexture_t method = (cudaBindTexture_t)
         dlsym(callout::instance().libcudart, "cudaBindTexture");
     return method(offset, texref, devPtr, desc, size);
+}
+
+cudaError_t callout::cudaChooseDevice(int *device,
+        const struct cudaDeviceProp *prop) {
+    cudaChooseDevice_t method = (cudaChooseDevice_t)
+        dlsym(callout::instance().libcudart, "cudaChooseDevice");
+    return method(device, prop);
 }
 
 cudaError_t callout::cudaConfigureCall(dim3 gridDim, dim3
