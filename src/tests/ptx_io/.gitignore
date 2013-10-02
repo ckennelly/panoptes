@@ -1,2 +1,3 @@
 libtest_utilities.a
+test_negativecompilation
 test_parser
