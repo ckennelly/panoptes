@@ -1,6 +1,6 @@
 /**
- * Panoptes - A framework for detecting memory errors in GPU-based programs
- * Copyright (C) 2011 Chris Kennelly <chris@ckennelly.com>
+ * Panoptes - A Binary Translation Framework for CUDA
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,14 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PANOPTES__CONTEXT_MEMCHECK_H__
-#define __PANOPTES__CONTEXT_MEMCHECK_H__
+#ifndef __PANOPTES__MEMCHECK_CONTEXT_H__
+#define __PANOPTES__MEMCHECK_CONTEXT_H__
 
 #include <boost/icl/interval_set.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_set.hpp>
-#include <panoptes/context.h>
-#include <panoptes/global_context.h>
+#include <panoptes/cuda_context.h>
+#include <panoptes/global_cuda_context.h>
 #include <panoptes/gpu_stack.h>
 #include <panoptes/memcheck/global_memcheck_state.h>
 #include <ptx_io/ptx_ir.h>
@@ -39,20 +39,20 @@ namespace internal {
     struct texture_t;
     struct instrumentation_t;
 }
-class global_context_memcheck;
+class global_memcheck_context;
 
 struct error_buffer_t {
     uint32_t data[1024];
 };
 
-class cuda_context_memcheck : public cuda_context {
+class memcheck_context : public cuda_context {
 public:
     typedef gpu_pool<adata_chunk> apool_t;
     typedef gpu_pool<vdata_chunk> vpool_t;
 
-    explicit cuda_context_memcheck(
-        global_context_memcheck * g, int device, unsigned int flags);
-    virtual ~cuda_context_memcheck();
+    explicit memcheck_context(
+        global_memcheck_context * g, int device, unsigned int flags);
+    virtual ~memcheck_context();
 
     /**
      * Quickly clears the state of the context.
@@ -265,8 +265,8 @@ protected:
     bool validity_copy(void * dst, const void * gpu, size_t len,
         internal::stream_t * stream);
 
-    bool validity_copy(void * dst, cuda_context_memcheck * dstCtx,
-        const void * src, const cuda_context_memcheck * srcCtx, size_t count,
+    bool validity_copy(void * dst, memcheck_context * dstCtx,
+        const void * src, const memcheck_context * srcCtx, size_t count,
         internal::stream_t * stream);
 
     /**
@@ -320,8 +320,8 @@ protected:
         const struct cudaChannelFormatDesc *desc,
         const void * validity_ptr, size_t pitch, size_t height);
 
-    global_context_memcheck * global();
-    const global_context_memcheck * global() const;
+    global_memcheck_context * global();
+    const global_memcheck_context * global() const;
 
     /**
      * Manipulates/queries recently freed list.
@@ -501,4 +501,4 @@ private:
 
 } // end namespace panoptes
 
-#endif // __PANOPTES__CONTEXT_MEMCHECK_H__
+#endif // __PANOPTES__MEMCHECK_CONTEXT_H__

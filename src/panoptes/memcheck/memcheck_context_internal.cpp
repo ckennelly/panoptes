@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include <cassert>
 #include <cstdio>
-#include <panoptes/memcheck/context_memcheck_internal.h>
+#include <panoptes/memcheck/memcheck_context_internal.h>
 #include <ptx_io/ptx_ir.h>
 #include <cstring>
 

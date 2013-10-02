@@ -155,12 +155,6 @@ struct call_t {
     std::vector<arg_t *> args;
 };
 
-/**
- * For user-exposed handles, we return a specialized opaque type.
- */
-void** create_handle();
-void free_handle(void **);
-
 } // end namespace internal
 } // end namespace panoptes
 

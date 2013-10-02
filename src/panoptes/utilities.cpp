@@ -17,6 +17,7 @@
  */
 
 #include <panoptes/utilities.h>
+#include <valgrind/memcheck.h>
 
 namespace panoptes {
 
@@ -33,6 +34,21 @@ cudaError_t cuToCUDA(CUresult ret) {
         default:
             return cudaErrorUnknown;
     }
+}
+
+/**
+ * Opaque handle strategy:  Allocate a void* and then mark it as inaccessible
+ * to Valgrind.
+ */
+void** create_handle() {
+    void** ret = new void*();
+    (void) VALGRIND_MAKE_MEM_NOACCESS(ret, sizeof(ret));
+    return ret;
+}
+
+void free_handle(void ** handle) {
+    (void) VALGRIND_MAKE_MEM_UNDEFINED(handle, sizeof(handle));
+    delete handle;
 }
 
 }

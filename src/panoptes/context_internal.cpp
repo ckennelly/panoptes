@@ -17,7 +17,6 @@
  */
 
 #include <panoptes/context_internal.h>
-#include <valgrind/memcheck.h>
 
 namespace panoptes {
 namespace internal {
@@ -35,19 +34,5 @@ module_t::~module_t() {
     }
 }
 
-/**
- * Opaque handle strategy:  Allocate a void* and then mark it as inaccessible
- * to Valgrind.
- */
-void** create_handle() {
-    void** ret = new void*();
-    (void) VALGRIND_MAKE_MEM_NOACCESS(ret, sizeof(ret));
-    return ret;
-}
-
-void free_handle(void ** handle) {
-    (void) VALGRIND_MAKE_MEM_UNDEFINED(handle, sizeof(handle));
-    delete handle;
-}
 }
 }

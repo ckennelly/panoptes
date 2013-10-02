@@ -29,6 +29,12 @@ namespace panoptes {
  */
 cudaError_t cuToCUDA(CUresult ret);
 
+/**
+ * For user-exposed handles, we return a specialized opaque type.
+ */
+void** create_handle();
+void free_handle(void **);
+
 }
 
 #endif // __PANOPTES__PANOPTES__UTILITIES_H__

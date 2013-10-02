@@ -15,8 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- *****************************************************************************
- *
+ */
+
+#ifndef __PANOPTES__FAT_BINARY_H__
+#define __PANOPTES__FAT_BINARY_H__
+
+/*
  * This code is largely adopted from GPU Ocelot for its labeling of fat binary
  * data structures produced by nvcc version 4.0 and version 5.0.
  */
@@ -55,3 +59,33 @@ typedef struct __cudaFatCudaBinaryRec2 {
     const unsigned long long *  fatbinData;
     char *                      f;
 } __cudaFatCudaBinary2;
+
+namespace panoptes {
+
+class fat_binary_exception : public std::exception {
+public:
+    /**
+     * We do not expect to throw this in a resource constrained setting, so
+     * std::string should be safe.
+     */
+    fat_binary_exception(const std::string & str);
+    ~fat_binary_exception() throw();
+
+    const char *what() const throw();
+public:
+    std::string str_;
+};
+
+class fat_binary {
+public:
+    fat_binary(void *fatCubin);
+    ~fat_binary();
+
+    const std::string & ptx() const;
+private:
+    std::string ptx_;
+};
+
+}
+
+#endif // __PANOPTES__FAT_BINARY_H__

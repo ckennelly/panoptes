@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <crt/host_runtime.h>
 #include <map>
@@ -114,8 +115,7 @@ cudaError_t cudaBindTextureToArray(const struct textureReference *texref,
 cudaError_t cudaChooseDevice(int *device, const struct cudaDeviceProp *prop) {
     backtrace_t::instance().refresh();
 
-    return global_context::instance().context()->cudaChooseDevice(device,
-        prop);
+    return global_context::instance().cudaChooseDevice(device, prop);
 }
 
 cudaError_t cudaConfigureCall(dim3 gridDim, dim3 blockDim,

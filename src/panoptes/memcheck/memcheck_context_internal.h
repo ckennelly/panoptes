@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PANOPTES__CONTEXT_MEMCHECK_INTERNAL_H__
-#define __PANOPTES__CONTEXT_MEMCHECK_INTERNAL_H__
+#ifndef __PANOPTES__MEMCHECK_CONTEXT_INTERNAL_H__
+#define __PANOPTES__MEMCHECK_CONTEXT_INTERNAL_H__
 
 #include <ptx_io/ptx_ir.h>
 #include <set>
@@ -136,4 +136,4 @@ private:
 }
 }
 
-#endif // __PANOPTES__CONTEXT_MEMCHECK_INTERNAL_H__
+#endif // __PANOPTES__MEMCHECK_CONTEXT_INTERNAL_H__

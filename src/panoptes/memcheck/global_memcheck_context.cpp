@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,9 +20,9 @@
 #include <cstdio>
 #include <panoptes/initializer.h>
 #include <panoptes/logger.h>
-#include <panoptes/memcheck/context_memcheck.h>
-#include <panoptes/memcheck/context_memcheck_internal.h>
-#include <panoptes/memcheck/global_context_memcheck.h>
+#include <panoptes/memcheck/memcheck_context.h>
+#include <panoptes/memcheck/memcheck_context_internal.h>
+#include <panoptes/memcheck/global_memcheck_context.h>
 #include <panoptes/registry.h>
 #include <ptx_io/ptx_formatter.h>
 
@@ -718,10 +718,10 @@ static operand_t make_validity_operand(const operand_t & in, size_t width) {
     return ret;
 }
 
-global_context_memcheck::global_context_memcheck() :
+global_memcheck_context::global_memcheck_context() :
     state_(new global_memcheck_state()) { }
 
-global_context_memcheck::~global_context_memcheck() {
+global_memcheck_context::~global_memcheck_context() {
     /**
      * Cleanup instrumentation metadata.
      */
@@ -731,10 +731,10 @@ global_context_memcheck::~global_context_memcheck() {
     }
 }
 
-cuda_context * global_context_memcheck::factory(int device,
+cuda_context * global_memcheck_context::factory(int device,
         unsigned int flags) const {
-    return new cuda_context_memcheck(
-        const_cast<global_context_memcheck *>(this), device, flags);
+    return new memcheck_context(
+        const_cast<global_memcheck_context *>(this), device, flags);
 }
 
 static void analyze_block(size_t * fixed_shared_memory,
@@ -772,7 +772,7 @@ static void analyze_block(size_t * fixed_shared_memory,
     }
 }
 
-void global_context_memcheck::analyze_entry(function_t * entry) {
+void global_memcheck_context::analyze_entry(function_t * entry) {
     if (entry->linkage == linkage_extern) {
         /* Add to list of external entries. */
         external_entries_.insert(entry->entry_name);
@@ -810,7 +810,7 @@ void global_context_memcheck::analyze_entry(function_t * entry) {
     entry_info_.insert(entry_info_map_t::value_type(entry->entry_name, e));
 }
 
-void global_context_memcheck::instrument_entry(function_t * entry) {
+void global_memcheck_context::instrument_entry(function_t * entry) {
     if (entry->linkage == linkage_extern) {
         return;
     }
@@ -1107,7 +1107,7 @@ void global_context_memcheck::instrument_entry(function_t * entry) {
     it->second.inst = inst;
 }
 
-void global_context_memcheck::instrument(
+void global_memcheck_context::instrument(
         void **fatCubinHandle, ptx_t * target) {
     assert(target);
 
@@ -1203,7 +1203,7 @@ void global_context_memcheck::instrument(
 using panoptes::internal::temp_operand;
 using panoptes::internal::temp_ptr;
 
-void global_context_memcheck::instrument_abs(const statement_t & statement,
+void global_memcheck_context::instrument_abs(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     const size_t width  = sizeof_type(statement.type);
 
@@ -1271,7 +1271,7 @@ void global_context_memcheck::instrument_abs(const statement_t & statement,
     *keep = true;
 }
 
-void global_context_memcheck::instrument_add(const statement_t & statement,
+void global_memcheck_context::instrument_add(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 3u);
     const operand_t & a = statement.operands[1];
@@ -1430,7 +1430,7 @@ void global_context_memcheck::instrument_add(const statement_t & statement,
     *keep = true;
 }
 
-void global_context_memcheck::instrument_and(const statement_t & statement,
+void global_memcheck_context::instrument_and(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 3u);
     const operand_t & a = statement.operands[1];
@@ -1618,7 +1618,7 @@ static bool find_variable(const std::string & id, space_t space,
     return found;
 }
 
-void global_context_memcheck::instrument_atom(const statement_t & statement,
+void global_memcheck_context::instrument_atom(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert((statement.op == op_atom && (statement.operands.size() >= 3u ||
                                         statement.operands.size() <= 4u)) ||
@@ -2299,7 +2299,7 @@ void global_context_memcheck::instrument_atom(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_bar(const statement_t & statement,
+void global_memcheck_context::instrument_bar(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     *keep = true;
 
@@ -2469,7 +2469,7 @@ void global_context_memcheck::instrument_bar(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_bfe(const statement_t & statement,
+void global_memcheck_context::instrument_bfe(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 4u);
 
@@ -2616,7 +2616,7 @@ void global_context_memcheck::instrument_bfe(const statement_t & statement,
     *keep = true;
 }
 
-void global_context_memcheck::instrument_bfi(const statement_t & statement,
+void global_memcheck_context::instrument_bfi(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 5u);
     assert(statement.type == b32_type || statement.type == b64_type);
@@ -2757,7 +2757,7 @@ void global_context_memcheck::instrument_bfi(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_bit1(const statement_t & statement,
+void global_memcheck_context::instrument_bit1(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
     *keep = true;
@@ -2850,7 +2850,7 @@ void global_context_memcheck::instrument_bit1(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_brev(const statement_t & statement,
+void global_memcheck_context::instrument_brev(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
     const operand_t & a = statement.operands[1];
@@ -2896,7 +2896,7 @@ void global_context_memcheck::instrument_brev(const statement_t & statement,
     (void) auxillary;
 }
 
-void global_context_memcheck::instrument_cnot(const statement_t & statement,
+void global_memcheck_context::instrument_cnot(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     /**
      * We cannot reuse the popc codepath for cnot as it reduces the width of
@@ -2934,7 +2934,7 @@ void global_context_memcheck::instrument_cnot(const statement_t & statement,
     aux->push_back(make_xor(btype, vd, tmp, operand_t::make_iconstant(0x1)));
 }
 
-void global_context_memcheck::instrument_copysign(
+void global_memcheck_context::instrument_copysign(
         const statement_t & statement, statement_vt * aux, bool * keep,
         internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 3u);
@@ -2970,7 +2970,7 @@ void global_context_memcheck::instrument_copysign(
     (void) auxillary;
 }
 
-void global_context_memcheck::instrument_cvt(const statement_t & statement,
+void global_memcheck_context::instrument_cvt(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
     const operand_t & d = statement.operands[0];
@@ -3049,7 +3049,7 @@ void global_context_memcheck::instrument_cvt(const statement_t & statement,
     aux->push_back(make_cvt(dstype, astype, vd, tmp));
 }
 
-void global_context_memcheck::instrument_fp1(const statement_t & statement,
+void global_memcheck_context::instrument_fp1(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert((statement.type == f32_type ||
             statement.type == f64_type) && "Invalid type.");
@@ -3078,7 +3078,7 @@ void global_context_memcheck::instrument_fp1(const statement_t & statement,
     *keep = true;
 }
 
-void global_context_memcheck::instrument_fp3(const statement_t & statement,
+void global_memcheck_context::instrument_fp3(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     *keep = true;
 
@@ -3130,7 +3130,7 @@ void global_context_memcheck::instrument_fp3(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_isspacep(
+void global_memcheck_context::instrument_isspacep(
         const statement_t & statement, statement_vt * aux, bool * keep,
         internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
@@ -3185,7 +3185,7 @@ void global_context_memcheck::instrument_isspacep(
     }
 }
 
-void global_context_memcheck::instrument_ld(const statement_t & statement,
+void global_memcheck_context::instrument_ld(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
     const operand_t & src = statement.operands[1];
@@ -3704,7 +3704,7 @@ void global_context_memcheck::instrument_ld(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_mad(const statement_t & statement,
+void global_memcheck_context::instrument_mad(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 4u);
     *keep = true;
@@ -3835,7 +3835,7 @@ void global_context_memcheck::instrument_mad(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_math2(const statement_t & statement,
+void global_memcheck_context::instrument_math2(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     /**
      * We work under the assumption that these operations are all
@@ -3892,7 +3892,7 @@ void global_context_memcheck::instrument_math2(const statement_t & statement,
     *keep = true;
 }
 
-void global_context_memcheck::instrument_mov(const statement_t & statement,
+void global_memcheck_context::instrument_mov(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
 
@@ -4031,7 +4031,7 @@ void global_context_memcheck::instrument_mov(const statement_t & statement,
     aux->push_back(copy);
 }
 
-void global_context_memcheck::instrument_neg(const statement_t & statement,
+void global_memcheck_context::instrument_neg(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     const type_t btype  = bitwise_type(statement.type);
 
@@ -4085,7 +4085,7 @@ void global_context_memcheck::instrument_neg(const statement_t & statement,
     *keep = true;
 }
 
-void global_context_memcheck::instrument_not(const statement_t & statement,
+void global_memcheck_context::instrument_not(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
     const operand_t & a = statement.operands[1];
@@ -4131,7 +4131,7 @@ void global_context_memcheck::instrument_not(const statement_t & statement,
     (void) auxillary;
 }
 
-void global_context_memcheck::instrument_or(const statement_t & statement,
+void global_memcheck_context::instrument_or(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     *keep = true;
 
@@ -4197,7 +4197,7 @@ void global_context_memcheck::instrument_or(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_ret(const statement_t & statement,
+void global_memcheck_context::instrument_ret(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     *keep = false;
 
@@ -4317,7 +4317,7 @@ void global_context_memcheck::instrument_ret(const statement_t & statement,
     (void) auxillary;
 }
 
-void global_context_memcheck::instrument_prefetch(
+void global_memcheck_context::instrument_prefetch(
         const statement_t & statement, statement_vt * aux, bool * keep,
         internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 1u);
@@ -4719,7 +4719,7 @@ void global_context_memcheck::instrument_prefetch(
     }
 }
 
-void global_context_memcheck::instrument_prmt(const statement_t & statement,
+void global_memcheck_context::instrument_prmt(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 4u);
     assert(statement.type == b32_type);
@@ -4797,7 +4797,7 @@ void global_context_memcheck::instrument_prmt(const statement_t & statement,
     aux->push_back(make_or(b32_type, vd, immed, t2));
 }
 
-void global_context_memcheck::instrument_sad(const statement_t & statement,
+void global_memcheck_context::instrument_sad(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 4u);
     *keep = true;
@@ -4921,7 +4921,7 @@ void global_context_memcheck::instrument_sad(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_selp(const statement_t & statement,
+void global_memcheck_context::instrument_selp(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 4u);
     *keep = true;
@@ -4972,7 +4972,7 @@ void global_context_memcheck::instrument_selp(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_set(const statement_t & statement,
+void global_memcheck_context::instrument_set(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() >= 3u &&
            statement.operands.size() <= 4u);
@@ -5051,7 +5051,7 @@ void global_context_memcheck::instrument_set(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_setp(const statement_t & statement,
+void global_memcheck_context::instrument_setp(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() >= 2u &&
            statement.operands.size() <= 3u);
@@ -5135,7 +5135,7 @@ void global_context_memcheck::instrument_setp(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_shift(const statement_t & statement,
+void global_memcheck_context::instrument_shift(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 3u);
     *keep = true;
@@ -5228,7 +5228,7 @@ void global_context_memcheck::instrument_shift(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_slct(const statement_t & statement,
+void global_memcheck_context::instrument_slct(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     *keep = true;
 
@@ -5332,7 +5332,7 @@ void global_context_memcheck::instrument_slct(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_st(const statement_t & statement,
+void global_memcheck_context::instrument_st(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
     const operand_t & dst = statement.operands[0];
@@ -5678,7 +5678,7 @@ void global_context_memcheck::instrument_st(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_tex(const statement_t & statement,
+void global_memcheck_context::instrument_tex(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     /*
      * Query the validity texture.  This is a reasonable approximation for
@@ -5791,7 +5791,7 @@ void global_context_memcheck::instrument_tex(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_tld4(const statement_t & statement,
+void global_memcheck_context::instrument_tld4(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     /*
      * Query the validity texture.
@@ -5901,7 +5901,7 @@ void global_context_memcheck::instrument_tld4(const statement_t & statement,
     }
 }
 
-void global_context_memcheck::instrument_testp(const statement_t & statement,
+void global_memcheck_context::instrument_testp(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
     const operand_t & d = statement.operands[0];
@@ -5928,7 +5928,7 @@ void global_context_memcheck::instrument_testp(const statement_t & statement,
     *keep = true;
 }
 
-void global_context_memcheck::instrument_vote(const statement_t & statement,
+void global_memcheck_context::instrument_vote(const statement_t & statement,
         statement_vt * aux, bool * keep, internal::auxillary_t * auxillary) {
     assert(statement.operands.size() == 2u);
     const operand_t & d = statement.operands[0];
@@ -5993,7 +5993,7 @@ void global_context_memcheck::instrument_vote(const statement_t & statement,
     *keep = true;
 }
 
-void global_context_memcheck::instrument_block(block_t * block,
+void global_memcheck_context::instrument_block(block_t * block,
         internal::instrumentation_t * inst,
         const entry_info_t & e) {
     if (block->block_type == block_invalid) {
@@ -6366,15 +6366,15 @@ void global_context_memcheck::instrument_block(block_t * block,
     }
 }
 
-cudaError_t global_context_memcheck::cudaDeviceDisablePeerAccess(
+cudaError_t global_memcheck_context::cudaDeviceDisablePeerAccess(
         int peerDevice) {
-    if (peerDevice < 0 || (unsigned) peerDevice >= devices_) {
+    if (peerDevice < 0 || (unsigned) peerDevice >= devices()) {
         return cudaErrorInvalidDevice;
     }
 
     scoped_lock lock(mx_);
     const cudaError_t ret =
-        global_context::cudaDeviceDisablePeerAccess(peerDevice);
+        global_cuda_context::cudaDeviceDisablePeerAccess(peerDevice);
     if (ret == cudaSuccess) {
         state_->disable_peers(static_cast<int>(current_device()), peerDevice);
     }
@@ -6382,30 +6382,30 @@ cudaError_t global_context_memcheck::cudaDeviceDisablePeerAccess(
     return ret;
 }
 
-cudaError_t global_context_memcheck::cudaDeviceEnablePeerAccess(int peerDevice_,
+cudaError_t global_memcheck_context::cudaDeviceEnablePeerAccess(int peerDevice_,
         unsigned int flags) {
     const unsigned peerDevice = static_cast<unsigned>(peerDevice_);
-    if (peerDevice_ < 0 || peerDevice >= devices_) {
+    if (peerDevice_ < 0 || peerDevice >= devices()) {
         return cudaErrorInvalidDevice;
     }
 
     scoped_lock lock(mx_);
     const cudaError_t ret =
-        global_context::cudaDeviceEnablePeerAccess(peerDevice_, flags);
+        global_cuda_context::cudaDeviceEnablePeerAccess(peerDevice_, flags);
     if (ret == cudaSuccess) {
         /* Initialize the contexts for the current device and peerDevice. */
-        (void) context_impl(current_device());
-        (void) context_impl(peerDevice);
+        (void) context_impl(current_device(), true);
+        (void) context_impl(peerDevice, true);
         state_->enable_peers(static_cast<int>(current_device()), peerDevice_);
     }
 
     return ret;
 }
 
-void global_context_memcheck::cudaRegisterVar(void **fatCubinHandle,
+void global_memcheck_context::cudaRegisterVar(void **fatCubinHandle,
         char *hostVar, char *deviceAddress, const char *deviceName,
         int ext, int size, int constant, int global) {
-    global_context::cudaRegisterVar(fatCubinHandle, hostVar, deviceAddress,
+    global_cuda_context::cudaRegisterVar(fatCubinHandle, hostVar, deviceAddress,
         deviceName, ext, size, constant, global);
 
     /* Examine the variable definition and check whether it was initialized. */
@@ -6422,7 +6422,7 @@ void global_context_memcheck::cudaRegisterVar(void **fatCubinHandle,
     it->second.hostVar = hostVar;
 }
 
-state_ptr_t global_context_memcheck::state() {
+state_ptr_t global_memcheck_context::state() {
     return state_;
 }
 
@@ -6430,7 +6430,7 @@ state_ptr_t global_context_memcheck::state() {
 namespace {
     void f() {
         registry::instance().add_tool<
-            panoptes::global_context_memcheck>("MEMCHECK");
+            panoptes::global_memcheck_context>("MEMCHECK");
     }
 
     static initializer i(f);

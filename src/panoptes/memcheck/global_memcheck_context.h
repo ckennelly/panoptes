@@ -1,6 +1,6 @@
 /**
- * Panoptes - A framework for detecting memory errors in GPU-based programs
- * Copyright (C) 2011 Chris Kennelly <chris@ckennelly.com>
+ * Panoptes - A Binary Translation Framework for CUDA
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PANOPTES__GLOBAL_CONTEXT_MEMCHECK_H__
-#define __PANOPTES__GLOBAL_CONTEXT_MEMCHECK_H__
+#ifndef __PANOPTES__GLOBAL_MEMCHECK_CONTEXT_H__
+#define __PANOPTES__GLOBAL_MEMCHECK_CONTEXT_H__
 
-#include <panoptes/global_context.h>
+#include <panoptes/global_cuda_context.h>
 #include <panoptes/memcheck/global_memcheck_state.h>
 #include <ptx_io/ptx_ir.h>
 
@@ -32,10 +32,10 @@ namespace internal {
     struct instrumentation_t;
 }
 
-class global_context_memcheck : public global_context {
+class global_memcheck_context : public global_cuda_context {
 public:
-    global_context_memcheck();
-    ~global_context_memcheck();
+    global_memcheck_context();
+    ~global_memcheck_context();
 
     virtual cuda_context * factory(int device, unsigned int flags) const;
 
@@ -172,7 +172,7 @@ private:
         statement_vt * instrumentation, bool * keep,
         internal::auxillary_t * auxillary);
 
-    friend class cuda_context_memcheck;
+    friend class memcheck_context;
     friend struct internal::check_t;
 
     state_ptr_t state_;
@@ -211,4 +211,4 @@ private:
 };
 }
 
-#endif // __PANOPTES__GLOBAL_CONTEXT_MEMCHECK_H__
+#endif // __PANOPTES__GLOBAL_MEMCHECK_CONTEXT_H__

@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,9 +22,9 @@
 #include <list>
 #include <panoptes/backtrace.h>
 #include <panoptes/context_internal.h>
-#include <panoptes/memcheck/context_memcheck_internal.h>
-#include <panoptes/memcheck/context_memcheck.h>
-#include <panoptes/memcheck/global_context_memcheck.h>
+#include <panoptes/memcheck/memcheck_context_internal.h>
+#include <panoptes/memcheck/memcheck_context.h>
+#include <panoptes/memcheck/global_memcheck_context.h>
 #include <panoptes/logger.h>
 #include <panoptes/utilities.h>
 #include <ptx_io/ptx_formatter.h>
@@ -35,15 +35,13 @@
 
 using namespace panoptes;
 using internal::__master_symbol;
-using internal::create_handle;
-using internal::free_handle;
 using internal::max_errors;
 
 typedef boost::unique_lock<boost::mutex> scoped_lock;
-typedef global_context_memcheck global_t;
+typedef global_memcheck_context global_t;
 
 /**
- * cuda_context_memcheck does not provide:
+ * memcheck_context does not provide:
  *  cudaGetSymbolAddress
  *  cudaGetSymbolSize
  *      These are implemented in cuda_context and interact with the loaded
@@ -120,21 +118,21 @@ struct internal::array_t : boost::noncopyable {
 };
 
 struct internal::check_t {
-    check_t(cuda_context_memcheck * c, const char * ename);
+    check_t(memcheck_context * c, const char * ename);
     virtual ~check_t();
 
     virtual cudaError_t check(cudaError_t);
 
-    cuda_context_memcheck * const context;
-    const char            * const entry_name;
-    uint32_t              *       error_count;
-    error_buffer_t        *       error_buffer;
+    memcheck_context * const context;
+    const char       * const entry_name;
+    uint32_t         *       error_count;
+    error_buffer_t   *       error_buffer;
     backtrace_t bt;
 };
 
 internal::instrumentation_t::instrumentation_t() { }
 
-internal::check_t::check_t(cuda_context_memcheck * c, const char * ename) :
+internal::check_t::check_t(memcheck_context * c, const char * ename) :
         context(c), entry_name(ename), bt(backtrace_t::instance()) {
     error_count  = NULL;
     error_buffer = NULL;
@@ -639,8 +637,8 @@ cudaError_t internal::stream_t::synchronize(event_t * target) {
     return last_error;
 }
 
-bool cuda_context_memcheck::check_access_device(const void * ptr,
-        size_t len, bool signal) const {
+bool memcheck_context::check_access_device(const void * ptr, size_t len,
+        bool signal) const {
     /**
      * Scan through device allocations in the address range [ptr, ptr + len)
      * to check for addressability.
@@ -730,8 +728,7 @@ bool cuda_context_memcheck::check_access_device(const void * ptr,
     return true;
 }
 
-bool cuda_context_memcheck::check_access_host(const void * ptr,
-        size_t len) const {
+bool memcheck_context::check_access_host(const void * ptr, size_t len) const {
     return valgrind_ ?
         (VALGRIND_CHECK_MEM_IS_ADDRESSABLE(ptr, len) == 0) : true;
 }
@@ -739,8 +736,8 @@ bool cuda_context_memcheck::check_access_host(const void * ptr,
 /**
  * TODO:  On setup, setup SIGSEGV signal handler.
  */
-cuda_context_memcheck::cuda_context_memcheck(
-            global_context_memcheck * g, int device, unsigned int flags) :
+memcheck_context::memcheck_context(global_memcheck_context * g, int device,
+            unsigned int flags) :
         cuda_context(g, device, flags),
         master_(1 << (lg_max_memory - lg_chunk_bytes)),
         achunks_   (1 << (lg_max_memory - lg_chunk_bytes)),
@@ -854,7 +851,7 @@ cuda_context_memcheck::cuda_context_memcheck(
         internal::stream_t::stream_zero()));
 }
 
-cuda_context_memcheck::~cuda_context_memcheck() {
+memcheck_context::~memcheck_context() {
     /**
      * Unregister.
      */
@@ -928,21 +925,19 @@ cuda_context_memcheck::~cuda_context_memcheck() {
     vpool_.free(default_vchunk_);
 }
 
-void cuda_context_memcheck::initialize_achunk(
-        apool_t::handle_t * handle) const {
+void memcheck_context::initialize_achunk(apool_t::handle_t * handle) const {
     /* Do work on host */
     adata_chunk * host = handle->host();
     memset(host->a_data, 0,    sizeof(host->a_data));
 }
 
-void cuda_context_memcheck::initialize_vchunk(
-        vpool_t::handle_t * handle) const {
+void memcheck_context::initialize_vchunk(vpool_t::handle_t * handle) const {
     /* Do work on host */
     vdata_chunk * host = handle->host();
     memset(host->v_data, 0xFF, sizeof(host->v_data));
 }
 
-cuda_context_memcheck::td & cuda_context_memcheck::thread_data() {
+memcheck_context::td & memcheck_context::thread_data() {
     td * t = thread_data_.get();
     if (!(t)) {
         t = new td();
@@ -951,8 +946,8 @@ cuda_context_memcheck::td & cuda_context_memcheck::thread_data() {
     return *t;
 }
 
-cudaError_t cuda_context_memcheck::cudaConfigureCall(dim3 gridDim,
-        dim3 blockDim, size_t sharedMem, cudaStream_t stream) {
+cudaError_t memcheck_context::cudaConfigureCall(dim3 gridDim, dim3 blockDim,
+        size_t sharedMem, cudaStream_t stream) {
     /**
      * Translate the caller's stream handle into a real cudaStream_t.
      */
@@ -980,7 +975,7 @@ cudaError_t cuda_context_memcheck::cudaConfigureCall(dim3 gridDim,
         real_stream);
 }
 
-cudaError_t cuda_context_memcheck::cudaDeviceSynchronize() {
+cudaError_t memcheck_context::cudaDeviceSynchronize() {
     /**
      * Synchronize all of the streams we know about.
      */
@@ -1007,7 +1002,7 @@ cudaError_t cuda_context_memcheck::cudaDeviceSynchronize() {
     return ret;
 }
 
-cudaError_t cuda_context_memcheck::cudaEventCreate(cudaEvent_t *event) {
+cudaError_t memcheck_context::cudaEventCreate(cudaEvent_t *event) {
     if (!(event)) {
         return cudaErrorInvalidValue;
     }
@@ -1023,8 +1018,8 @@ cudaError_t cuda_context_memcheck::cudaEventCreate(cudaEvent_t *event) {
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaEventCreateWithFlags(
-        cudaEvent_t *event, unsigned int flags) {
+cudaError_t memcheck_context::cudaEventCreateWithFlags(cudaEvent_t *event,
+        unsigned int flags) {
     if (!(event)) {
         return cudaErrorInvalidValue;
     }
@@ -1040,7 +1035,7 @@ cudaError_t cuda_context_memcheck::cudaEventCreateWithFlags(
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaEventDestroy(cudaEvent_t event) {
+cudaError_t memcheck_context::cudaEventDestroy(cudaEvent_t event) {
     void ** handle = reinterpret_cast<void **>(event);
 
     scoped_lock lock(mx_);
@@ -1071,7 +1066,7 @@ cudaError_t cuda_context_memcheck::cudaEventDestroy(cudaEvent_t event) {
     return ret;
 }
 
-cudaError_t cuda_context_memcheck::cudaEventElapsedTime(float * ms,
+cudaError_t memcheck_context::cudaEventElapsedTime(float * ms,
         cudaEvent_t start, cudaEvent_t end) {
     void ** estart  = reinterpret_cast<void **>(start);
     void ** eend    = reinterpret_cast<void **>(end);
@@ -1193,7 +1188,7 @@ cudaError_t cuda_context_memcheck::cudaEventElapsedTime(float * ms,
     return ret;
 }
 
-cudaError_t cuda_context_memcheck::cudaEventQuery(cudaEvent_t event) {
+cudaError_t memcheck_context::cudaEventQuery(cudaEvent_t event) {
     void ** ehandle = reinterpret_cast<void **>(event);
 
     scoped_lock lock(mx_);
@@ -1217,7 +1212,7 @@ cudaError_t cuda_context_memcheck::cudaEventQuery(cudaEvent_t event) {
     return eit->second->query();
 }
 
-cudaError_t cuda_context_memcheck::cudaEventRecord(cudaEvent_t event,
+cudaError_t memcheck_context::cudaEventRecord(cudaEvent_t event,
         cudaStream_t stream) {
     void ** ehandle = reinterpret_cast<void **>(event);
     void ** shandle = reinterpret_cast<void **>(stream);
@@ -1262,7 +1257,7 @@ cudaError_t cuda_context_memcheck::cudaEventRecord(cudaEvent_t event,
     return eit->second->record(sit->second);
 }
 
-cudaError_t cuda_context_memcheck::cudaEventSynchronize(cudaEvent_t event) {
+cudaError_t memcheck_context::cudaEventSynchronize(cudaEvent_t event) {
     void ** ehandle = reinterpret_cast<void **>(event);
 
     scoped_lock lock(mx_);
@@ -1288,7 +1283,7 @@ cudaError_t cuda_context_memcheck::cudaEventSynchronize(cudaEvent_t event) {
     return eit->second->synchronize();
 }
 
-cudaError_t cuda_context_memcheck::cudaFree(void *devPtr) {
+cudaError_t memcheck_context::cudaFree(void *devPtr) {
     if (!(devPtr)) {
         /* cudaFree(NULL) is a no op */
         return setLastError(cudaSuccess);
@@ -1319,7 +1314,7 @@ cudaError_t cuda_context_memcheck::cudaFree(void *devPtr) {
     return setLastError(cuda_context::cudaFree(devPtr));
 }
 
-cudaError_t cuda_context_memcheck::cudaFreeArray(struct cudaArray *array) {
+cudaError_t memcheck_context::cudaFreeArray(struct cudaArray *array) {
     if (!(array)) {
         /* cudaFreeArray(NULL) is a no op */
         return setLastError(cudaSuccess);
@@ -1393,7 +1388,7 @@ cudaError_t cuda_context_memcheck::cudaFreeArray(struct cudaArray *array) {
     return cuda_context::cudaFreeArray(array);
 }
 
-cudaError_t cuda_context_memcheck::cudaFreeHost(void * ptr) {
+cudaError_t memcheck_context::cudaFreeHost(void * ptr) {
     if (!(ptr)) {
         /* cudaFreeHost(NULL) is a no op */
         return setLastError(cudaSuccess);
@@ -1462,7 +1457,7 @@ cudaError_t cuda_context_memcheck::cudaFreeHost(void * ptr) {
     return setLastError(callout::cudaFreeHost(ptr));
 }
 
-cudaError_t cuda_context_memcheck::cudaGetDeviceProperties(
+cudaError_t memcheck_context::cudaGetDeviceProperties(
         struct cudaDeviceProp *prop, int device) {
     struct cudaDeviceProp prop_;
 
@@ -1487,7 +1482,7 @@ cudaError_t cuda_context_memcheck::cudaGetDeviceProperties(
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaHostAlloc(void **pHost, size_t size,
+cudaError_t memcheck_context::cudaHostAlloc(void **pHost, size_t size,
         unsigned int flags) {
     if (!(pHost)) {
         return cudaErrorInvalidValue;
@@ -1525,7 +1520,7 @@ cudaError_t cuda_context_memcheck::cudaHostAlloc(void **pHost, size_t size,
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaHostGetDevicePointer(void **pDevice,
+cudaError_t memcheck_context::cudaHostGetDevicePointer(void **pDevice,
         void *pHost, unsigned int flags) {
     if (flags != 0) {
         return cudaErrorInvalidValue;
@@ -1559,7 +1554,7 @@ cudaError_t cuda_context_memcheck::cudaHostGetDevicePointer(void **pDevice,
     return cudaErrorMemoryAllocation;
 }
 
-cudaError_t cuda_context_memcheck::cudaHostGetFlags(unsigned int *pFlags,
+cudaError_t memcheck_context::cudaHostGetFlags(unsigned int *pFlags,
         void *pHost) {
     if (!(pHost)) {
         return cudaErrorInvalidValue;
@@ -1603,7 +1598,7 @@ cudaError_t cuda_context_memcheck::cudaHostGetFlags(unsigned int *pFlags,
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaHostRegister(void *ptr, size_t size,
+cudaError_t memcheck_context::cudaHostRegister(void *ptr, size_t size,
         unsigned int flags) {
     if (!(ptr)) {
         return cudaErrorInvalidValue;
@@ -1733,7 +1728,7 @@ cudaError_t cuda_context_memcheck::cudaHostRegister(void *ptr, size_t size,
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaHostUnregister(void *ptr) {
+cudaError_t memcheck_context::cudaHostUnregister(void *ptr) {
     scoped_lock lock(mx_);
     ahmap_t::iterator it = host_allocations_.find(ptr);
     if (it == host_allocations_.end()) {
@@ -1759,7 +1754,7 @@ cudaError_t cuda_context_memcheck::cudaHostUnregister(void *ptr) {
     return callout::cudaHostUnregister(ptr);
 }
 
-cudaError_t cuda_context_memcheck::remove_device_allocation(
+cudaError_t memcheck_context::remove_device_allocation(
         const void * device_ptr) {
     /**
      * Retrieve the pointer from the allocation list and erase it.
@@ -1972,7 +1967,7 @@ cudaError_t cuda_context_memcheck::remove_device_allocation(
     return cudaSuccess;
 }
 
-void cuda_context_memcheck::clear() {
+void memcheck_context::clear() {
     for (stream_map_t::iterator it = streams_.begin();
             it != streams_.end(); ++it) {
         if (it->first) {
@@ -1997,7 +1992,7 @@ void cuda_context_memcheck::clear() {
     }
 }
 
-cudaError_t cuda_context_memcheck::cudaMalloc(void **devPtr, size_t size) {
+cudaError_t memcheck_context::cudaMalloc(void **devPtr, size_t size) {
     if (!(devPtr)) {
         return cudaErrorInvalidValue;
     }
@@ -2011,7 +2006,7 @@ cudaError_t cuda_context_memcheck::cudaMalloc(void **devPtr, size_t size) {
     return setLastError(ret);
 }
 
-void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
+void memcheck_context::add_device_allocation(const void * device_ptr,
         size_t size, bool must_free) {
     if (!(device_ptr)) {
         /* TODO:  Maybe warn if size > 0? */
@@ -2255,7 +2250,7 @@ void cuda_context_memcheck::add_device_allocation(const void * device_ptr,
     }
 }
 
-cudaError_t cuda_context_memcheck::cudaMalloc3D(struct cudaPitchedPtr
+cudaError_t memcheck_context::cudaMalloc3D(struct cudaPitchedPtr
         *pitchedDevPtr, struct cudaExtent extent) {
     cudaError_t ret = callout::cudaMalloc3D(pitchedDevPtr, extent);
     if (ret != cudaSuccess) {
@@ -2323,7 +2318,7 @@ internal::array_t::~array_t() {
     (void) callout::cudaFree(validity);
 }
 
-cudaError_t cuda_context_memcheck::cudaMalloc3DArray(struct cudaArray** array,
+cudaError_t memcheck_context::cudaMalloc3DArray(struct cudaArray** array,
         const struct cudaChannelFormatDesc *desc, struct cudaExtent extent,
         unsigned int flags) {
     if (!(array)) {
@@ -2443,7 +2438,7 @@ cudaError_t cuda_context_memcheck::cudaMalloc3DArray(struct cudaArray** array,
     return setLastError(cudaSuccess);
 }
 
-cudaError_t cuda_context_memcheck::cudaMallocArray(struct cudaArray** array,
+cudaError_t memcheck_context::cudaMallocArray(struct cudaArray** array,
         const struct cudaChannelFormatDesc *desc, size_t width, size_t height,
         unsigned int flags) {
     if (!(array)) {
@@ -2551,7 +2546,7 @@ cudaError_t cuda_context_memcheck::cudaMallocArray(struct cudaArray** array,
     return setLastError(cudaSuccess);
 }
 
-cudaError_t cuda_context_memcheck::cudaMallocHost(void **ptr, size_t size) {
+cudaError_t memcheck_context::cudaMallocHost(void **ptr, size_t size) {
     if (!(ptr)) {
         return cudaErrorInvalidValue;
     }
@@ -2582,7 +2577,7 @@ cudaError_t cuda_context_memcheck::cudaMallocHost(void **ptr, size_t size) {
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaMallocPitch(void **devPtr,
+cudaError_t memcheck_context::cudaMallocPitch(void **devPtr,
         size_t *pitch, size_t width, size_t height) {
     if (!(devPtr)) {
         return cudaErrorInvalidValue;
@@ -2603,7 +2598,7 @@ cudaError_t cuda_context_memcheck::cudaMallocPitch(void **devPtr,
     return setLastError(ret);
 }
 
-bool cuda_context_memcheck::check_host_pinned(const void * ptr, size_t len,
+bool memcheck_context::check_host_pinned(const void * ptr, size_t len,
         size_t * offset) const {
     size_t checked;
     for (checked = 0; checked < len; ) {
@@ -2662,17 +2657,17 @@ bool cuda_context_memcheck::check_host_pinned(const void * ptr, size_t len,
     return true;
 }
 
-cudaError_t cuda_context_memcheck::cudaMemcpy(void *dst, const void *src,
+cudaError_t memcheck_context::cudaMemcpy(void *dst, const void *src,
         size_t size, enum cudaMemcpyKind kind) {
     return cudaMemcpyImplementation(dst, src, size, kind, NULL);
 }
 
-cudaError_t cuda_context_memcheck::cudaMemcpyAsync(void *dst, const void *src,
+cudaError_t memcheck_context::cudaMemcpyAsync(void *dst, const void *src,
         size_t size, enum cudaMemcpyKind kind, cudaStream_t stream) {
     return cudaMemcpyImplementation(dst, src, size, kind, &stream);
 }
 
-cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
+cudaError_t memcheck_context::cudaMemcpyImplementation(void *dst,
         const void *src, size_t size, enum cudaMemcpyKind kind,
         cudaStream_t *stream) {
     void ** handle = stream ? reinterpret_cast<void **>(*stream) : NULL;
@@ -2852,7 +2847,7 @@ cudaError_t cuda_context_memcheck::cudaMemcpyImplementation(void *dst,
     }
 }
 
-cudaError_t cuda_context_memcheck::cudaMemset(void *devPtr, int value,
+cudaError_t memcheck_context::cudaMemset(void *devPtr, int value,
         size_t count) {
     if (count == 0) {
         // No-op
@@ -2870,7 +2865,7 @@ cudaError_t cuda_context_memcheck::cudaMemset(void *devPtr, int value,
     return setLastError(ret);
 }
 
-cudaError_t cuda_context_memcheck::cudaMemsetAsync(void *devPtr, int value,
+cudaError_t memcheck_context::cudaMemsetAsync(void *devPtr, int value,
         size_t count, cudaStream_t cs) {
     if (count == 0) {
         // No-op
@@ -2912,7 +2907,7 @@ cudaError_t cuda_context_memcheck::cudaMemsetAsync(void *devPtr, int value,
     return setLastError(ret);
 }
 
-cudaError_t cuda_context_memcheck::cudaStreamCreate(cudaStream_t *pStream) {
+cudaError_t memcheck_context::cudaStreamCreate(cudaStream_t *pStream) {
     if (!(pStream)) {
         return cudaErrorInvalidValue;
     }
@@ -2936,7 +2931,7 @@ cudaError_t cuda_context_memcheck::cudaStreamCreate(cudaStream_t *pStream) {
     return ret;
 }
 
-cudaError_t cuda_context_memcheck::cudaStreamDestroy(cudaStream_t stream) {
+cudaError_t memcheck_context::cudaStreamDestroy(cudaStream_t stream) {
     void ** handle = reinterpret_cast<void **>(stream);
 
     scoped_lock lock(mx_);
@@ -2971,7 +2966,7 @@ cudaError_t cuda_context_memcheck::cudaStreamDestroy(cudaStream_t stream) {
     return ret;
 }
 
-cudaError_t cuda_context_memcheck::cudaStreamQuery(cudaStream_t stream) {
+cudaError_t memcheck_context::cudaStreamQuery(cudaStream_t stream) {
     void ** handle = reinterpret_cast<void **>(stream);
 
     scoped_lock lock(mx_);
@@ -3001,7 +2996,7 @@ cudaError_t cuda_context_memcheck::cudaStreamQuery(cudaStream_t stream) {
     return stream_metadata->busy();
 }
 
-cudaError_t cuda_context_memcheck::cudaStreamSynchronize(cudaStream_t stream) {
+cudaError_t memcheck_context::cudaStreamSynchronize(cudaStream_t stream) {
     void ** handle = reinterpret_cast<void **>(stream);
 
     scoped_lock lock(mx_);
@@ -3031,7 +3026,7 @@ cudaError_t cuda_context_memcheck::cudaStreamSynchronize(cudaStream_t stream) {
     return stream_metadata->synchronize();
 }
 
-cudaError_t cuda_context_memcheck::cudaStreamWaitEvent(cudaStream_t stream,
+cudaError_t memcheck_context::cudaStreamWaitEvent(cudaStream_t stream,
         cudaEvent_t event, unsigned int flags) {
     if (flags != 0) {
         return cudaErrorInvalidValue;
@@ -3078,7 +3073,7 @@ cudaError_t cuda_context_memcheck::cudaStreamWaitEvent(cudaStream_t stream,
         eit->second->event, flags);
 }
 
-bool cuda_context_memcheck::is_device_pointer(const void * ptr,
+bool memcheck_context::is_device_pointer(const void * ptr,
         const void ** block_ptr, size_t * block_offset) const {
     const aumap_t::const_iterator it = udevice_allocations_.lower_bound(ptr);
     if (it == udevice_allocations_.end()) {
@@ -3097,7 +3092,7 @@ bool cuda_context_memcheck::is_device_pointer(const void * ptr,
     return is_device;
 }
 
-bool cuda_context_memcheck::validity_clear(const void * ptr, size_t len,
+bool memcheck_context::validity_clear(const void * ptr, size_t len,
         internal::stream_t * stream) {
     if (!(valgrind_)) {
         // No-op.
@@ -3155,7 +3150,7 @@ bool cuda_context_memcheck::validity_clear(const void * ptr, size_t len,
     return true;
 }
 
-bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
+bool memcheck_context::validity_copy(void * dst, const void * src,
         size_t len, internal::stream_t * stream) {
     if (!(valgrind_)) {
         // No-op.
@@ -3261,9 +3256,9 @@ bool cuda_context_memcheck::validity_copy(void * dst, const void * src,
     return true;
 }
 
-bool cuda_context_memcheck::validity_copy(void * dst,
-        cuda_context_memcheck * dstCtx, const void * src,
-        const cuda_context_memcheck * srcCtx, size_t count,
+bool memcheck_context::validity_copy(void * dst,
+        memcheck_context * dstCtx, const void * src,
+        const memcheck_context * srcCtx, size_t count,
         internal::stream_t * stream) {
     if (!(valgrind_)) {
         // No-op.
@@ -3375,8 +3370,8 @@ bool cuda_context_memcheck::validity_copy(void * dst,
     return true;
 }
 
-bool cuda_context_memcheck::validity_download(void * host, const void *
-        gpu, size_t len, internal::stream_t * stream) const {
+bool memcheck_context::validity_download(void * host, const void * gpu,
+        size_t len, internal::stream_t * stream) const {
     if (!(valgrind_)) {
         // No-op
         return true;
@@ -3473,7 +3468,7 @@ bool cuda_context_memcheck::validity_download(void * host, const void *
     return true;
 }
 
-bool cuda_context_memcheck::validity_set(const void * ptr, size_t len,
+bool memcheck_context::validity_set(const void * ptr, size_t len,
         internal::stream_t * stream) {
     if (!(valgrind_)) {
         // No-op.
@@ -3549,7 +3544,7 @@ bool cuda_context_memcheck::validity_set(const void * ptr, size_t len,
     return true;
 }
 
-bool cuda_context_memcheck::validity_upload(void * gpu, const void *
+bool memcheck_context::validity_upload(void * gpu, const void *
         host, size_t len, internal::stream_t * stream) {
     if (!(valgrind_)) {
         // No-op
@@ -3642,7 +3637,7 @@ bool cuda_context_memcheck::validity_upload(void * gpu, const void *
     return true;
 }
 
-cudaError_t cuda_context_memcheck::cudaLaunch(const void *entry) {
+cudaError_t memcheck_context::cudaLaunch(const void *entry) {
     /**
      * If the entry name is invalid, fail.
      */
@@ -3811,9 +3806,9 @@ cudaError_t cuda_context_memcheck::cudaLaunch(const void *entry) {
     return ret;
 }
 
-cuda_context_memcheck::td::~td() { }
+memcheck_context::td::~td() { }
 
-void cuda_context_memcheck::bind_validity_texref(internal::texture_t * texture,
+void memcheck_context::bind_validity_texref(internal::texture_t * texture,
         const struct textureReference * texref,
         const struct cudaChannelFormatDesc * desc, const void * validity_ptr,
         size_t size) {
@@ -3857,7 +3852,7 @@ void cuda_context_memcheck::bind_validity_texref(internal::texture_t * texture,
     }
 }
 
-cudaError_t cuda_context_memcheck::bind_validity_texref2d(
+cudaError_t memcheck_context::bind_validity_texref2d(
         internal::texture_t * texture, const struct textureReference * texref,
         const struct cudaChannelFormatDesc * desc, const void * validity_ptr,
         size_t pitch, size_t height) {
@@ -3931,7 +3926,7 @@ cudaError_t cuda_context_memcheck::bind_validity_texref2d(
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
+cudaError_t memcheck_context::cudaBindTexture(size_t *offset,
         const struct textureReference *texref, const void *devPtr,
         const struct cudaChannelFormatDesc *desc, size_t size) {
     cudaError_t ret = cuda_context::cudaBindTexture(
@@ -3951,7 +3946,7 @@ cudaError_t cuda_context_memcheck::cudaBindTexture(size_t *offset,
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaBindTexture2D(size_t *offset,
+cudaError_t memcheck_context::cudaBindTexture2D(size_t *offset,
         const struct textureReference *texref, const void *devPtr,
         const struct cudaChannelFormatDesc *desc, size_t width, size_t height,
         size_t pitch) {
@@ -3973,7 +3968,7 @@ cudaError_t cuda_context_memcheck::cudaBindTexture2D(size_t *offset,
         height);
 }
 
-cudaError_t cuda_context_memcheck::get_validity_texture(
+cudaError_t memcheck_context::get_validity_texture(
         const struct textureReference *texref,
         const void *devPtr, size_t size, internal::texture_t **tex,
         const void **validity_ptr) {
@@ -4193,7 +4188,7 @@ cudaError_t cuda_context_memcheck::get_validity_texture(
     return cudaSuccess;
 }
 
-cudaError_t cuda_context_memcheck::cudaBindTextureToArray(
+cudaError_t memcheck_context::cudaBindTextureToArray(
         const struct textureReference *texref, const struct cudaArray *array,
         const struct cudaChannelFormatDesc *desc) {
     internal::array_t * internal_array = NULL;
@@ -4246,7 +4241,7 @@ cudaError_t cuda_context_memcheck::cudaBindTextureToArray(
     return ret;
 }
 
-void cuda_context_memcheck::load_validity_texref(internal::texture_t * texture,
+void memcheck_context::load_validity_texref(internal::texture_t * texture,
         const struct textureReference * texref) {
     /* Retrieve the validity texture. */
     if (texture->has_validity_texref) {
@@ -4282,7 +4277,7 @@ void cuda_context_memcheck::load_validity_texref(internal::texture_t * texture,
     texture->has_validity_texref = true;
 }
 
-cudaError_t cuda_context_memcheck::cudaUnbindTexture(
+cudaError_t memcheck_context::cudaUnbindTexture(
         const struct textureReference *texref) {
     cudaError_t ret = cuda_context::cudaUnbindTexture(texref);
 
@@ -4300,7 +4295,7 @@ cudaError_t cuda_context_memcheck::cudaUnbindTexture(
     return ret;
 }
 
-void cuda_context_memcheck::release_texture(internal::texture_t * texture,
+void memcheck_context::release_texture(internal::texture_t * texture,
         const struct textureReference * texref) {
     assert(!(texture->bound_pointer && texture->array_bound));
     assert(texture->bound_pointer || texture->array_bound);
@@ -4334,24 +4329,23 @@ void cuda_context_memcheck::release_texture(internal::texture_t * texture,
     }
 }
 
-global_context_memcheck * cuda_context_memcheck::global() {
-    return static_cast<global_context_memcheck *>(cuda_context::global());
+global_memcheck_context * memcheck_context::global() {
+    return static_cast<global_memcheck_context *>(cuda_context::global());
 }
 
-const global_context_memcheck * cuda_context_memcheck::global() const {
-    return static_cast<const global_context_memcheck *>(
+const global_memcheck_context * memcheck_context::global() const {
+    return static_cast<const global_memcheck_context *>(
         cuda_context::global());
 }
 
-cudaError_t cuda_context_memcheck::cudaMemcpyPeer(void *dst, int dstDevice,
+cudaError_t memcheck_context::cudaMemcpyPeer(void *dst, int dstDevice,
         const void *src, int srcDevice, size_t count) {
     return cudaMemcpyPeerImplementation(dst, dstDevice, src, srcDevice, count,
         NULL);
 }
 
-cudaError_t cuda_context_memcheck::cudaMemcpyPeerAsync(void *dst,
-        int dstDevice, const void *src, int srcDevice, size_t count,
-        cudaStream_t stream) {
+cudaError_t memcheck_context::cudaMemcpyPeerAsync(void *dst, int dstDevice,
+        const void *src, int srcDevice, size_t count, cudaStream_t stream) {
     return cudaMemcpyPeerImplementation(dst, dstDevice, src, srcDevice, count,
         &stream);
 }
@@ -4393,7 +4387,7 @@ namespace {
     };
 }
 
-cudaError_t cuda_context_memcheck::cudaMemcpyPeerImplementation(void *dst,
+cudaError_t memcheck_context::cudaMemcpyPeerImplementation(void *dst,
         int dstDevice_, const void *src, int srcDevice_, size_t count,
         cudaStream_t *stream) {
     if (count == 0) {
@@ -4413,10 +4407,10 @@ cudaError_t cuda_context_memcheck::cudaMemcpyPeerImplementation(void *dst,
 
     void ** handle = stream ? reinterpret_cast<void **>(*stream) : NULL;
 
-    cuda_context_memcheck * ctxd =
-        static_cast<cuda_context_memcheck *>(global()->context(dstDevice));
-    cuda_context_memcheck * ctxs =
-        static_cast<cuda_context_memcheck *>(global()->context(srcDevice));
+    memcheck_context * ctxd =
+        static_cast<memcheck_context *>(global()->context(dstDevice));
+    memcheck_context * ctxs =
+        static_cast<memcheck_context *>(global()->context(srcDevice));
 
     trilock<boost::mutex>(mx_, ctxd->mx_, ctxs->mx_);
 
@@ -4455,12 +4449,12 @@ cudaError_t cuda_context_memcheck::cudaMemcpyPeerImplementation(void *dst,
     return ret;
 }
 
-bool cuda_context_memcheck::is_recently_freed(const void * ptr) const {
+bool memcheck_context::is_recently_freed(const void * ptr) const {
     return boost::icl::intersects(recent_frees_,
         static_cast<const uint8_t *>(ptr));
 }
 
-void cuda_context_memcheck::add_recent_free(const void * ptr, size_t size) {
+void memcheck_context::add_recent_free(const void * ptr, size_t size) {
     /**
      * Remove any overlapping allocations, then add to list.
      */
@@ -4472,7 +4466,7 @@ void cuda_context_memcheck::add_recent_free(const void * ptr, size_t size) {
         boost::icl::interval<free_map_t::domain_type>::right_open(start, end));
 }
 
-void cuda_context_memcheck::remove_recent_free(const void * ptr, size_t size) {
+void memcheck_context::remove_recent_free(const void * ptr, size_t size) {
     const uint8_t * start = static_cast<const uint8_t *>(ptr);
     const uint8_t * end   = start + size;
 
