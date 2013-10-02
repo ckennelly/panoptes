@@ -127,6 +127,7 @@ public:
     virtual cudaError_t cudaHostRegister(void *ptr, size_t size,
         unsigned int flags) = 0;
     virtual cudaError_t cudaHostUnregister(void *ptr) = 0;
+    #if CUDART_VERSION >= 4010 /* 4.1 */
     virtual cudaError_t cudaIpcGetEventHandle(cudaIpcEventHandle_t *handle,
         cudaEvent_t event) = 0;
     virtual cudaError_t cudaIpcOpenEventHandle(cudaEvent_t *event,
@@ -136,6 +137,7 @@ public:
     virtual cudaError_t cudaIpcOpenMemHandle(void **devPtr,
         cudaIpcMemHandle_t handle, unsigned int flags) = 0;
     virtual cudaError_t cudaIpcCloseMemHandle(void *devPtr) = 0;
+    #endif
     virtual cudaError_t cudaMalloc(void **devPtr, size_t size) = 0;
     virtual cudaError_t cudaMalloc3D(struct cudaPitchedPtr *pitchedDevPtr,
         struct cudaExtent extent) = 0;

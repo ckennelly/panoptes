@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,10 +23,17 @@ extern "C" __global__ void k_pmevent() {
     prof_trigger(0);
 }
 
+/**
+ * Per the PTX documentation, PTX ISA 3.0 was released with CUDA runtime
+ * version 4.1.  As pmevent.mask appeared with this ISA, we restrict
+ * compilation of this portion of the test to runtime versions 4.1 and newer.
+ */
+#if CUDART_VERSION >= 4010 /* 4.1 */
 extern "C" __global__ void k_pmmask() {
     /* This must be an immediate */
     asm volatile("pmevent.mask 3;");
 }
+#endif
 
 TEST(kPMEVENT, ExplicitStream) {
     cudaError_t ret;
@@ -44,6 +51,7 @@ TEST(kPMEVENT, ExplicitStream) {
     ASSERT_EQ(cudaSuccess, ret);
 }
 
+#if CUDART_VERSION >= 4010 /* 4.1 */
 TEST(kPMEVENT, Mask) {
     cudaError_t ret;
     cudaStream_t stream;
@@ -59,6 +67,7 @@ TEST(kPMEVENT, Mask) {
     ret = cudaStreamDestroy(stream);
     ASSERT_EQ(cudaSuccess, ret);
 }
+#endif
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);

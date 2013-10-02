@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,8 +33,10 @@ TEST(kNOOP, SetCacheConfig) {
     ret = cudaFuncSetCacheConfig(k_noop, cudaFuncCachePreferL1);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDART_VERSION >= 4010 /* 4.1 */
     ret = cudaFuncSetCacheConfig(k_noop, cudaFuncCachePreferEqual);
     ASSERT_EQ(cudaSuccess, ret);
+    #endif
 }
 
 int main(int argc, char **argv) {

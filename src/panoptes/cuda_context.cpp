@@ -771,9 +771,11 @@ cudaError_t cuda_context::cudaFuncSetCacheConfig(const void *func,
         case cudaFuncCachePreferL1:
             dconfig = CU_FUNC_CACHE_PREFER_L1;
             break;
+	#if CUDART_VERSION >= 4010 /* 4.1 */
         case cudaFuncCachePreferEqual:
             dconfig = CU_FUNC_CACHE_PREFER_EQUAL;
             break;
+        #endif
     }
 
     return cuToCUDA(cuFuncSetCacheConfig(dfunc, dconfig));
@@ -999,6 +1001,7 @@ cudaError_t cuda_context::cudaHostUnregister(void *ptr) {
     return callout::cudaHostUnregister(ptr);
 }
 
+#if CUDART_VERSION >= 4010 /* 4.1 */
 cudaError_t cuda_context::cudaIpcGetEventHandle(cudaIpcEventHandle_t *handle,
         cudaEvent_t event) {
     return callout::cudaIpcGetEventHandle(handle, event);
@@ -1022,6 +1025,7 @@ cudaError_t cuda_context::cudaIpcOpenMemHandle(void **devPtr,
 cudaError_t cuda_context::cudaIpcCloseMemHandle(void *devPtr) {
     return callout::cudaIpcCloseMemHandle(devPtr);
 }
+#endif
 
 cudaError_t cuda_context::cudaMalloc(void **devPtr, size_t size) {
     return setLastError(callout::cudaMalloc(devPtr, size));

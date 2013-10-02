@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #include <cuda.h>
 #include <gtest/gtest.h>
 
+#if CUDART_VERSION >= 4010 /* 4.1 */
 /**
  * For reasons that are unclear, this test hangs when run under Valgrind (at
  * least when using a Linux workstation that is actively running X).  The
@@ -66,6 +67,7 @@ TEST(kAssert, ExplicitStream) {
     ret = cudaStreamDestroy(stream);
     EXPECT_EQ(cudaErrorAssert, ret);
 }
+#endif
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);

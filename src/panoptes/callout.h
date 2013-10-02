@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -127,6 +127,7 @@ public:
     static cudaError_t cudaHostRegister(void *ptr, size_t size,
         unsigned int flags);
     static cudaError_t cudaHostUnregister(void *ptr);
+    #if CUDART_VERSION >= 4010 /* 4.1 */
     static cudaError_t cudaIpcGetEventHandle(cudaIpcEventHandle_t *handle,
         cudaEvent_t event);
     static cudaError_t cudaIpcOpenEventHandle(cudaEvent_t *event,
@@ -136,6 +137,7 @@ public:
     static cudaError_t cudaIpcOpenMemHandle(void **devPtr,
         cudaIpcMemHandle_t handle, unsigned int flags);
     static cudaError_t cudaIpcCloseMemHandle(void *devPtr);
+    #endif
     static cudaError_t cudaMalloc(void **devPtr, size_t size);
     static cudaError_t cudaMalloc3D(struct cudaPitchedPtr *pitchedDevPtr,
         struct cudaExtent extent);

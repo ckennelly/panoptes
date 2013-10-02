@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,13 @@
 #include <gtest/gtest.h>
 #include <valgrind/memcheck.h>
 
+/**
+ * Per the PTX documentation, PTX ISA 3.0 was released with CUDA runtime
+ * version 4.1.  As carry-flag related instructions appeared with this ISA, we
+ * restrict compilation of the bulk of these tests to runtime versions 4.1 and
+ * newer.
+ */
+#if CUDART_VERSION >= 4010 /* 4.1 */
 template<typename T>
 static __device__ __inline__ T wide_add(const T & a, const T & b) {
     BOOST_STATIC_ASSERT(sizeof(T) == 0);
@@ -401,6 +408,7 @@ TEST(CarryTest, ConstCarryOut) {
         EXPECT_EQ(0x00000000, vd[1]);
     }
 }
+#endif
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);

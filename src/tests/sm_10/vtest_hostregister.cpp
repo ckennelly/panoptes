@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -178,7 +178,11 @@ TEST(HostRegister, DoubleRegister) {
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaHostRegister(ptr, page_size, cudaHostRegisterMapped);
+    #if CUDART_VERSION >= 4010 /* 4.1 */
     EXPECT_EQ(cudaErrorHostMemoryAlreadyRegistered, ret);
+    #else
+    EXPECT_EQ(cudaErrorUnknown, ret);
+    #endif
 
     ret = cudaHostUnregister(ptr);
     EXPECT_EQ(cudaSuccess, ret);
@@ -205,7 +209,11 @@ TEST(HostRegister, OverlappingRegistrations) {
     ASSERT_EQ(cudaSuccess, ret);
 
     ret = cudaHostRegister(upper_ptr, 2u * page_size, cudaHostRegisterMapped);
+    #if CUDART_VERSION >= 4010 /* 4.1 */
     EXPECT_EQ(cudaErrorHostMemoryAlreadyRegistered, ret);
+    #else
+    EXPECT_EQ(cudaErrorUnknown, ret);
+    #endif
 
     ret = cudaHostUnregister(ptr);
     EXPECT_EQ(cudaSuccess, ret);

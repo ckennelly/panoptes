@@ -70,7 +70,11 @@ TEST(kTLD, ExplicitStream) {
     ret = cudaGetDeviceProperties(&prop, device);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDART_VERSION >= 4010 /* 4.1 */
     const uint32_t width  = prop.texturePitchAlignment;
+    #else
+    const uint32_t width  = 512;
+    #endif
     const uint32_t height = 2048;
     int4 *src;
     int4 hdst[4];

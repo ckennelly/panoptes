@@ -147,12 +147,14 @@ cudaError_t cudaDeviceEnablePeerAccess(int peerDevice, unsigned int flags) {
         peerDevice, flags);
 }
 
+#if CUDART_VERSION >= 4010 /* 4.1 */
 cudaError_t cudaDeviceGetByPCIBusId(int *device, char *pciBusId) {
     backtrace_t::instance().refresh();
 
     return global_context::instance().cudaDeviceGetByPCIBusId(device,
         pciBusId);
 }
+#endif
 
 cudaError_t cudaDeviceGetCacheConfig(enum cudaFuncCache *pCacheConfig) {
     backtrace_t::instance().refresh();
@@ -168,12 +170,14 @@ cudaError_t cudaDeviceGetLimit(size_t *pValue, enum cudaLimit limit) {
         pValue, limit);
 }
 
+#if CUDART_VERSION >= 4010 /* 4.1 */
 cudaError_t cudaDeviceGetPCIBusId(char *pciBusId, int len, int device) {
     backtrace_t::instance().refresh();
 
     return global_context::instance().cudaDeviceGetPCIBusId(pciBusId,
         len, device);
 }
+#endif
 
 cudaError_t cudaDeviceReset() {
     backtrace_t::instance().refresh();
@@ -485,6 +489,7 @@ cudaError_t cudaHostUnregister(void *ptr) {
     return global_context::instance().context()->cudaHostUnregister(ptr);
 }
 
+#if CUDART_VERSION >= 4010 /* 4.1 */
 cudaError_t cudaIpcGetEventHandle(cudaIpcEventHandle_t *handle,
         cudaEvent_t event) {
     backtrace_t::instance().refresh();
@@ -521,6 +526,7 @@ cudaError_t cudaIpcCloseMemHandle(void *devPtr) {
 
     return global_context::instance().context()->cudaIpcCloseMemHandle(devPtr);
 }
+#endif
 
 cudaError_t cudaMalloc(void **devPtr, size_t size) {
     backtrace_t::instance().refresh();

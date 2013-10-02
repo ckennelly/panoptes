@@ -1,6 +1,6 @@
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,7 +61,15 @@ TEST_P(TextureValues, DataCopy) {
     ret = cudaGetDeviceProperties(&prop, device);
     ASSERT_EQ(cudaSuccess, ret);
 
+    #if CUDART_VERSION >= 4010 /* 4.1 */
     if (alloc > prop.maxTexture1DLinear) {
+    #else
+    /* 
+     * Per the CUDA C Programming guide, 2^27 is supported from compute
+     * capability 1.0 onwards.  This should be an adequate lowerbound.
+     */
+    if (alloc > (1u << 27)) {
+    #endif
         return;
     }
 
