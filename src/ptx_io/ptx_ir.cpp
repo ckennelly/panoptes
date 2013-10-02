@@ -17,6 +17,9 @@
  */
 
 #include <cassert>
+/* For sscanf */
+#include <cstdio>
+#include <cstring>
 #include <stdint.h>
 #include <ptx_io/ptx_grammar.h>
 #include <ptx_io/ptx_ir.h>

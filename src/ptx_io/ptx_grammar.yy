@@ -4,10 +4,10 @@
 #undef yyFlexLexer
 #define yyFlexLexer ptxFlexLexer
 #include <FlexLexer.h>
-#include "ptx_lexer.h"
-#include "ptx_parser.h"
-#include "ptx_parser_state.h"
-#include "ptx_grammar.tab.hh"
+#include <ptx_io/ptx_lexer.h>
+#include <ptx_io/ptx_parser.h>
+#include <ptx_io/ptx_parser_state.h>
+#include <ptx_io/ptx_grammar.tab.hh>
 #include <stdint.h>
 #include <stdio.h>
 

@@ -1,7 +1,7 @@
 %{
 /**
  * Panoptes - A Binary Translation Framework for CUDA
- * (c) 2011-2012 Chris Kennelly <chris@ckennelly.com>
+ * (c) 2011-2013 Chris Kennelly <chris@ckennelly.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,9 +23,9 @@
 #include <boost/lexical_cast.hpp>
 #include <sstream>
 #include <stdint.h>
-#include "ptx_grammar.h"
-#include "ptx_lexer.h"
-#include "ptx_parser.h"
+#include <ptx_io/ptx_grammar.h>
+#include <ptx_io/ptx_lexer.h>
+#include <ptx_io/ptx_parser.h>
 
 namespace {
     size_t strlcpy(char * dst, const char * src, size_t size);

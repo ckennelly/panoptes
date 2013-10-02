@@ -3,10 +3,10 @@ FIND_PACKAGE(FLEX REQUIRED)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-SET(GRAMMAR_FILE "ptx_grammar.tab.cc")
+SET(GRAMMAR_FILE "${CMAKE_CURRENT_SOURCE_DIR}/ptx_grammar.tab.cc")
 BISON_TARGET(grammar "ptx_grammar.yy" "${GRAMMAR_FILE}")
 
-SET(LEXER_FILE "ptx_lex.lex.cc")
+SET(LEXER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/ptx_lex.lex.cc")
 FLEX_TARGET(lexer "ptx_lex.ll" "${LEXER_FILE}")
 
 # Kill off spurious warnings that are due to the generated code.
