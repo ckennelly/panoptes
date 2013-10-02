@@ -18,6 +18,7 @@
 
 #include <cassert>
 #include <climits>
+#include <cstring>
 #include <ptx_io/ptx_grammar.h>
 #include <ptx_io/ptx_parser_state.h>
 #include <stdint.h>
@@ -158,7 +159,7 @@ void ptx_parser_function::to_ir(function_t * f) const {
 
 ptx_parser_state::ptx_parser_state() : map_f64_to_f32(false),
         address_size(CHAR_BIT * sizeof(void *)),
-        linkage(linkage_default) {
+        error_encountered(false), linkage(linkage_default) {
     function = new ptx_parser_function();
 }
 
@@ -314,4 +315,31 @@ type_t ptx_parser_state::get_type() {
     type_t ret = type;
     type = invalid_type;
     return ret;
+}
+
+ptx_token::ptx_token() { }
+
+ptx_token::ptx_token(yytokentype t, const YYSTYPE *v) : token_(t) {
+    memcpy(&value_, v, sizeof(value_));
+}
+
+yytokentype ptx_token::token() const {
+    return token_;
+}
+
+const YYSTYPE & ptx_token::value() const {
+    return value_;
+}
+
+ptx_token::~ptx_token() { }
+
+std::ostream & operator<<(std::ostream & o, const ptx_token & token) {
+    switch (token.token()) {
+        case TOKEN_IDENTIFIER:
+            return o << "identifier (" << token.value().text << ")";
+        case TOKEN_CONSTANT_DECIMAL:
+            return o << "constant (" << token.value().vsigned << ")";
+    }
+
+    return o << token.token();
 }

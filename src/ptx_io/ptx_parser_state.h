@@ -105,6 +105,20 @@ public:
     void to_ir(function_t * entry) const;
 };
 
+class ptx_token {
+public:
+    ptx_token();
+    ptx_token(yytokentype t, const YYSTYPE *v);
+
+    ~ptx_token();
+
+    yytokentype token() const;
+    const YYSTYPE & value() const;
+private:
+    yytokentype token_;
+    YYSTYPE value_;
+};
+
 class ptx_parser_state : boost::noncopyable {
 public:
     ptx_parser_state();
@@ -144,6 +158,12 @@ public:
 
     void declare_texture();
     texture_t texture;
+
+    bool error_encountered;
+    int error_location_line;
+    int error_location_column;
+    std::string error_message;
+    ptx_token last_token;
 protected:
     linkage_t linkage;
     type_t type;
@@ -161,5 +181,7 @@ protected:
 };
 
 }
+
+std::ostream & operator<<(std::ostream & o, const panoptes::ptx_token & token);
 
 #endif // __PANOPTES__PTX_PARSER_STATE_H__

@@ -35,6 +35,7 @@ namespace {
 
 %option c++
 %option yyclass="panoptes::ptx_lexer"
+%option yylineno
 %option prefix="ptx"
 
 DIGIT            [0-9]

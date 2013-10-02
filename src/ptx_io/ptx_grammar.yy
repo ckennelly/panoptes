@@ -1569,11 +1569,19 @@ xor : OPCODE_XOR xorType identifierOperand TOKEN_COMMA identifierOperand
 
 int yylex(YYSTYPE * token, YYLTYPE * location, panoptes::ptx_lexer * lexer, panoptes::ptx_parser_state * parser) {
     lexer->yylval = token;
-    return lexer->yylex();
+    int ret = lexer->yylex();
+    parser->error_location_line = lexer->lineno();
+    /* TODO:  Report accurate column numbers. */
+    parser->error_location_column = 0;
+    parser->last_token = ptx_token(yytokentype(ret), token);
+    return ret;
 }
 
 void yyerror(YYLTYPE * location, panoptes::ptx_lexer * lexer, panoptes::ptx_parser_state * parser, const char * message) {
-    /* TODO */
+    parser->error_encountered = true;
+    parser->error_message = message;
+    parser->error_location_line = lexer->lineno();
+    parser->error_location_column = 0;
 }
 
 }

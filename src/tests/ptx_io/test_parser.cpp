@@ -171,6 +171,20 @@ TEST_F(ParserTest, FixedPoint1) {
     EXPECT_EQ(program1p, program1pp);
 }
 
+/* This should cause a parse error.  Notice missing .entry. */
+std::string program2(
+    ".version 1.4\n"
+    ".target sm_10, map_f64_to_f32\n\n"
+    "k(.param .u64 pptr) {\n"
+    "   .reg .u64 ptr;\n"
+    "   ld.param.u64 ptr, [pptr];\n"
+    "   st.global.s32 [ptr], 5;\n"
+    "}\n");
+
+TEST_F(ParserTest, ParseError) {
+    EXPECT_THROW(parser.parse(program2, &ir), ptx_parser_exception);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

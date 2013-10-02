@@ -19,14 +19,32 @@
 #ifndef __PANOPTES__PTX_PARSER_H__
 #define __PANOPTES__PTX_PARSER_H__
 
+#include <exception>
 #include <string>
 #include <vector>
 #include <ptx_io/ptx_ir.h>
+#include <ptx_io/ptx_parser_state.h>
 
 namespace panoptes {
 
-/* Forward declaration */
-class ptx_parser_state;
+class ptx_parser_exception : public std::exception {
+public:
+    /**
+     * We do not expect to throw this in a resource constrained setting, so
+     * std::string should be safe.
+     */
+    ptx_parser_exception(const std::string & ptx, int line, int col,
+        const ptx_token & token);
+    ~ptx_parser_exception() throw();
+
+    const char *what() const throw();
+    std::string detail() const;
+private:
+    std::string ptx_;
+    int line_;
+    int col_;
+    ptx_token token_;
+};
 
 class ptx_parser {
 public:

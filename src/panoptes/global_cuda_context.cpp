@@ -121,6 +121,11 @@ void** global_cuda_context::cudaRegisterFatBinary(void *fatCubin) {
 
         logger::instance().print(ex.what());
         exit(1);
+    } catch (ptx_parser_exception & ex) {
+        delete module;
+
+        logger::instance().print(ex.detail().c_str());
+        exit(1);
     }
 
     void** handle = create_handle();
