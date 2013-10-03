@@ -1496,21 +1496,17 @@ ostream & operator<<(ostream & o, const panoptes::prmt_mode_t & m) {
 
 ostream & operator<<(ostream & o, const panoptes::prefetch_cache_t & c) {
     switch (c) {
-        case invalid_cache:
-            assert(0 && "Invalid cache level.");
-            return o;
         case cache_L1: return o << ".L1";
         case cache_L2: return o << ".L2";
+        case invalid_cache:
+        default:
+            assert(0 && "Invalid cache level.");
+            return o;
     }
-
-    __builtin_unreachable();
 }
 
 ostream & operator<<(ostream & o, const panoptes::query_t & q) {
     switch (q) {
-        case invalid_query:
-            assert(0 && "Invalid query type.");
-            return o;
         case query_width:
             return o << ".width";
         case query_height:
@@ -1533,7 +1529,9 @@ ostream & operator<<(ostream & o, const panoptes::query_t & q) {
             return o << ".addr_mode_1";
         case query_addr_mode2:
             return o << ".addr_mode_2";
+        case invalid_query:
+        default:
+            assert(0 && "Invalid query type.");
+            return o;
     }
-
-    __builtin_unreachable();
 }
