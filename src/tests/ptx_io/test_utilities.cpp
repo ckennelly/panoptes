@@ -83,12 +83,9 @@ bool ptx_checker::check(const std::string & program,
         dup2(dev_null, STDERR_FILENO);
         close(dev_null);
 
-        int ret = execvp(file, argv.data());
-        if (ret < 0) {
-            exit(1);
-        }
-
-        __builtin_unreachable();
+        execvp(file, argv.data());
+        /* execvp returning implies a error occured. */
+        exit(1);
     } else {
         /* Parent. */
         int in = pipes_in[1];
