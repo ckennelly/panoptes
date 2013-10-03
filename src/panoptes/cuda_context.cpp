@@ -771,7 +771,7 @@ cudaError_t cuda_context::cudaFuncSetCacheConfig(const void *func,
         case cudaFuncCachePreferL1:
             dconfig = CU_FUNC_CACHE_PREFER_L1;
             break;
-	#if CUDART_VERSION >= 4010 /* 4.1 */
+        #if CUDART_VERSION >= 4010 /* 4.1 */
         case cudaFuncCachePreferEqual:
             dconfig = CU_FUNC_CACHE_PREFER_EQUAL;
             break;
